@@ -302,6 +302,10 @@ module.exports = [
       "app/api/deals/[id]/stakeholders/route.ts",
       "app/api/deals/[id]/risks/route.ts",
       "app/api/deals/[id]/terms/route.ts",
+      "app/api/deals/[id]/property-title/route.ts",
+      "app/api/deals/[id]/property-survey/route.ts",
+      "app/api/deals/[id]/entitlement-path/route.ts",
+      "app/api/deals/[id]/screen/route.ts",
       "app/api/runs/route.ts",
       "app/api/runs/[runId]/route.ts",
       "app/api/runs/[runId]/reward/route.ts",
@@ -379,6 +383,10 @@ module.exports = [
       "app/api/deals/[id]/stakeholders/route.ts",
       "app/api/deals/[id]/risks/route.ts",
       "app/api/deals/[id]/terms/route.ts",
+      "app/api/deals/[id]/property-title/route.ts",
+      "app/api/deals/[id]/property-survey/route.ts",
+      "app/api/deals/[id]/entitlement-path/route.ts",
+      "app/api/deals/[id]/screen/route.ts",
       "app/api/runs/route.ts",
       "app/api/runs/[runId]/route.ts",
       "app/api/runs/[runId]/reward/route.ts",
@@ -444,6 +452,16 @@ module.exports = [
               name: "@gpc/server/deals/deal-workspace.service",
               message:
                 "This migrated route must import deal workspace services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/deals/deal-diligence.service",
+              message:
+                "This migrated route must import deal diligence services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/deals/deal-screen.service",
+              message:
+                "This migrated route must import deal screen services via the stable @gpc/server barrel.",
             },
             {
               name: "@gpc/server/services/evidence-delivery.service",

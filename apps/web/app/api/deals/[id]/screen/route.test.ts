@@ -3,26 +3,48 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   resolveAuthMock,
-  dealFindFirstMock,
+  ensureDealScreenAccessMock,
+  buildDealScreenResponseMock,
+  normalizeDealScreenRequestBodyMock,
   legacyTriageGetMock,
   legacyTriagePostMock,
+  DealAccessErrorMock,
+  UnsupportedDealScreenTemplateErrorMock,
 } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
-  dealFindFirstMock: vi.fn(),
+  ensureDealScreenAccessMock: vi.fn(),
+  buildDealScreenResponseMock: vi.fn(),
+  normalizeDealScreenRequestBodyMock: vi.fn((body: Record<string, unknown>) => body),
   legacyTriageGetMock: vi.fn(),
   legacyTriagePostMock: vi.fn(),
+  DealAccessErrorMock: class DealAccessError extends Error {
+    status: number;
+
+    constructor(status: number) {
+      super(status === 404 ? "Deal not found" : "Forbidden");
+      this.name = "DealAccessError";
+      this.status = status;
+    }
+  },
+  UnsupportedDealScreenTemplateErrorMock: class UnsupportedDealScreenTemplateError extends Error {
+    constructor() {
+      super("Only ENTITLEMENT_LAND workflow screening is available in Phase 3");
+      this.name = "UnsupportedDealScreenTemplateError";
+    }
+  },
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
   resolveAuth: resolveAuthMock,
 }));
 
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    deal: {
-      findFirst: dealFindFirstMock,
-    },
-  },
+vi.mock("@gpc/server", () => ({
+  ensureDealScreenAccess: ensureDealScreenAccessMock,
+  buildDealScreenResponse: buildDealScreenResponseMock,
+  normalizeDealScreenRequestBody: normalizeDealScreenRequestBodyMock,
+  SUPPORTED_DEAL_SCREEN_TEMPLATE_KEY: "ENTITLEMENT_LAND",
+  DealAccessError: DealAccessErrorMock,
+  UnsupportedDealScreenTemplateError: UnsupportedDealScreenTemplateErrorMock,
 }));
 
 vi.mock("../triage/route", () => ({
@@ -76,7 +98,28 @@ describe("/api/deals/[id]/screen route", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    dealFindFirstMock.mockReset();
+    ensureDealScreenAccessMock.mockReset();
+    ensureDealScreenAccessMock.mockResolvedValue({
+      id: DEAL_ID,
+      workflowTemplateKey: null,
+    });
+    buildDealScreenResponseMock.mockReset();
+    buildDealScreenResponseMock.mockImplementation(
+      (payload: Record<string, unknown>, status: number) => ({
+        run: payload.run ?? null,
+        screen: {
+          templateKey: "ENTITLEMENT_LAND",
+          screenStatus:
+            (payload.triageStatus as string | undefined) ??
+            (status === 202 ? "queued" : "succeeded"),
+        },
+        triage: payload.triage ?? null,
+        summary: payload.summary ?? payload.message ?? null,
+        sources: payload.sources ?? [],
+      }),
+    );
+    normalizeDealScreenRequestBodyMock.mockReset();
+    normalizeDealScreenRequestBodyMock.mockImplementation((body: Record<string, unknown>) => body);
     legacyTriageGetMock.mockReset();
     legacyTriagePostMock.mockReset();
   });
@@ -90,12 +133,12 @@ describe("/api/deals/[id]/screen route", () => {
 
     expect(res.status).toBe(401);
     expect(body).toEqual({ error: "Unauthorized" });
-    expect(dealFindFirstMock).not.toHaveBeenCalled();
+    expect(ensureDealScreenAccessMock).not.toHaveBeenCalled();
     expect(legacyTriageGetMock).not.toHaveBeenCalled();
   });
 
   it("returns 404 when the deal is outside the auth org", async () => {
-    dealFindFirstMock.mockResolvedValue(null);
+    ensureDealScreenAccessMock.mockRejectedValue(new DealAccessErrorMock(404));
 
     const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/screen`);
     const res = await GET(req, { params: Promise.resolve({ id: DEAL_ID }) });
@@ -107,10 +150,9 @@ describe("/api/deals/[id]/screen route", () => {
   });
 
   it("blocks unsupported workflow templates during Phase 3", async () => {
-    dealFindFirstMock.mockResolvedValue({
-      id: DEAL_ID,
-      workflowTemplateKey: "DISPOSITION",
-    });
+    ensureDealScreenAccessMock.mockRejectedValue(
+      new UnsupportedDealScreenTemplateErrorMock(),
+    );
 
     const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/screen`);
     const res = await GET(req, { params: Promise.resolve({ id: DEAL_ID }) });
@@ -122,10 +164,6 @@ describe("/api/deals/[id]/screen route", () => {
   });
 
   it("wraps the legacy triage payload in the generalized screen response", async () => {
-    dealFindFirstMock.mockResolvedValue({
-      id: DEAL_ID,
-      workflowTemplateKey: null,
-    });
     legacyTriageGetMock.mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -159,13 +197,9 @@ describe("/api/deals/[id]/screen route", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(dealFindFirstMock).toHaveBeenCalledWith({
-      where: { id: DEAL_ID, orgId: ORG_ID },
-      select: {
-        id: true,
-        workflowTemplateKey: true,
-        sku: true,
-      },
+    expect(ensureDealScreenAccessMock).toHaveBeenCalledWith({
+      dealId: DEAL_ID,
+      orgId: ORG_ID,
     });
     expect(body.run).toEqual({
       id: "run-1",
@@ -183,7 +217,7 @@ describe("/api/deals/[id]/screen route", () => {
   });
 
   it("delegates POST to the legacy triage route and returns queued screens", async () => {
-    dealFindFirstMock.mockResolvedValue({
+    ensureDealScreenAccessMock.mockResolvedValue({
       id: DEAL_ID,
       workflowTemplateKey: "ENTITLEMENT_LAND",
     });
@@ -214,12 +248,18 @@ describe("/api/deals/[id]/screen route", () => {
     const body = await res.json();
 
     expect(res.status).toBe(202);
+    expect(ensureDealScreenAccessMock).toHaveBeenCalledWith({
+      dealId: DEAL_ID,
+      orgId: ORG_ID,
+    });
+    expect(normalizeDealScreenRequestBodyMock).toHaveBeenCalledWith({
+      workflowTemplateKey: "ENTITLEMENT_LAND",
+    });
     expect(legacyTriagePostMock).toHaveBeenCalledTimes(1);
     expect(body.run).toEqual({
       id: "run-2",
       status: "started",
       startedAt: "2026-03-11T12:05:00.000Z",
-      finishedAt: null,
     });
     expect(body.screen.templateKey).toBe("ENTITLEMENT_LAND");
     expect(body.screen.screenStatus).toBe("queued");

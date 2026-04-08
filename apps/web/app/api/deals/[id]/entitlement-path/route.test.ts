@@ -3,36 +3,37 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   resolveAuthMock,
-  findDealMock,
-  findEntitlementPathMock,
-  upsertEntitlementPathMock,
+  getEntitlementPathForDealMock,
+  upsertEntitlementPathForDealMock,
+  DealAccessErrorMock,
 } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
-  findDealMock: vi.fn(),
-  findEntitlementPathMock: vi.fn(),
-  upsertEntitlementPathMock: vi.fn(),
+  getEntitlementPathForDealMock: vi.fn(),
+  upsertEntitlementPathForDealMock: vi.fn(),
+  DealAccessErrorMock: class DealAccessError extends Error {
+    status: number;
+
+    constructor(status: number) {
+      super(status === 403 ? "Forbidden" : "Deal not found");
+      this.name = "DealAccessError";
+      this.status = status;
+    }
+  },
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
   resolveAuth: resolveAuthMock,
 }));
 
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    deal: {
-      findUnique: findDealMock,
-    },
-    entitlementPath: {
-      findUnique: findEntitlementPathMock,
-      upsert: upsertEntitlementPathMock,
-    },
-  },
+vi.mock("@gpc/server", () => ({
+  getEntitlementPathForDeal: getEntitlementPathForDealMock,
+  upsertEntitlementPathForDeal: upsertEntitlementPathForDealMock,
+  DealAccessError: DealAccessErrorMock,
 }));
 
 import { GET, PUT } from "./route";
 
 const ORG_ID = "11111111-1111-4111-8111-111111111111";
-const OTHER_ORG_ID = "22222222-2222-4222-8222-222222222222";
 const USER_ID = "99999999-9999-4999-8999-999999999999";
 const DEAL_ID = "33333333-3333-4333-8333-333333333333";
 
@@ -64,8 +65,7 @@ const ENTITLEMENT_PATH_RECORD = {
 describe("GET /api/deals/[id]/entitlement-path", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
-    findDealMock.mockReset();
-    findEntitlementPathMock.mockReset();
+    getEntitlementPathForDealMock.mockReset();
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -77,13 +77,12 @@ describe("GET /api/deals/[id]/entitlement-path", () => {
 
     expect(res.status).toBe(401);
     expect(body).toEqual({ error: "Unauthorized" });
-    expect(findDealMock).not.toHaveBeenCalled();
-    expect(findEntitlementPathMock).not.toHaveBeenCalled();
+    expect(getEntitlementPathForDealMock).not.toHaveBeenCalled();
   });
 
   it("returns 403 when requested deal belongs to another org", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    findDealMock.mockResolvedValue({ id: DEAL_ID, orgId: OTHER_ORG_ID });
+    getEntitlementPathForDealMock.mockRejectedValue(new DealAccessErrorMock(403));
 
     const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/entitlement-path`);
     const res = await GET(req, { params: Promise.resolve({ id: DEAL_ID }) });
@@ -91,7 +90,6 @@ describe("GET /api/deals/[id]/entitlement-path", () => {
 
     expect(res.status).toBe(403);
     expect(body).toEqual({ error: "Forbidden: deal does not belong to your org" });
-    expect(findEntitlementPathMock).not.toHaveBeenCalled();
   });
 
   it("returns 400 when deal id is invalid", async () => {
@@ -103,13 +101,14 @@ describe("GET /api/deals/[id]/entitlement-path", () => {
 
     expect(res.status).toBe(400);
     expect(body.error).toBe("Invalid deal id");
-    expect(findDealMock).not.toHaveBeenCalled();
+    expect(getEntitlementPathForDealMock).not.toHaveBeenCalled();
   });
 
   it("returns entitlement path when present", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    findDealMock.mockResolvedValue({ id: DEAL_ID, orgId: ORG_ID });
-    findEntitlementPathMock.mockResolvedValue({ ...ENTITLEMENT_PATH_RECORD });
+    getEntitlementPathForDealMock.mockResolvedValue({
+      entitlementPath: { ...ENTITLEMENT_PATH_RECORD },
+    });
 
     const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/entitlement-path`);
     const res = await GET(req, { params: Promise.resolve({ id: DEAL_ID }) });
@@ -122,8 +121,9 @@ describe("GET /api/deals/[id]/entitlement-path", () => {
       hearingScheduledDate: ENTITLEMENT_PATH_RECORD.hearingScheduledDate,
       conditions: ENTITLEMENT_PATH_RECORD.conditions,
     });
-    expect(findEntitlementPathMock).toHaveBeenCalledWith({
-      where: { dealId: DEAL_ID },
+    expect(getEntitlementPathForDealMock).toHaveBeenCalledWith({
+      dealId: DEAL_ID,
+      orgId: ORG_ID,
     });
   });
 });
@@ -131,8 +131,7 @@ describe("GET /api/deals/[id]/entitlement-path", () => {
 describe("PUT /api/deals/[id]/entitlement-path", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
-    findDealMock.mockReset();
-    upsertEntitlementPathMock.mockReset();
+    upsertEntitlementPathForDealMock.mockReset();
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -150,12 +149,11 @@ describe("PUT /api/deals/[id]/entitlement-path", () => {
 
     expect(res.status).toBe(401);
     expect(body).toEqual({ error: "Unauthorized" });
-    expect(upsertEntitlementPathMock).not.toHaveBeenCalled();
+    expect(upsertEntitlementPathForDealMock).not.toHaveBeenCalled();
   });
 
   it("returns 400 for empty payload", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    findDealMock.mockResolvedValue({ id: DEAL_ID, orgId: ORG_ID });
 
     const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/entitlement-path`, {
       method: "PUT",
@@ -166,15 +164,16 @@ describe("PUT /api/deals/[id]/entitlement-path", () => {
 
     expect(res.status).toBe(400);
     expect(body.error).toBe("Invalid entitlement path payload");
-    expect(upsertEntitlementPathMock).not.toHaveBeenCalled();
+    expect(upsertEntitlementPathForDealMock).not.toHaveBeenCalled();
   });
 
   it("upserts entitlement path for a scoped deal", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    findDealMock.mockResolvedValue({ id: DEAL_ID, orgId: ORG_ID });
-    upsertEntitlementPathMock.mockResolvedValue({
-      ...ENTITLEMENT_PATH_RECORD,
-      hearingScheduledDate: "2026-02-06T00:00:00.000Z",
+    upsertEntitlementPathForDealMock.mockResolvedValue({
+      entitlementPath: {
+        ...ENTITLEMENT_PATH_RECORD,
+        hearingScheduledDate: "2026-02-06T00:00:00.000Z",
+      },
     });
 
     const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/entitlement-path`, {
@@ -189,15 +188,10 @@ describe("PUT /api/deals/[id]/entitlement-path", () => {
 
     expect(res.status).toBe(200);
     expect(body.entitlementPath.hearingScheduledDate).toBe("2026-02-06T00:00:00.000Z");
-    expect(upsertEntitlementPathMock).toHaveBeenCalledWith({
-      where: { dealId: DEAL_ID },
-      create: expect.objectContaining({
-        dealId: DEAL_ID,
-        orgId: ORG_ID,
-        hearingScheduledDate: new Date("2026-02-06T00:00:00.000Z"),
-        hearingBody: "Planning Commission",
-      }),
-      update: expect.objectContaining({
+    expect(upsertEntitlementPathForDealMock).toHaveBeenCalledWith({
+      dealId: DEAL_ID,
+      orgId: ORG_ID,
+      payload: expect.objectContaining({
         hearingScheduledDate: new Date("2026-02-06T00:00:00.000Z"),
         hearingBody: "Planning Commission",
       }),

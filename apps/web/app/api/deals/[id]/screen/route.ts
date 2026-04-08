@@ -1,24 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  DealAccessError,
+  UnsupportedDealScreenTemplateError,
+  SUPPORTED_DEAL_SCREEN_TEMPLATE_KEY,
+  buildDealScreenResponse,
+  ensureDealScreenAccess,
+  normalizeDealScreenRequestBody,
+} from "@gpc/server";
+import {
   DealScreenRequestSchema,
-  DealScreenResponseSchema,
 } from "@entitlement-os/shared";
 
-import { prisma } from "@entitlement-os/db";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { GET as getLegacyTriage, POST as postLegacyTriage } from "../triage/route";
 import * as Sentry from "@sentry/nextjs";
-
-const SUPPORTED_TEMPLATE_KEY = "ENTITLEMENT_LAND";
-
-function normalizeScreenRequestBody(body: Record<string, unknown>) {
-  return {
-    workflowTemplateKey:
-      typeof body.workflowTemplateKey === "string"
-        ? body.workflowTemplateKey
-        : null,
-  };
-}
 
 async function validateDealScreenAccess(
   request: NextRequest,
@@ -33,148 +28,27 @@ async function validateDealScreenAccess(
   }
 
   const { id } = await params;
-  const deal = await prisma.deal.findFirst({
-    where: { id, orgId: auth.orgId },
-    select: {
-      id: true,
-      workflowTemplateKey: true,
-      sku: true,
-    },
-  });
-
-  if (!deal) {
-    return {
-      ok: false as const,
-      response: NextResponse.json({ error: "Deal not found" }, { status: 404 }),
-    };
+  try {
+    const deal = await ensureDealScreenAccess({ dealId: id, orgId: auth.orgId });
+    return { ok: true as const, auth, deal };
+  } catch (error) {
+    if (error instanceof DealAccessError) {
+      return {
+        ok: false as const,
+        response: NextResponse.json(
+          { error: error.status === 404 ? "Deal not found" : "Forbidden" },
+          { status: error.status },
+        ),
+      };
+    }
+    if (error instanceof UnsupportedDealScreenTemplateError) {
+      return {
+        ok: false as const,
+        response: NextResponse.json({ error: error.message }, { status: 400 }),
+      };
+    }
+    throw error;
   }
-
-  if (
-    deal.workflowTemplateKey &&
-    deal.workflowTemplateKey !== SUPPORTED_TEMPLATE_KEY
-  ) {
-    return {
-      ok: false as const,
-      response: NextResponse.json(
-        {
-          error:
-            "Only ENTITLEMENT_LAND workflow screening is available in Phase 3",
-        },
-        { status: 400 },
-      ),
-    };
-  }
-
-  return {
-    ok: true as const,
-    auth,
-    deal,
-  };
-}
-
-function buildScreenResponse(
-  payload: Record<string, unknown>,
-  statusCode: number,
-) {
-  const runCandidate =
-    payload.run && typeof payload.run === "object"
-      ? (payload.run as Record<string, unknown>)
-      : null;
-  const run =
-    runCandidate && typeof runCandidate.id === "string"
-      ? {
-          id: runCandidate.id,
-          status:
-            typeof runCandidate.status === "string"
-              ? runCandidate.status
-              : statusCode === 202
-                ? "queued"
-                : "succeeded",
-          startedAt:
-            typeof runCandidate.startedAt === "string"
-              ? runCandidate.startedAt
-              : runCandidate.startedAt instanceof Date
-                ? runCandidate.startedAt.toISOString()
-                : null,
-          finishedAt:
-            typeof runCandidate.finishedAt === "string"
-              ? runCandidate.finishedAt
-              : runCandidate.finishedAt instanceof Date
-                ? runCandidate.finishedAt.toISOString()
-                : null,
-        }
-      : null;
-
-  const triage =
-    payload.triage && typeof payload.triage === "object" ? payload.triage : null;
-  const triageScore =
-    typeof payload.triageScore === "number" ? payload.triageScore : null;
-  const summary =
-    typeof payload.summary === "string"
-      ? payload.summary
-      : typeof payload.message === "string"
-        ? payload.message
-        : null;
-  const scorecard =
-    payload.scorecard && typeof payload.scorecard === "object"
-      ? payload.scorecard
-      : null;
-  const routing =
-    payload.routing && typeof payload.routing === "object"
-      ? (payload.routing as Record<string, unknown>)
-      : null;
-  const rerun =
-    payload.rerun && typeof payload.rerun === "object"
-      ? {
-          reusedPreviousRun:
-            Boolean((payload.rerun as Record<string, unknown>).reusedPreviousRun),
-          reason: String((payload.rerun as Record<string, unknown>).reason ?? ""),
-          sourceRunId:
-            typeof (payload.rerun as Record<string, unknown>).sourceRunId ===
-            "string"
-              ? String((payload.rerun as Record<string, unknown>).sourceRunId)
-              : null,
-        }
-      : null;
-  const sources = Array.isArray(payload.sources)
-    ? payload.sources
-        .filter(
-          (item): item is Record<string, unknown> =>
-            Boolean(item) && typeof item === "object",
-        )
-        .map((item) => ({
-          url: String(item.url ?? ""),
-          title: typeof item.title === "string" ? item.title : null,
-        }))
-        .filter((item) => item.url.length > 0)
-    : [];
-
-  const response = DealScreenResponseSchema.parse({
-    run,
-    screen: {
-      templateKey: SUPPORTED_TEMPLATE_KEY,
-      triage,
-      triageScore,
-      summary,
-      scorecard,
-      routing,
-      rerun,
-      sources,
-      screenStatus:
-        typeof payload.triageStatus === "string"
-          ? payload.triageStatus
-          : run?.status ?? null,
-    },
-    triage,
-    triageScore,
-    summary,
-    scorecard,
-    routing,
-    rerun,
-    sources,
-  });
-
-  return response;
 }
 
 export async function GET(
@@ -193,10 +67,9 @@ export async function GET(
     }
 
     const payload = (await triageResponse.json()) as Record<string, unknown>;
-    return NextResponse.json(
-      buildScreenResponse(payload, triageResponse.status),
-      { status: triageResponse.status },
-    );
+    return NextResponse.json(buildDealScreenResponse(payload, triageResponse.status), {
+      status: triageResponse.status,
+    });
   } catch (error) {
     Sentry.captureException(error, {
       tags: { route: "api.deals.screen", method: "GET" },
@@ -227,7 +100,7 @@ export async function POST(
     }
 
     const parsed = DealScreenRequestSchema.safeParse(
-      normalizeScreenRequestBody(body),
+      normalizeDealScreenRequestBody(body),
     );
     if (!parsed.success) {
       return NextResponse.json(
@@ -242,7 +115,7 @@ export async function POST(
 
     if (
       parsed.data.workflowTemplateKey &&
-      parsed.data.workflowTemplateKey !== SUPPORTED_TEMPLATE_KEY
+      parsed.data.workflowTemplateKey !== SUPPORTED_DEAL_SCREEN_TEMPLATE_KEY
     ) {
       return NextResponse.json(
         {
@@ -260,7 +133,7 @@ export async function POST(
 
     const payload = (await triageResponse.json()) as Record<string, unknown>;
     return NextResponse.json(
-      buildScreenResponse(payload, triageResponse.status),
+      buildDealScreenResponse(payload, triageResponse.status),
       { status: triageResponse.status },
     );
   } catch (error) {

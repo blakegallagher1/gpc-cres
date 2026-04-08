@@ -3,36 +3,35 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   resolveAuthMock,
-  findDealMock,
-  findPropertyTitleMock,
-  upsertPropertyTitleMock,
+  getPropertyTitleForDealMock,
+  upsertPropertyTitleForDealMock,
+  DealAccessErrorMock,
 } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
-  findDealMock: vi.fn(),
-  findPropertyTitleMock: vi.fn(),
-  upsertPropertyTitleMock: vi.fn(),
+  getPropertyTitleForDealMock: vi.fn(),
+  upsertPropertyTitleForDealMock: vi.fn(),
+  DealAccessErrorMock: class DealAccessError extends Error {
+    constructor(status) {
+      super(status === 403 ? "Forbidden" : "Deal not found");
+      this.name = "DealAccessError";
+      this.status = status;
+    }
+  },
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
   resolveAuth: resolveAuthMock,
 }));
 
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    deal: {
-      findUnique: findDealMock,
-    },
-    propertyTitle: {
-      findUnique: findPropertyTitleMock,
-      upsert: upsertPropertyTitleMock,
-    },
-  },
+vi.mock("@gpc/server", () => ({
+  getPropertyTitleForDeal: getPropertyTitleForDealMock,
+  upsertPropertyTitleForDeal: upsertPropertyTitleForDealMock,
+  DealAccessError: DealAccessErrorMock,
 }));
 
 import { GET, PUT } from "./route";
 
 const ORG_ID = "11111111-1111-4111-8111-111111111111";
-const OTHER_ORG_ID = "22222222-2222-4222-8222-222222222222";
 const USER_ID = "99999999-9999-4999-8999-999999999999";
 const DEAL_ID = "33333333-3333-4333-8333-333333333333";
 
@@ -51,8 +50,7 @@ const PROPERTY_TITLE_RECORD = {
 describe("GET /api/deals/[id]/property-title", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
-    findDealMock.mockReset();
-    findPropertyTitleMock.mockReset();
+    getPropertyTitleForDealMock.mockReset();
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -63,13 +61,12 @@ describe("GET /api/deals/[id]/property-title", () => {
 
     expect(res.status).toBe(401);
     expect(body).toEqual({ error: "Unauthorized" });
-    expect(findDealMock).not.toHaveBeenCalled();
-    expect(findPropertyTitleMock).not.toHaveBeenCalled();
+    expect(getPropertyTitleForDealMock).not.toHaveBeenCalled();
   });
 
   it("returns 403 when requested deal belongs to another org", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    findDealMock.mockResolvedValue({ id: DEAL_ID, orgId: OTHER_ORG_ID });
+    getPropertyTitleForDealMock.mockRejectedValue(new DealAccessErrorMock(403));
 
     const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/property-title`);
     const res = await GET(req, { params: Promise.resolve({ id: DEAL_ID }) });
@@ -77,13 +74,13 @@ describe("GET /api/deals/[id]/property-title", () => {
 
     expect(res.status).toBe(403);
     expect(body).toEqual({ error: "Forbidden: deal does not belong to your org" });
-    expect(findPropertyTitleMock).not.toHaveBeenCalled();
   });
 
   it("returns property title for a scoped deal", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    findDealMock.mockResolvedValue({ id: DEAL_ID, orgId: ORG_ID });
-    findPropertyTitleMock.mockResolvedValue({ ...PROPERTY_TITLE_RECORD });
+    getPropertyTitleForDealMock.mockResolvedValue({
+      propertyTitle: { ...PROPERTY_TITLE_RECORD },
+    });
 
     const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/property-title`);
     const res = await GET(req, { params: Promise.resolve({ id: DEAL_ID }) });
@@ -96,8 +93,9 @@ describe("GET /api/deals/[id]/property-title", () => {
       exceptions: PROPERTY_TITLE_RECORD.exceptions,
       liens: PROPERTY_TITLE_RECORD.liens,
     });
-    expect(findPropertyTitleMock).toHaveBeenCalledWith({
-      where: { dealId: DEAL_ID },
+    expect(getPropertyTitleForDealMock).toHaveBeenCalledWith({
+      dealId: DEAL_ID,
+      orgId: ORG_ID,
     });
   });
 });
@@ -105,8 +103,7 @@ describe("GET /api/deals/[id]/property-title", () => {
 describe("PUT /api/deals/[id]/property-title", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
-    findDealMock.mockReset();
-    upsertPropertyTitleMock.mockReset();
+    upsertPropertyTitleForDealMock.mockReset();
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -121,12 +118,11 @@ describe("PUT /api/deals/[id]/property-title", () => {
 
     expect(res.status).toBe(401);
     expect(body).toEqual({ error: "Unauthorized" });
-    expect(upsertPropertyTitleMock).not.toHaveBeenCalled();
+    expect(upsertPropertyTitleForDealMock).not.toHaveBeenCalled();
   });
 
   it("returns 400 when payload is empty", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    findDealMock.mockResolvedValue({ id: DEAL_ID, orgId: ORG_ID });
 
     const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/property-title`, {
       method: "PUT",
@@ -138,18 +134,19 @@ describe("PUT /api/deals/[id]/property-title", () => {
 
     expect(res.status).toBe(400);
     expect(body.error).toBe("Invalid property title payload");
-    expect(upsertPropertyTitleMock).not.toHaveBeenCalled();
+    expect(upsertPropertyTitleForDealMock).not.toHaveBeenCalled();
   });
 
   it("upserts property title for a scoped deal", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    findDealMock.mockResolvedValue({ id: DEAL_ID, orgId: ORG_ID });
-    upsertPropertyTitleMock.mockResolvedValue({
-      ...PROPERTY_TITLE_RECORD,
-      titleInsuranceReceived: false,
-      exceptions: ["No exceptions"],
-      liens: [],
-      easements: ["Setback easement"],
+    upsertPropertyTitleForDealMock.mockResolvedValue({
+      propertyTitle: {
+        ...PROPERTY_TITLE_RECORD,
+        titleInsuranceReceived: false,
+        exceptions: ["No exceptions"],
+        liens: [],
+        easements: ["Setback easement"],
+      },
     });
 
     const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/property-title`, {
@@ -167,17 +164,10 @@ describe("PUT /api/deals/[id]/property-title", () => {
     expect(res.status).toBe(200);
     expect(body.propertyTitle.titleInsuranceReceived).toBe(false);
     expect(body.propertyTitle.easements).toEqual(["Setback easement"]);
-    expect(upsertPropertyTitleMock).toHaveBeenCalledWith({
-      where: { dealId: DEAL_ID },
-      create: expect.objectContaining({
-        dealId: DEAL_ID,
-        orgId: ORG_ID,
-        titleInsuranceReceived: false,
-        exceptions: ["No exceptions"],
-        liens: [],
-        easements: ["Setback easement"],
-      }),
-      update: expect.objectContaining({
+    expect(upsertPropertyTitleForDealMock).toHaveBeenCalledWith({
+      dealId: DEAL_ID,
+      orgId: ORG_ID,
+      payload: expect.objectContaining({
         titleInsuranceReceived: false,
         exceptions: ["No exceptions"],
         liens: [],
