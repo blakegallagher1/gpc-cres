@@ -49,6 +49,10 @@
     "./opportunity-phase3": {
       "types": "./dist/opportunity-phase3.d.ts",
       "default": "./dist/opportunity-phase3.js"
+    },
+    "./opportunity-thesis": {
+      "types": "./dist/opportunity-thesis.d.ts",
+      "default": "./dist/opportunity-thesis.js"
     }
   },
   "scripts": {

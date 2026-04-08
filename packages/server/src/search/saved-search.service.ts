@@ -5,7 +5,7 @@ import {
   enrichOpportunityMatch,
   type OpportunityMatchForThesis,
   type OpportunityParcelData,
-} from "../../../../apps/web/lib/opportunities/thesisEngine";
+} from "@entitlement-os/shared/opportunity-thesis";
 import { NotFoundError, ValidationError } from "../errors";
 import {
   getCloudflareAccessHeadersFromEnv,

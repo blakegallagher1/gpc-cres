@@ -281,6 +281,7 @@ module.exports = [
       "lib/server/propertyDbRpc.ts",
       "lib/storage/gatewayStorage.ts",
       "lib/validation/extractionSchemas.ts",
+      "lib/opportunities/thesisEngine.ts",
       "lib/workflowClient.ts",
       "app/api/_lib/opportunityPhase3.ts",
       "app/api/intelligence/daily-briefing/route.ts",

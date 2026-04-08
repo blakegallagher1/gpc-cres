@@ -17,6 +17,7 @@ export * from "./financial-assumptions.js";
 export * from "./intent-classification.js";
 export * from "./memory-write.js";
 export * from "./opportunity-phase3.js";
+export * from "./opportunity-thesis.js";
 export * from "./types/memory.js";
 export * from "./types/mapChat.js";
 export * from "./types/mapWorkspace.js";
