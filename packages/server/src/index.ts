@@ -19,6 +19,8 @@ export * from "./services/correction.service";
 export * from "./services/anomaly-detector.service";
 export * from "./services/building-permits.service";
 export * from "./services/business-memory.service";
+export * from "./services/asset-management.service";
+export * from "./services/buyer-management.service";
 export * from "./services/calibration.service";
 export * from "./services/calibration-eviction.service";
 export * from "./services/causal-dag.service";
@@ -38,6 +40,7 @@ export {
 export * from "./services/entity-resolution.service";
 export * from "./services/episodic-memory.service";
 export * from "./services/evidence-source.service";
+export * from "./services/evidence-delivery.service";
 export {
   getEntitlementFeaturePrimitives,
   getEntitlementGraph,
@@ -56,6 +59,8 @@ export {
 } from "./services/entitlement-intelligence.service";
 export * from "./services/injection-budget.service";
 export * from "./services/intent-classifier.service";
+export * from "./services/jurisdiction-catalog.service";
+export * from "./services/jurisdiction-management.service";
 export * from "./services/learning-context-builder.service";
 export * from "./services/learning-fact-promotion.service";
 export * from "./services/market-monitor.service";
@@ -64,6 +69,7 @@ export * from "./services/memory-event.service";
 export * from "./services/memory-entity.service";
 export * from "./services/memory-feedback.service";
 export * from "./services/memory-ingestion.service";
+export * from "./services/memory-ingestion-route.service";
 export * from "./services/memory-stats.service";
 export * from "./services/memory-retrieval.service";
 export * from "./services/memory-tier.service";
@@ -80,6 +86,7 @@ export {
   type UpsertProceduralSkillsFromEpisodeInput,
   type UpsertProceduralSkillsFromEpisodeResult,
 } from "./services/procedural-skill.service";
+export * from "./services/portfolio-summary.service";
 export * from "./services/prompt-optimization.service";
 export * from "./services/prompt-versioning.service";
 export * from "./services/trajectory-log.service";

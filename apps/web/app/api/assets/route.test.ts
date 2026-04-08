@@ -3,25 +3,24 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   resolveAuthMock,
-  assetFindManyMock,
-  assetCreateMock,
+  listAssetsMock,
+  createAssetMock,
+  assetValidationErrorMock,
 } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
-  assetFindManyMock: vi.fn(),
-  assetCreateMock: vi.fn(),
+  listAssetsMock: vi.fn(),
+  createAssetMock: vi.fn(),
+  assetValidationErrorMock: class AssetValidationError extends Error {},
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
   resolveAuth: resolveAuthMock,
 }));
 
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    asset: {
-      findMany: assetFindManyMock,
-      create: assetCreateMock,
-    },
-  },
+vi.mock("@gpc/server", () => ({
+  listAssets: listAssetsMock,
+  createAsset: createAssetMock,
+  AssetValidationError: assetValidationErrorMock,
 }));
 
 import { GET, POST } from "./route";
@@ -33,8 +32,8 @@ describe("/api/assets route", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    assetFindManyMock.mockReset();
-    assetCreateMock.mockReset();
+    listAssetsMock.mockReset();
+    createAssetMock.mockReset();
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -46,11 +45,11 @@ describe("/api/assets route", () => {
 
     expect(res.status).toBe(401);
     expect(body).toEqual({ error: "Unauthorized" });
-    expect(assetFindManyMock).not.toHaveBeenCalled();
+    expect(listAssetsMock).not.toHaveBeenCalled();
   });
 
   it("lists assets scoped to the auth org", async () => {
-    assetFindManyMock.mockResolvedValue([
+    listAssetsMock.mockResolvedValue([
       {
         id: "asset-1",
         orgId: ORG_ID,
@@ -81,10 +80,7 @@ describe("/api/assets route", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(assetFindManyMock).toHaveBeenCalledWith({
-      where: { orgId: ORG_ID },
-      orderBy: [{ updatedAt: "desc" }, { name: "asc" }],
-    });
+    expect(listAssetsMock).toHaveBeenCalledWith(ORG_ID);
     expect(body.assets).toEqual([
       {
         id: "asset-1",
@@ -113,7 +109,7 @@ describe("/api/assets route", () => {
   });
 
   it("creates an asset for the auth org", async () => {
-    assetCreateMock.mockResolvedValue({
+    createAssetMock.mockResolvedValue({
       id: "asset-2",
       orgId: ORG_ID,
       name: "Florida Blvd Storage",
@@ -163,29 +159,31 @@ describe("/api/assets route", () => {
     const body = await res.json();
 
     expect(res.status).toBe(201);
-    expect(assetCreateMock).toHaveBeenCalledWith({
-      data: {
-        orgId: ORG_ID,
+    expect(createAssetMock).toHaveBeenCalledWith(
+      ORG_ID,
+      expect.objectContaining({
         name: "Florida Blvd Storage",
-        address: "456 Florida Blvd",
-        city: "Baton Rouge",
-        state: "LA",
-        zip: "70806",
-        county: "East Baton Rouge",
-        parcelNumber: "APN-2",
         assetClass: "INDUSTRIAL",
-        assetSubtype: "Flex",
-        lat: 30.448,
-        lng: -91.122,
-        acreage: 2.1,
-        sfGross: 42000,
-        sfNet: 39000,
-        yearBuilt: 1999,
-        zoning: "C2",
-        zoningDescription: "Commercial",
-      },
-    });
+        lat: "30.448",
+        acreage: "2.1",
+      }),
+    );
     expect(body.asset.id).toBe("asset-2");
     expect(body.asset.orgId).toBe(ORG_ID);
+  });
+
+  it("surfaces validation errors from the package seam", async () => {
+    createAssetMock.mockRejectedValue(
+      new assetValidationErrorMock("name is required"),
+    );
+
+    const req = new NextRequest("http://localhost/api/assets", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    const res = await POST(req);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "name is required" });
   });
 });

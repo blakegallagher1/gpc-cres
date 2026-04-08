@@ -2,41 +2,34 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  resolveAuthMock,
-  ingestCompsMock,
-  orgMembershipFindFirstMock,
-  addMarketDataPointMock,
-} = vi.hoisted(() => ({
-  resolveAuthMock: vi.fn(),
-  ingestCompsMock: vi.fn(),
-  orgMembershipFindFirstMock: vi.fn(),
-  addMarketDataPointMock: vi.fn().mockResolvedValue(undefined),
+  authorizeApiRouteMock,
+  processMemoryIngestionMock,
+  MemoryIngestionAccessErrorMock,
+} = vi.hoisted(() => {
+  class TestMemoryIngestionAccessError extends Error {
+    readonly status: number;
+
+    constructor(message: string, status: number) {
+      super(message);
+      this.name = "MemoryIngestionAccessError";
+      this.status = status;
+    }
+  }
+
+  return {
+    authorizeApiRouteMock: vi.fn(),
+    processMemoryIngestionMock: vi.fn(),
+    MemoryIngestionAccessErrorMock: TestMemoryIngestionAccessError,
+  };
+});
+
+vi.mock("@/lib/auth/authorizeApiRoute", () => ({
+  authorizeApiRoute: authorizeApiRouteMock,
 }));
 
-vi.mock("@/lib/auth/resolveAuth", () => ({
-  resolveAuth: resolveAuthMock,
-}));
-
-vi.mock("@/lib/services/memoryIngestion.service", () => ({
-  MemoryIngestionService: {
-    ingestComps: ingestCompsMock,
-  },
-}));
-
-vi.mock("@/lib/services/compToMarket", () => ({
-  extractParishFromAddress: vi.fn().mockReturnValue("East Baton Rouge"),
-}));
-
-vi.mock("@/lib/services/marketMonitor.service", () => ({
-  addMarketDataPoint: addMarketDataPointMock,
-}));
-
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    orgMembership: {
-      findFirst: orgMembershipFindFirstMock,
-    },
-  },
+vi.mock("@gpc/server", () => ({
+  processMemoryIngestion: processMemoryIngestionMock,
+  MemoryIngestionAccessError: MemoryIngestionAccessErrorMock,
 }));
 
 import { POST } from "./route";
@@ -64,15 +57,12 @@ function buildValidPayload(overrides: Record<string, unknown> = {}) {
 
 describe("POST /api/memory/ingest", () => {
   beforeEach(() => {
-    resolveAuthMock.mockReset();
-    ingestCompsMock.mockReset();
-    orgMembershipFindFirstMock.mockReset();
-    addMarketDataPointMock.mockReset();
-    addMarketDataPointMock.mockResolvedValue(undefined);
+    authorizeApiRouteMock.mockReset();
+    processMemoryIngestionMock.mockReset();
   });
 
   it("returns 401 when unauthenticated", async () => {
-    resolveAuthMock.mockResolvedValue(null);
+    authorizeApiRouteMock.mockResolvedValue({ ok: true, auth: null });
     const req = new NextRequest("http://localhost/api/memory/ingest", {
       method: "POST",
       body: JSON.stringify(buildValidPayload()),
@@ -81,11 +71,14 @@ describe("POST /api/memory/ingest", () => {
     const res = await POST(req);
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: "Unauthorized" });
-    expect(ingestCompsMock).not.toHaveBeenCalled();
+    expect(processMemoryIngestionMock).not.toHaveBeenCalled();
   });
 
   it("returns 400 when payload is invalid", async () => {
-    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+    authorizeApiRouteMock.mockResolvedValue({
+      ok: true,
+      auth: { userId: USER_ID, orgId: ORG_ID },
+    });
     const req = new NextRequest("http://localhost/api/memory/ingest", {
       method: "POST",
       body: JSON.stringify({ sourceType: "manual_entry", comps: [] }),
@@ -95,11 +88,17 @@ describe("POST /api/memory/ingest", () => {
     const body = await res.json();
     expect(res.status).toBe(400);
     expect(body.error).toBe("Invalid request");
+    expect(processMemoryIngestionMock).not.toHaveBeenCalled();
   });
 
-  it("returns 403 when request org differs and user is not a member", async () => {
-    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    orgMembershipFindFirstMock.mockResolvedValue(null);
+  it("returns service-level access errors", async () => {
+    authorizeApiRouteMock.mockResolvedValue({
+      ok: true,
+      auth: { userId: USER_ID, orgId: ORG_ID },
+    });
+    processMemoryIngestionMock.mockRejectedValue(
+      new MemoryIngestionAccessErrorMock("Forbidden: User not member of org", 403),
+    );
 
     const req = new NextRequest("http://localhost/api/memory/ingest", {
       method: "POST",
@@ -109,12 +108,14 @@ describe("POST /api/memory/ingest", () => {
     const res = await POST(req);
     expect(res.status).toBe(403);
     expect(await res.json()).toEqual({ error: "Forbidden: User not member of org" });
-    expect(ingestCompsMock).not.toHaveBeenCalled();
   });
 
-  it("accepts compatibility zero UUID orgId and executes ingestion", async () => {
-    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ZERO_UUID });
-    ingestCompsMock.mockResolvedValue({
+  it("executes ingestion through the package seam", async () => {
+    authorizeApiRouteMock.mockResolvedValue({
+      ok: true,
+      auth: { userId: USER_ID, orgId: ZERO_UUID },
+    });
+    processMemoryIngestionMock.mockResolvedValue({
       success: true,
       requestId: "22222222-2222-4222-8222-222222222222",
       totalComps: 1,
@@ -143,7 +144,16 @@ describe("POST /api/memory/ingest", () => {
 
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
-    expect(ingestCompsMock).toHaveBeenCalledTimes(1);
-    expect(orgMembershipFindFirstMock).not.toHaveBeenCalled();
+    expect(processMemoryIngestionMock).toHaveBeenCalledTimes(1);
+    expect(processMemoryIngestionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: USER_ID,
+        orgId: ZERO_UUID,
+        request: expect.objectContaining({
+          orgId: ZERO_UUID,
+          userId: USER_ID,
+        }),
+      }),
+    );
   });
 });

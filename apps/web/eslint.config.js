@@ -282,10 +282,15 @@ module.exports = [
       "app/api/memory/entities/[entityId]/route.ts",
       "app/api/memory/collisions/route.ts",
       "app/api/memory/feedback/route.ts",
+      "app/api/memory/ingest/route.ts",
       "app/api/memory/innovation-queue/route.ts",
       "app/api/memory/stats/route.ts",
       "app/api/workflows/route.ts",
       "app/api/workflows/[id]/route.ts",
+      "app/api/buyers/route.ts",
+      "app/api/jurisdictions/route.ts",
+      "app/api/evidence/sources/[sourceId]/package/route.ts",
+      "app/api/evidence/snapshots/[snapshotId]/download/route.ts",
     ],
     rules: {
       "no-restricted-imports": [
@@ -334,7 +339,15 @@ module.exports = [
       "app/api/entities/route.ts",
       "app/api/entities/[id]/route.ts",
       "app/api/evidence/route.ts",
+      "app/api/evidence/sources/[sourceId]/package/route.ts",
+      "app/api/evidence/snapshots/[snapshotId]/download/route.ts",
+      "app/api/assets/route.ts",
+      "app/api/assets/[id]/route.ts",
+      "app/api/buyers/route.ts",
+      "app/api/jurisdictions/route.ts",
+      "app/api/memory/ingest/route.ts",
       "app/api/memory/entities/[entityId]/route.ts",
+      "app/api/portfolio/route.ts",
       "app/api/workflows/[id]/route.ts",
     ],
     rules: {
@@ -361,6 +374,36 @@ module.exports = [
               name: "@gpc/server/workflows/workflow-template.service",
               message:
                 "This migrated route must import workflow services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/services/asset-management.service",
+              message:
+                "This migrated route must import asset services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/services/buyer-management.service",
+              message:
+                "This migrated route must import buyer services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/services/evidence-delivery.service",
+              message:
+                "This migrated route must import evidence delivery services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/services/jurisdiction-catalog.service",
+              message:
+                "This migrated route must import jurisdiction services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/services/memory-ingestion-route.service",
+              message:
+                "This migrated route must import memory-ingestion services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/services/portfolio-summary.service",
+              message:
+                "This migrated route must import portfolio services via the stable @gpc/server barrel.",
             },
           ],
         },
