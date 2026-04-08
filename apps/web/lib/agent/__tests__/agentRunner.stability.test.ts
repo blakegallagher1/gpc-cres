@@ -55,7 +55,7 @@ vi.mock("@/lib/workflowClient", () => ({
   getTemporalClient: vi.fn(),
 }));
 
-vi.mock("@/lib/chat/session", () => ({
+vi.mock("@gpc/server/chat/chat-session.service", () => ({
   PrismaChatSession: {
     create: prismaChatSessionCreateMock,
   },

@@ -19,7 +19,7 @@ import {
   type AgentRunWorkflowInput,
   type AgentRunWorkflowOutput,
 } from "@entitlement-os/shared";
-import { PrismaChatSession } from "../../../../apps/web/lib/chat/session";
+import { PrismaChatSession } from "./chat-session.service";
 import { buildPreferenceContext } from "../services/preference.service";
 import { buildMemoryContext } from "../../../../apps/web/lib/services/memoryContextBuilder";
 import type { AgentTrustEnvelope } from "../../../../apps/web/types/index";

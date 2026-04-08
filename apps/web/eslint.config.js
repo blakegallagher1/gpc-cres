@@ -238,6 +238,7 @@ module.exports = [
       "lib/services/learningFactPromotion.service.ts",
       "lib/services/proceduralSkill.service.ts",
       "lib/services/outcomeCapture.service.ts",
+      "lib/chat/session.ts",
       "lib/services/deal-reader.ts",
       "lib/services/trajectoryLog.service.ts",
       "lib/services/outcomeReinforcement.service.ts",

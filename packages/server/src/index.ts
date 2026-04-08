@@ -28,6 +28,7 @@ export * from "./observability/agent-learning-stats.service";
 export * from "./observability/run-dashboard.service";
 export * from "./chat/chat-application.service";
 export * from "./chat/agent-api.service";
+export * from "./chat/chat-session.service";
 export * from "./services/approval.service";
 export * from "./services/agent-graders.service";
 export * from "./services/confidence-scoring.service";
