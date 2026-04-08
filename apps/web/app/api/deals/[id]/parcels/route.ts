@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@entitlement-os/db";
+import {
+  createDealParcel,
+  DealAccessError,
+  listDealParcels,
+} from "@gpc/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { dispatchEvent } from "@/lib/automation/events";
 import { captureAutomationDispatchError } from "@/lib/automation/sentry";
@@ -18,23 +22,13 @@ export async function GET(
     }
 
     const { id } = await params;
-
-    // Verify deal belongs to user's org
-    const deal = await prisma.deal.findFirst({
-      where: { id, orgId: auth.orgId },
-      select: { id: true },
-    });
-    if (!deal) {
-      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
-    }
-
-    const parcels = await prisma.parcel.findMany({
-      where: { dealId: id },
-      orderBy: { createdAt: "asc" },
-    });
+    const parcels = await listDealParcels({ dealId: id, orgId: auth.orgId });
 
     return NextResponse.json({ parcels });
   } catch (error) {
+    if (error instanceof DealAccessError) {
+      return NextResponse.json({ error: "Deal not found" }, { status: error.status });
+    }
     console.error("Error fetching parcels:", error);
     Sentry.captureException(error, {
       tags: { route: "/api/deals/[id]/parcels", method: "GET" },
@@ -70,31 +64,22 @@ export async function POST(
       );
     }
 
-    // Verify deal belongs to user's org
-    const deal = await prisma.deal.findFirst({
-      where: { id, orgId: auth.orgId },
-      select: { id: true },
-    });
-    if (!deal) {
-      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
-    }
-
-    const parcel = await prisma.parcel.create({
-      data: {
-        orgId: auth.orgId,
-        dealId: id,
+    const parcel = await createDealParcel({
+      dealId: id,
+      orgId: auth.orgId,
+      input: {
         address: body.address,
         apn: body.apn ?? null,
-        acreage: body.acreage ? parseFloat(body.acreage) : null,
+        acreage: body.acreage ?? null,
         currentZoning: body.currentZoning ?? null,
         futureLandUse: body.futureLandUse ?? null,
         utilitiesNotes: body.utilitiesNotes ?? null,
-        lat: body.lat ? parseFloat(body.lat) : null,
-        lng: body.lng ? parseFloat(body.lng) : null,
+        lat: body.lat ?? null,
+        lng: body.lng ?? null,
       },
     });
 
-    // Fire-and-forget: dispatch parcel.created for auto-enrichment (#2)
+    // Intentional route-level runtime seam: asynchronous enrichment dispatch stays in apps/web.
     dispatchEvent({
       type: "parcel.created",
       dealId: id,
@@ -111,6 +96,9 @@ export async function POST(
 
     return NextResponse.json({ parcel }, { status: 201 });
   } catch (error) {
+    if (error instanceof DealAccessError) {
+      return NextResponse.json({ error: "Deal not found" }, { status: error.status });
+    }
     console.error("Error creating parcel:", error);
     Sentry.captureException(error, {
       tags: { route: "/api/deals/[id]/parcels", method: "POST" },

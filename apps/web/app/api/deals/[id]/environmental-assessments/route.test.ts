@@ -3,30 +3,45 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   resolveAuthMock,
-  findDealMock,
-  findManyMock,
-  createMock,
+  listEnvironmentalAssessmentsForDealMock,
+  createEnvironmentalAssessmentForDealMock,
+  updateEnvironmentalAssessmentForDealMock,
+  deleteEnvironmentalAssessmentForDealMock,
+  DealAccessErrorMock,
+  EnvironmentalAssessmentNotFoundErrorMock,
 } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
-  findDealMock: vi.fn(),
-  findManyMock: vi.fn(),
-  createMock: vi.fn(),
+  listEnvironmentalAssessmentsForDealMock: vi.fn(),
+  createEnvironmentalAssessmentForDealMock: vi.fn(),
+  updateEnvironmentalAssessmentForDealMock: vi.fn(),
+  deleteEnvironmentalAssessmentForDealMock: vi.fn(),
+  DealAccessErrorMock: class DealAccessError extends Error {
+    constructor(status) {
+      super(status === 403 ? "Forbidden" : "Deal not found");
+      this.name = "DealAccessError";
+      this.status = status;
+    }
+  },
+  EnvironmentalAssessmentNotFoundErrorMock:
+    class EnvironmentalAssessmentNotFoundError extends Error {
+      constructor() {
+        super("Environmental assessment not found");
+        this.name = "EnvironmentalAssessmentNotFoundError";
+      }
+    },
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
   resolveAuth: resolveAuthMock,
 }));
 
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    deal: {
-      findUnique: findDealMock,
-    },
-    environmentalAssessment: {
-      findMany: findManyMock,
-      create: createMock,
-    },
-  },
+vi.mock("@gpc/server", () => ({
+  listEnvironmentalAssessmentsForDeal: listEnvironmentalAssessmentsForDealMock,
+  createEnvironmentalAssessmentForDeal: createEnvironmentalAssessmentForDealMock,
+  updateEnvironmentalAssessmentForDeal: updateEnvironmentalAssessmentForDealMock,
+  deleteEnvironmentalAssessmentForDeal: deleteEnvironmentalAssessmentForDealMock,
+  DealAccessError: DealAccessErrorMock,
+  EnvironmentalAssessmentNotFoundError: EnvironmentalAssessmentNotFoundErrorMock,
 }));
 
 import { GET, POST } from "./route";
@@ -56,8 +71,7 @@ const ENVIRONMENTAL_ASSESSMENT_RECORD = {
 describe("GET /api/deals/[id]/environmental-assessments", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
-    findDealMock.mockReset();
-    findManyMock.mockReset();
+    listEnvironmentalAssessmentsForDealMock.mockReset();
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -69,13 +83,14 @@ describe("GET /api/deals/[id]/environmental-assessments", () => {
 
     expect(res.status).toBe(401);
     expect(body).toEqual({ error: "Unauthorized" });
-    expect(findDealMock).not.toHaveBeenCalled();
-    expect(findManyMock).not.toHaveBeenCalled();
+    expect(listEnvironmentalAssessmentsForDealMock).not.toHaveBeenCalled();
   });
 
   it("returns 403 when requested deal belongs to another org", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    findDealMock.mockResolvedValue({ id: DEAL_ID, orgId: OTHER_ORG_ID });
+    listEnvironmentalAssessmentsForDealMock.mockRejectedValue(
+      new DealAccessErrorMock(403),
+    );
 
     const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/environmental-assessments`);
     const res = await GET(req, { params: Promise.resolve({ id: DEAL_ID }) });
@@ -83,7 +98,6 @@ describe("GET /api/deals/[id]/environmental-assessments", () => {
 
     expect(res.status).toBe(403);
     expect(body).toEqual({ error: "Forbidden: deal does not belong to your org" });
-    expect(findManyMock).not.toHaveBeenCalled();
   });
 
   it("returns 400 when deal id is invalid", async () => {
@@ -95,13 +109,18 @@ describe("GET /api/deals/[id]/environmental-assessments", () => {
 
     expect(res.status).toBe(400);
     expect(body.error).toBe("Invalid deal id");
-    expect(findDealMock).not.toHaveBeenCalled();
+    expect(listEnvironmentalAssessmentsForDealMock).not.toHaveBeenCalled();
   });
 
   it("returns environmental assessments for a scoped deal", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    findDealMock.mockResolvedValue({ id: DEAL_ID, orgId: ORG_ID });
-    findManyMock.mockResolvedValue([{ ...ENVIRONMENTAL_ASSESSMENT_RECORD }]);
+    listEnvironmentalAssessmentsForDealMock.mockResolvedValue([
+      {
+        ...ENVIRONMENTAL_ASSESSMENT_RECORD,
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]);
 
     const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/environmental-assessments`);
     const res = await GET(req, { params: Promise.resolve({ id: DEAL_ID }) });
@@ -117,9 +136,9 @@ describe("GET /api/deals/[id]/environmental-assessments", () => {
         updatedAt: null,
       },
     ]);
-    expect(findManyMock).toHaveBeenCalledWith({
-      where: { dealId: DEAL_ID },
-      orderBy: { createdAt: "desc" },
+    expect(listEnvironmentalAssessmentsForDealMock).toHaveBeenCalledWith({
+      dealId: DEAL_ID,
+      orgId: ORG_ID,
     });
   });
 });
@@ -127,8 +146,7 @@ describe("GET /api/deals/[id]/environmental-assessments", () => {
 describe("POST /api/deals/[id]/environmental-assessments", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
-    findDealMock.mockReset();
-    createMock.mockReset();
+    createEnvironmentalAssessmentForDealMock.mockReset();
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -147,12 +165,11 @@ describe("POST /api/deals/[id]/environmental-assessments", () => {
 
     expect(res.status).toBe(401);
     expect(body).toEqual({ error: "Unauthorized" });
-    expect(createMock).not.toHaveBeenCalled();
+    expect(createEnvironmentalAssessmentForDealMock).not.toHaveBeenCalled();
   });
 
   it("returns 400 for empty payload", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    findDealMock.mockResolvedValue({ id: DEAL_ID, orgId: ORG_ID });
 
     const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/environmental-assessments`, {
       method: "POST",
@@ -163,13 +180,14 @@ describe("POST /api/deals/[id]/environmental-assessments", () => {
 
     expect(res.status).toBe(400);
     expect(body.error).toBe("Invalid environmental assessment payload");
-    expect(createMock).not.toHaveBeenCalled();
+    expect(createEnvironmentalAssessmentForDealMock).not.toHaveBeenCalled();
   });
 
   it("creates environmental assessment for a scoped deal", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    findDealMock.mockResolvedValue({ id: DEAL_ID, orgId: ORG_ID });
-    createMock.mockResolvedValue({ ...ENVIRONMENTAL_ASSESSMENT_RECORD });
+    createEnvironmentalAssessmentForDealMock.mockResolvedValue({
+      ...ENVIRONMENTAL_ASSESSMENT_RECORD,
+    });
 
     const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/environmental-assessments`, {
       method: "POST",
@@ -180,12 +198,12 @@ describe("POST /api/deals/[id]/environmental-assessments", () => {
 
     expect(res.status).toBe(200);
     expect(body.environmentalAssessment.reportType).toBe("Phase I ESA");
-    expect(createMock).toHaveBeenCalledWith({
-      data: {
+    expect(createEnvironmentalAssessmentForDealMock).toHaveBeenCalledWith({
+      dealId: DEAL_ID,
+      orgId: ORG_ID,
+      input: {
         reportType: "Phase I ESA",
         consultantName: "Acme Environmental",
-        orgId: ORG_ID,
-        dealId: DEAL_ID,
       },
     });
   });

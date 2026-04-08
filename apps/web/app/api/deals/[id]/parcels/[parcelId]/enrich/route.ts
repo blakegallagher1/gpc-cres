@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@entitlement-os/db";
+import {
+  applyDealParcelEnrichment,
+  findDealParcelEnrichmentMatches,
+  ParcelNotFoundError,
+} from "@gpc/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import * as Sentry from "@sentry/nextjs";
-import {
-  getParcelEnrichmentPayload,
-  searchPropertyDbMatches,
-} from "@/lib/automation/enrichment";
 
 /**
  * POST /api/deals/[id]/parcels/[parcelId]/enrich
@@ -29,16 +29,6 @@ export async function POST(
   const { id: dealId, parcelId } = await params;
 
   try {
-    // Load parcel and verify org ownership via the deal
-    const parcel = await prisma.parcel.findFirst({
-      where: { id: parcelId, dealId, deal: { orgId: auth.orgId } },
-      include: { deal: { include: { jurisdiction: { select: { name: true } } } } },
-    });
-
-    if (!parcel) {
-      return NextResponse.json({ error: "Parcel not found" }, { status: 404 });
-    }
-
     const body = await request.json().catch(() => ({}));
     const action = (body as { action?: string }).action ?? "search";
 
@@ -46,12 +36,13 @@ export async function POST(
     // STEP 1: Search the property DB for matching parcels
     // ---------------------------------------------------------------
     if (action === "search") {
-      const matches = await searchPropertyDbMatches(
-        parcel.address,
-        parcel.deal?.jurisdiction?.name ?? null,
-      );
+      const result = await findDealParcelEnrichmentMatches({
+        dealId,
+        orgId: auth.orgId,
+        parcelId,
+      });
 
-      return NextResponse.json({ matches, address: parcel.address });
+      return NextResponse.json(result);
     }
 
     // ---------------------------------------------------------------
@@ -66,19 +57,21 @@ export async function POST(
         );
       }
 
-      const { screening, updateData } = await getParcelEnrichmentPayload(propertyDbId);
-
-      // Apply update
-      const updated = await prisma.parcel.update({
-        where: { id: parcelId },
-        data: updateData,
+      const result = await applyDealParcelEnrichment({
+        dealId,
+        orgId: auth.orgId,
+        parcelId,
+        propertyDbId,
       });
 
-      return NextResponse.json({ parcel: updated, screening });
+      return NextResponse.json(result);
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   } catch (error) {
+    if (error instanceof ParcelNotFoundError) {
+      return NextResponse.json({ error: "Parcel not found" }, { status: 404 });
+    }
     Sentry.captureException(error, {
       tags: { route: "api.deals.parcels.enrich", method: "POST" },
     });
