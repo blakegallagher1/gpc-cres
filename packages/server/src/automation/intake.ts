@@ -1,7 +1,7 @@
 import { prisma } from "@entitlement-os/db";
-import { AUTOMATION_CONFIG } from "./config.js";
-import { createAutomationTask } from "./notifications.js";
-import type { AutomationEvent } from "./types.js";
+import { AUTOMATION_CONFIG } from "./config";
+import { createAutomationTask } from "./notifications";
+import type { AutomationEvent } from "./types";
 import { logger } from "../../../../apps/web/lib/logger";
 import {
   projectLegacyDealCompatibility,

@@ -304,3 +304,8 @@ export async function upsertProceduralSkillsFromEpisode(
     skillIds: [skill.id],
   };
 }
+
+export const __testables = {
+  normalizeToolSequence,
+  buildProcedureDedupeHash,
+};

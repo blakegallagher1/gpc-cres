@@ -82,8 +82,8 @@ export async function reviewInnovation(
   innovationId: string,
   reviewedBy: string,
   decision: "approve" | "reject",
-): Promise<void> {
-  await prisma.innovationQueue.update({
+) {
+  return prisma.innovationQueue.update({
     where: { id: innovationId, orgId },
     data: {
       status: decision === "approve" ? "approved" : "rejected",

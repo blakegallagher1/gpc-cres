@@ -160,8 +160,8 @@ export async function resolveCollision(
   alertId: string,
   resolvedBy: string,
   resolution: "merge" | "distinct" | "ignore",
-): Promise<void> {
-  await prisma.entityCollisionAlert.update({
+){
+  return prisma.entityCollisionAlert.update({
     where: { id: alertId, orgId },
     data: {
       status: "resolved",

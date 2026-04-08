@@ -274,6 +274,13 @@ module.exports = [
       "app/api/admin/knowledge/[id]/route.ts",
       "app/api/cron/drift-monitor/route.ts",
       "app/api/cron/opportunity-scan/route.ts",
+      // Wave 9 — thinned memory/workflow/entity routes
+      "app/api/entities/lookup/route.ts",
+      "app/api/memory/collisions/route.ts",
+      "app/api/memory/feedback/route.ts",
+      "app/api/memory/innovation-queue/route.ts",
+      "app/api/memory/stats/route.ts",
+      "app/api/workflows/route.ts",
     ],
     rules: {
       "no-restricted-imports": [

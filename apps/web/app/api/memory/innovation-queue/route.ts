@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@entitlement-os/db';
 import { authorizeApiRoute } from '@/lib/auth/authorizeApiRoute';
+import {
+  getPendingInnovations,
+  reviewInnovation,
+} from "@gpc/server/services/novelty-detector.service";
 import * as Sentry from "@sentry/nextjs";
 
 /**
@@ -20,18 +23,7 @@ export async function GET(request: NextRequest) {
     const { orgId } = authorization.auth;
 
     // Fetch pending innovation queue items
-    const items = await prisma.innovationQueue.findMany({
-      where: {
-        orgId,
-        status: 'pending',
-      },
-      include: {
-        entity: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+    const items = await getPendingInnovations(orgId);
 
     return NextResponse.json({ items });
   } catch (error) {
@@ -62,7 +54,7 @@ export async function POST(request: NextRequest) {
         ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
         : authorization.response;
     }
-    const { userId } = authorization.auth;
+    const { orgId, userId } = authorization.auth;
 
     const body = await request.json();
     const { itemId, decision } = body;
@@ -75,15 +67,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Update innovation queue item
-    const updated = await prisma.innovationQueue.update({
-      where: { id: itemId },
-      data: {
-        status: decision,
-        reviewedBy: userId,
-        reviewedAt: new Date(),
-        reviewDecision: decision,
-      },
-    });
+    const updated = await reviewInnovation(
+      orgId,
+      itemId,
+      userId,
+      decision === "approved" ? "approve" : "reject",
+    );
 
     return NextResponse.json({ item: updated });
   } catch (error) {

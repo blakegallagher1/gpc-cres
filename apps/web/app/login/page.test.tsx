@@ -18,12 +18,16 @@ describe("LoginPage", () => {
   });
 
   it("renders sign-in as the primary surface on the public shell", () => {
-    const { container } = render(<LoginPage />);
+    render(<LoginPage />);
 
     expect(screen.getByRole("heading", { name: "Sign in to Entitlement OS" })).toBeInTheDocument();
-    expect(screen.getByText("Gallagher Property Company")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Gallagher Property Company" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue with Google" })).toBeInTheDocument();
-    expect(container.firstChild).toMatchSnapshot();
+    expect(
+      screen.getByRole("button", { name: "Use company credentials" }),
+    ).toBeInTheDocument();
   });
 
   it("reveals credential access when password sign-in is requested", async () => {

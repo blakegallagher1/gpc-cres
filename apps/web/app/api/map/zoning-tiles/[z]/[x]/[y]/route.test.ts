@@ -65,7 +65,7 @@ describe("GET /api/map/zoning-tiles/[z]/[x]/[y]", () => {
 
     expect(res.status).toBe(200);
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://tiles.gallagherpropco.com/ebr_parcels/2/1/2",
+      "https://tiles.gallagherpropco.com/get_zoning_mvt/2/1/2",
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: "Bearer test-key",

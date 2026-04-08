@@ -5,17 +5,27 @@ import HomePage from "./page";
 
 describe("HomePage", () => {
   it("renders the public Gallagher Property Company homepage", () => {
-    const { container } = render(<HomePage />);
+    render(<HomePage />);
 
-    expect(screen.getByRole("heading", { name: "Gallagher Property Company" })).toBeInTheDocument();
-    expect(screen.getByText("Review the business by section")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /where the company stays narrow on purpose/i })).toHaveAttribute("href", "/focus");
-    expect(screen.getByRole("link", { name: /how opportunities move from screen to hold/i })).toHaveAttribute("href", "/strategy");
-    expect(screen.getByRole("link", { name: /what the internal system actually does/i })).toHaveAttribute("href", "/platform");
-    expect(screen.getByText("Homepage + 3 section pages")).toBeInTheDocument();
-    expect(screen.getByText("Housing + infill industrial")).toBeInTheDocument();
-    expect(screen.getByText("Basis -> approvals -> operations")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Gallagher Property Company" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Review the company by section" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /investment focus/i }),
+    ).toHaveAttribute("href", "/focus");
+    expect(
+      screen.getByRole("link", { name: /execution strategy/i }),
+    ).toHaveAttribute("href", "/strategy");
+    expect(
+      screen.getByRole("link", { name: /operating platform/i }),
+    ).toHaveAttribute("href", "/platform");
+    expect(
+      screen.getByText("Manufactured Housing + Infill Industrial"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Buy → Build → Manage")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /enter the platform/i })).toHaveAttribute("href", "/login");
-    expect(container.firstChild).toMatchSnapshot();
   });
 });

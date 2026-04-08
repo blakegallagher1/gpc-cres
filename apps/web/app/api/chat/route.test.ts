@@ -2,37 +2,27 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSseWriter } from "./sseWriter";
 
-const { resolveAuthMock, runAgentWorkflowMock, isDatabaseConnectivityErrorMock } = vi.hoisted(() => ({
-  resolveAuthMock: vi.fn(),
-  runAgentWorkflowMock: vi.fn(),
-  isDatabaseConnectivityErrorMock: vi.fn(() => false),
+const { authorizeApiRouteMock, runChatApplicationMock } = vi.hoisted(() => ({
+  authorizeApiRouteMock: vi.fn(),
+  runChatApplicationMock: vi.fn(),
 }));
 const { setupAgentTracingMock } = vi.hoisted(() => ({
   setupAgentTracingMock: vi.fn(),
-}));
-const { extractAndMergeConversationPreferencesMock } = vi.hoisted(() => ({
-  extractAndMergeConversationPreferencesMock: vi.fn(),
 }));
 const { shouldUseAppDatabaseDevFallbackMock } = vi.hoisted(() => ({
   shouldUseAppDatabaseDevFallbackMock: vi.fn(() => false),
 }));
 
-vi.mock("@/lib/auth/resolveAuth", () => ({
-  resolveAuth: resolveAuthMock,
+vi.mock("@/lib/auth/authorizeApiRoute", () => ({
+  authorizeApiRoute: authorizeApiRouteMock,
 }));
 
-vi.mock("@/lib/agent/agentRunner", () => ({
-  runAgentWorkflow: runAgentWorkflowMock,
-  isDatabaseConnectivityError: isDatabaseConnectivityErrorMock,
+vi.mock("@gpc/server/chat/chat-application.service", () => ({
+  runChatApplication: runChatApplicationMock,
 }));
 
 vi.mock("@entitlement-os/openai", () => ({
   setupAgentTracing: setupAgentTracingMock,
-}));
-
-vi.mock("@/lib/services/preferenceExtraction.service", () => ({
-  extractAndMergeConversationPreferences:
-    extractAndMergeConversationPreferencesMock,
 }));
 
 vi.mock("@/lib/server/appDbEnv", () => ({
@@ -51,23 +41,22 @@ function parseSsePayloads(body: string): Array<Record<string, unknown>> {
 
 describe("POST /api/chat", () => {
   beforeEach(() => {
-    resolveAuthMock.mockReset();
-    runAgentWorkflowMock.mockReset();
-    isDatabaseConnectivityErrorMock.mockReset();
-    isDatabaseConnectivityErrorMock.mockReturnValue(false);
+    authorizeApiRouteMock.mockReset();
+    runChatApplicationMock.mockReset();
     setupAgentTracingMock.mockReset();
-    extractAndMergeConversationPreferencesMock.mockReset();
     shouldUseAppDatabaseDevFallbackMock.mockReset();
     shouldUseAppDatabaseDevFallbackMock.mockReturnValue(false);
-    extractAndMergeConversationPreferencesMock.mockResolvedValue(undefined);
+    authorizeApiRouteMock.mockResolvedValue({
+      ok: true,
+      auth: {
+        userId: "99999999-9999-4999-8999-999999999999",
+        orgId: "11111111-1111-4111-8111-111111111111",
+      },
+    });
   });
 
   it("maps guardrail tripwire errors to structured SSE payloads", async () => {
-    resolveAuthMock.mockResolvedValue({
-      userId: "99999999-9999-4999-8999-999999999999",
-      orgId: "11111111-1111-4111-8111-111111111111",
-    });
-    runAgentWorkflowMock.mockImplementation(
+    runChatApplicationMock.mockImplementation(
       async (args: { onEvent?: (event: { type: string; message?: string }) => void }) => {
         args.onEvent?.({
           type: "error",
@@ -87,14 +76,13 @@ describe("POST /api/chat", () => {
     const text = await res.text();
 
     expect(res.status).toBe(200);
-    expect(setupAgentTracingMock).toHaveBeenCalledTimes(1);
     expect(text).toContain('"type":"error"');
     expect(text).toContain('"code":"guardrail_tripwire"');
     expect(text).toContain("Request blocked by safety guardrails");
   });
 
   it("returns 401 when unauthenticated", async () => {
-    resolveAuthMock.mockResolvedValue(null);
+    authorizeApiRouteMock.mockResolvedValue({ ok: false });
 
     const req = new NextRequest("http://localhost/api/chat", {
       method: "POST",
@@ -105,11 +93,11 @@ describe("POST /api/chat", () => {
 
     expect(res.status).toBe(401);
     expect(body).toEqual({ error: "Unauthorized" });
-    expect(runAgentWorkflowMock).not.toHaveBeenCalled();
+    expect(runChatApplicationMock).not.toHaveBeenCalled();
   });
 
   it("returns 500 when auth resolution throws", async () => {
-    resolveAuthMock.mockRejectedValue(new Error("auth down"));
+    authorizeApiRouteMock.mockRejectedValue(new Error("auth down"));
 
     const req = new NextRequest("http://localhost/api/chat", {
       method: "POST",
@@ -123,15 +111,11 @@ describe("POST /api/chat", () => {
       error: "Authentication service unavailable",
       detail: "Error: auth down",
     });
-    expect(runAgentWorkflowMock).not.toHaveBeenCalled();
+    expect(runChatApplicationMock).not.toHaveBeenCalled();
   });
 
   it("passes map context to agent workflow when provided", async () => {
-    resolveAuthMock.mockResolvedValue({
-      userId: "99999999-9999-4999-8999-999999999999",
-      orgId: "11111111-1111-4111-8111-111111111111",
-    });
-    runAgentWorkflowMock.mockResolvedValue({
+    runChatApplicationMock.mockResolvedValue({
       conversationId: "conv-1",
     });
 
@@ -159,22 +143,19 @@ describe("POST /api/chat", () => {
     await res.text();
 
     expect(res.status).toBe(200);
-    expect(runAgentWorkflowMock).toHaveBeenCalledTimes(1);
-
-    const callArgs = runAgentWorkflowMock.mock.calls[0][0] as Record<string, unknown>;
-    const msg = callArgs.message as string;
-    // Planner path: structured context injected, message contains parcel context JSON or original text
-    // Fallback path: message contains [Map Context] text prefix
-    // Either path is valid — the key is that the user message is preserved
-    expect(msg).toContain("Show me the selected parcel.");
+    expect(runChatApplicationMock).toHaveBeenCalledTimes(1);
+    expect(runChatApplicationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "Show me the selected parcel.",
+        mapContext: expect.objectContaining({
+          selectedParcelIds: ["parcel-1"],
+        }),
+      }),
+    );
   });
 
   it("passes the selected CUA model through to the agent workflow", async () => {
-    resolveAuthMock.mockResolvedValue({
-      userId: "99999999-9999-4999-8999-999999999999",
-      orgId: "11111111-1111-4111-8111-111111111111",
-    });
-    runAgentWorkflowMock.mockResolvedValue({
+    runChatApplicationMock.mockResolvedValue({
       conversationId: "conv-cua",
     });
 
@@ -190,7 +171,7 @@ describe("POST /api/chat", () => {
     await res.text();
 
     expect(res.status).toBe(200);
-    expect(runAgentWorkflowMock).toHaveBeenCalledWith(
+    expect(runChatApplicationMock).toHaveBeenCalledWith(
       expect.objectContaining({
         preferredCuaModel: "gpt-5.4-mini",
       }),
@@ -198,11 +179,7 @@ describe("POST /api/chat", () => {
   });
 
   it("streams current chat SSE event names and payload shapes unchanged", async () => {
-    resolveAuthMock.mockResolvedValue({
-      userId: "99999999-9999-4999-8999-999999999999",
-      orgId: "11111111-1111-4111-8111-111111111111",
-    });
-    runAgentWorkflowMock.mockImplementation(
+    runChatApplicationMock.mockImplementation(
       async (args: {
         onEvent?: (event: Record<string, unknown>) => void;
       }) => {
@@ -292,11 +269,7 @@ describe("POST /api/chat", () => {
 
   it("runs in degraded ephemeral mode when the app DB is unavailable in dev", async () => {
     shouldUseAppDatabaseDevFallbackMock.mockReturnValue(true);
-    resolveAuthMock.mockResolvedValue({
-      userId: "99999999-9999-4999-8999-999999999999",
-      orgId: "11111111-1111-4111-8111-111111111111",
-    });
-    runAgentWorkflowMock.mockResolvedValue({ conversationId: null });
+    runChatApplicationMock.mockResolvedValue({ conversationId: null });
 
     const req = new NextRequest("http://localhost/api/chat", {
       method: "POST",
@@ -306,25 +279,19 @@ describe("POST /api/chat", () => {
     const text = await res.text();
 
     expect(res.status).toBe(200);
-    expect(runAgentWorkflowMock).toHaveBeenCalledTimes(1);
-    expect(runAgentWorkflowMock.mock.calls[0][0]).toMatchObject({
-      persistConversation: false,
-      conversationId: null,
-      dealId: null,
-      ephemeralMode: true,
-    });
-    expect(text).toContain('"status":"degraded_mode"');
+    expect(runChatApplicationMock).toHaveBeenCalledTimes(1);
+    expect(runChatApplicationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appDatabaseUnavailableInDev: true,
+      }),
+    );
+    expect(text).toContain('"type":"done"');
   });
 
-  it("retries in ephemeral mode when DB connectivity fails", async () => {
-    resolveAuthMock.mockResolvedValue({
-      userId: "99999999-9999-4999-8999-999999999999",
-      orgId: "11111111-1111-4111-8111-111111111111",
-    });
-    isDatabaseConnectivityErrorMock.mockReturnValue(true);
-    runAgentWorkflowMock
-      .mockRejectedValueOnce(new Error("Gateway DB proxy error (500): Database error"))
-      .mockResolvedValueOnce({ conversationId: null });
+  it("emits a failed terminal event when chat application throws", async () => {
+    runChatApplicationMock.mockRejectedValue(
+      new Error("Gateway DB proxy error (500): Database error"),
+    );
 
     const req = new NextRequest("http://localhost/api/chat", {
       method: "POST",
@@ -334,13 +301,9 @@ describe("POST /api/chat", () => {
     const text = await res.text();
 
     expect(res.status).toBe(200);
-    expect(runAgentWorkflowMock).toHaveBeenCalledTimes(2);
-    expect(runAgentWorkflowMock.mock.calls[1][0]).toMatchObject({
-      persistConversation: false,
-      conversationId: null,
-      dealId: null,
-      ephemeralMode: true,
-    });
-    expect(text).toContain('"status":"degraded_mode"');
+    expect(runChatApplicationMock).toHaveBeenCalledTimes(1);
+    expect(text).toContain('"type":"error"');
+    expect(text).toContain('"type":"done"');
+    expect(text).toContain('"status":"failed"');
   });
 });

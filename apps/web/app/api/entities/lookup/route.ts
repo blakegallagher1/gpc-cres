@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
-import { prisma } from "@entitlement-os/db";
-import { normalizeAddress } from "@/lib/services/entityResolution";
-import { getTruthView } from "@/lib/services/truthViewService";
+import { lookupEntityByAddressOrParcel } from "@gpc/server/services/entity-lookup.service";
 import * as Sentry from "@sentry/nextjs";
 
 /**
@@ -34,44 +32,13 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Try parcel_id first (deterministic)
-    if (parcelId) {
-      const entity = await prisma.internalEntity.findFirst({
-        where: { orgId: auth.orgId, parcelId },
-        select: { id: true, canonicalAddress: true, parcelId: true },
-      });
-      if (entity) {
-        const truth = await getTruthView(entity.id, auth.orgId);
-        return NextResponse.json({
-          found: true,
-          entityId: entity.id,
-          canonicalAddress: entity.canonicalAddress,
-          parcelId: entity.parcelId,
-          truth,
-        });
-      }
-    }
-
-    // Try normalized address
-    if (address) {
-      const canonical = normalizeAddress(address);
-      const entity = await prisma.internalEntity.findFirst({
-        where: { orgId: auth.orgId, canonicalAddress: canonical },
-        select: { id: true, canonicalAddress: true, parcelId: true },
-      });
-      if (entity) {
-        const truth = await getTruthView(entity.id, auth.orgId);
-        return NextResponse.json({
-          found: true,
-          entityId: entity.id,
-          canonicalAddress: entity.canonicalAddress,
-          parcelId: entity.parcelId,
-          truth,
-        });
-      }
-    }
-
-    return NextResponse.json({ found: false });
+    return NextResponse.json(
+      await lookupEntityByAddressOrParcel({
+        orgId: auth.orgId,
+        address,
+        parcelId,
+      }),
+    );
   } catch (error) {
     Sentry.captureException(error, {
       tags: { route: "api.entities.lookup", method: "GET" },

@@ -3,28 +3,22 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   resolveAuthMock,
-  workflowTemplateFindManyMock,
-  workflowTemplateUpdateManyMock,
-  workflowTemplateCreateMock,
+  listWorkflowTemplatesMock,
+  createWorkflowTemplateMock,
 } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
-  workflowTemplateFindManyMock: vi.fn(),
-  workflowTemplateUpdateManyMock: vi.fn(),
-  workflowTemplateCreateMock: vi.fn(),
+  listWorkflowTemplatesMock: vi.fn(),
+  createWorkflowTemplateMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
   resolveAuth: resolveAuthMock,
 }));
 
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    workflowTemplate: {
-      findMany: workflowTemplateFindManyMock,
-      updateMany: workflowTemplateUpdateManyMock,
-      create: workflowTemplateCreateMock,
-    },
-  },
+vi.mock("@gpc/server/workflows/workflow-template.service", () => ({
+  listWorkflowTemplates: listWorkflowTemplatesMock,
+  createWorkflowTemplate: createWorkflowTemplateMock,
+  WorkflowTemplateValidationError: class WorkflowTemplateValidationError extends Error {},
 }));
 
 import { GET, POST } from "./route";
@@ -36,9 +30,8 @@ describe("/api/workflows route", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    workflowTemplateFindManyMock.mockReset();
-    workflowTemplateUpdateManyMock.mockReset();
-    workflowTemplateCreateMock.mockReset();
+    listWorkflowTemplatesMock.mockReset();
+    createWorkflowTemplateMock.mockReset();
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -50,11 +43,11 @@ describe("/api/workflows route", () => {
 
     expect(res.status).toBe(401);
     expect(body).toEqual({ error: "Unauthorized" });
-    expect(workflowTemplateFindManyMock).not.toHaveBeenCalled();
+    expect(listWorkflowTemplatesMock).not.toHaveBeenCalled();
   });
 
   it("lists workflow templates scoped to the auth org", async () => {
-    workflowTemplateFindManyMock.mockResolvedValue([
+    listWorkflowTemplatesMock.mockResolvedValue([
       {
         id: "workflow-1",
         orgId: ORG_ID,
@@ -72,10 +65,7 @@ describe("/api/workflows route", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(workflowTemplateFindManyMock).toHaveBeenCalledWith({
-      where: { orgId: ORG_ID },
-      orderBy: [{ isDefault: "desc" }, { name: "asc" }],
-    });
+    expect(listWorkflowTemplatesMock).toHaveBeenCalledWith(ORG_ID);
     expect(body.workflowTemplates).toEqual([
       {
         id: "workflow-1",
@@ -91,8 +81,7 @@ describe("/api/workflows route", () => {
   });
 
   it("creates a workflow template and stages for the auth org", async () => {
-    workflowTemplateUpdateManyMock.mockResolvedValue({ count: 1 });
-    workflowTemplateCreateMock.mockResolvedValue({
+    createWorkflowTemplateMock.mockResolvedValue({
       id: "workflow-2",
       orgId: ORG_ID,
       key: "ACQUISITION",
@@ -138,36 +127,14 @@ describe("/api/workflows route", () => {
     const body = await res.json();
 
     expect(res.status).toBe(201);
-    expect(workflowTemplateUpdateManyMock).toHaveBeenCalledWith({
-      where: { orgId: ORG_ID, isDefault: true },
-      data: { isDefault: false },
-    });
-    expect(workflowTemplateCreateMock).toHaveBeenCalledWith({
-      data: {
-        orgId: ORG_ID,
+    expect(createWorkflowTemplateMock).toHaveBeenCalledWith(
+      ORG_ID,
+      expect.objectContaining({
         key: "ACQUISITION",
         name: "Acquisition",
-        description: "Generic acquisition flow",
         isDefault: true,
-        stages: {
-          create: [
-            {
-              orgId: ORG_ID,
-              key: "UNDERWRITING",
-              name: "Underwriting",
-              ordinal: 1,
-              description: "Run initial underwriting",
-              requiredGate: null,
-            },
-          ],
-        },
-      },
-      include: {
-        stages: {
-          orderBy: { ordinal: "asc" },
-        },
-      },
-    });
+      }),
+    );
     expect(body.workflowTemplate).toEqual({
       id: "workflow-2",
       orgId: ORG_ID,

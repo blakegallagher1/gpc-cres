@@ -24,6 +24,11 @@ vi.mock("@/lib/services/knowledgeBase.service", () => ({
   deleteKnowledge: vi.fn().mockResolvedValue(null),
 }));
 
+vi.mock("@gpc/server/search/knowledge-base.service", () => ({
+  ingestKnowledge: vi.fn().mockResolvedValue(["knowledge-id-1"]),
+  deleteKnowledge: vi.fn().mockResolvedValue(null),
+}));
+
 describe("procedural skill promotion", () => {
   beforeEach(() => {
     vi.clearAllMocks();

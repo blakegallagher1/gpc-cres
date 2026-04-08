@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { prismaMock, createStrictJsonResponseMock, recordEventMock } = vi.hoisted(() => ({
+const {
+  prismaMock,
+  createStrictJsonResponseMock,
+  recordEventMock,
+  applyCorrectionMock,
+} = vi.hoisted(() => ({
   prismaMock: {
     memoryVerified: {
       create: vi.fn(),
@@ -15,6 +20,7 @@ const { prismaMock, createStrictJsonResponseMock, recordEventMock } = vi.hoisted
   },
   createStrictJsonResponseMock: vi.fn(),
   recordEventMock: vi.fn(),
+  applyCorrectionMock: vi.fn().mockResolvedValue({ id: "correction-record-1" }),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -33,6 +39,12 @@ vi.mock("@/lib/services/memoryEventService", () => ({
   }),
 }));
 
+vi.mock("@gpc/server/services/memory-event.service", () => ({
+  getMemoryEventService: () => ({
+    recordEvent: recordEventMock,
+  }),
+}));
+
 vi.mock("@/lib/services/conflictDetection", () => ({
   detectConflicts: vi.fn().mockResolvedValue({
     hasConflict: false,
@@ -41,16 +53,34 @@ vi.mock("@/lib/services/conflictDetection", () => ({
   }),
 }));
 
-vi.mock("@/lib/services/correctionService", () => ({
-  applyCorrection: vi.fn().mockResolvedValue({ id: "correction-record-1" }),
+vi.mock("@gpc/server/services/conflict-detection.service", () => ({
+  detectConflicts: vi.fn().mockResolvedValue({
+    hasConflict: false,
+    conflictingRecords: [],
+    conflictKeys: [],
+  }),
 }));
 
-vi.mock("@/lib/server/requestContext", () => ({
-  generateRequestId: () => "test-request-id",
+vi.mock("@/lib/services/correctionService", () => ({
+  applyCorrection: applyCorrectionMock,
 }));
+
+vi.mock("@gpc/server/services/correction.service", () => ({
+  applyCorrection: applyCorrectionMock,
+}));
+
+vi.mock("node:crypto", async () => {
+  const actual = await vi.importActual<typeof import("node:crypto")>(
+    "node:crypto",
+  );
+
+  return {
+    ...actual,
+    randomUUID: () => "test-request-id",
+  };
+});
 
 import { memoryWriteGate } from "@/lib/services/memoryWriteGate";
-import { applyCorrection } from "@/lib/services/correctionService";
 import type { MemoryWrite } from "@/lib/schemas/memoryWrite";
 
 const ORG_ID = "11111111-1111-4111-8111-111111111111";
@@ -218,12 +248,12 @@ describe("writeGateAcceptance — multi fact type", () => {
     expect(result.reasons).toContainEqual(
       expect.stringContaining("Correction fact type"),
     );
-    expect(applyCorrection).toHaveBeenCalledWith(
+    expect(applyCorrectionMock).toHaveBeenCalledWith(
       ENTITY_ID,
       ORG_ID,
       expect.objectContaining({ corrected_attribute_key: "comp.noi" }),
       "event-log-1",
-      "test-request-id",
+      expect.any(String),
     );
   });
 

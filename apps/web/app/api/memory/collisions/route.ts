@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@entitlement-os/db';
 import { authorizeApiRoute } from '@/lib/auth/authorizeApiRoute';
+import {
+  getPendingCollisions,
+  resolveCollision,
+} from "@gpc/server/services/entity-collision-detector.service";
 import * as Sentry from "@sentry/nextjs";
 
 /**
@@ -20,18 +23,7 @@ export async function GET(request: NextRequest) {
     const { orgId } = authorization.auth;
 
     // Fetch collision alerts
-    const alerts = await prisma.entityCollisionAlert.findMany({
-      where: {
-        orgId,
-        status: 'pending',
-      },
-      include: {
-        entityA: true,
-      },
-      orderBy: {
-        similarity: 'desc',
-      },
-    });
+    const alerts = await getPendingCollisions(orgId);
 
     return NextResponse.json({ alerts });
   } catch (error) {
@@ -62,7 +54,7 @@ export async function POST(request: NextRequest) {
         ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
         : authorization.response;
     }
-    const { userId } = authorization.auth;
+    const { orgId, userId } = authorization.auth;
 
     const body = await request.json();
     const { alertId, resolution } = body;
@@ -75,15 +67,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update collision alert
-    const updated = await prisma.entityCollisionAlert.update({
-      where: { id: alertId },
-      data: {
-        status: 'resolved',
-        resolvedBy: userId,
-        resolvedAt: new Date(),
-        resolution,
-      },
-    });
+    const updated = await resolveCollision(orgId, alertId, userId, resolution);
 
     return NextResponse.json({ alert: updated });
   } catch (error) {

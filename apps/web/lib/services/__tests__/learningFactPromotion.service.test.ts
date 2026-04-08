@@ -21,6 +21,17 @@ vi.mock("@entitlement-os/db", () => dbMock);
 vi.mock("@/lib/services/memoryWriteGate", () => ({
   memoryWriteGate: memoryWriteGateMock,
 }));
+vi.mock("@gpc/server/services/memory-write-gate.service", () => ({
+  memoryWriteGate: memoryWriteGateMock,
+}));
+vi.mock("@gpc/server/automation/config", () => ({
+  AUTOMATION_CONFIG: {
+    agentLearning: {
+      promoteFacts: true,
+      minConfidenceForFactPromotion: 0.72,
+    },
+  },
+}));
 
 import { promoteCandidateFactsFromRun } from "../learningFactPromotion.service";
 
@@ -47,10 +58,11 @@ describe("promoteCandidateFactsFromRun", () => {
 
   it("promotes only when the confidence threshold is met", async () => {
     dbMock.prisma.run.findFirst.mockResolvedValue({
-      dealId: "deal-1",
       outputJson: {
         confidence: 0.91,
-        missingEvidence: [],
+        trust: {
+          missingEvidence: [],
+        },
         finalOutput:
           "Comparable sale correction: sold for $3,200,000 at a 6.2% cap rate.",
       },
@@ -74,10 +86,11 @@ describe("promoteCandidateFactsFromRun", () => {
 
   it("skips promotion when missing evidence exists", async () => {
     dbMock.prisma.run.findFirst.mockResolvedValue({
-      dealId: "deal-1",
       outputJson: {
         confidence: 0.95,
-        missingEvidence: ["Need one more citation."],
+        trust: {
+          missingEvidence: ["Need one more citation."],
+        },
         finalOutput:
           "Comparable sale correction: sold for $3,200,000 at a 6.2% cap rate.",
       },
@@ -101,10 +114,11 @@ describe("promoteCandidateFactsFromRun", () => {
 
   it("calls memoryWriteGate only for whitelisted fact classes", async () => {
     dbMock.prisma.run.findFirst.mockResolvedValue({
-      dealId: "deal-1",
       outputJson: {
         confidence: 0.9,
-        missingEvidence: [],
+        trust: {
+          missingEvidence: [],
+        },
         finalOutput: [
           "General recommendation: proceed cautiously and confirm assumptions.",
           "Lender term correction: 65% LTV, 1.25 DSCR, 25-year amortization.",

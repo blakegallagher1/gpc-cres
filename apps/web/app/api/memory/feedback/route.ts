@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z, ZodError } from "zod";
-import { prisma } from "@entitlement-os/db";
 import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
+import { createMemoryFeedback } from "@gpc/server/services/memory-feedback.service";
 import * as Sentry from "@sentry/nextjs";
 
 const FeedbackInputSchema = z.object({
@@ -23,14 +23,12 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const validated = FeedbackInputSchema.parse(body);
 
-    const feedback = await prisma.memoryFeedback.create({
-      data: {
-        orgId: auth.orgId,
-        requestId: validated.requestId,
-        memoryId: validated.memoryId,
-        positive: validated.positive,
-        userId: auth.userId,
-      },
+    const feedback = await createMemoryFeedback({
+      orgId: auth.orgId,
+      requestId: validated.requestId,
+      memoryId: validated.memoryId,
+      positive: validated.positive,
+      userId: auth.userId,
     });
 
     return NextResponse.json(feedback, { status: 201 });
