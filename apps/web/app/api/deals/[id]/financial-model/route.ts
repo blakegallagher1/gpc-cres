@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma, type Prisma } from "@entitlement-os/db";
 import {
   CapitalSourceCreateInputSchema,
   CapitalSourceIdSchema,
@@ -14,19 +13,18 @@ import {
   TenantLeaseIdSchema,
   TenantLeasePatchWithIdInputSchema,
   TenantPatchWithIdInputSchema,
-  type CapitalSourceCreateInput,
-  type CapitalSourcePatchWithIdInput,
-  type DevelopmentBudgetInput,
-  type EquityWaterfallTierCreateInput,
-  type EquityWaterfallTierPatchWithIdInput,
-  type TenantCreateInput,
-  type TenantLeaseCreateInput,
-  type TenantLeasePatchWithIdInput,
-  type TenantPatchWithIdInput,
 } from "@entitlement-os/shared";
-import { ZodError, z } from "zod";
-import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { z, ZodError } from "zod";
 import * as Sentry from "@sentry/nextjs";
+import {
+  DealFinancialModelRouteError,
+  createDealFinancialModelEntity,
+  deleteDealFinancialModelEntity,
+  getDealFinancialModel,
+  saveDealFinancialModel,
+  updateDealFinancialModelEntity,
+} from "@gpc/server";
+import { resolveAuth } from "@/lib/auth/resolveAuth";
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
@@ -122,887 +120,207 @@ const updateFinancialModelSchema = z
     }
   });
 
-type DecimalLike = { toString: () => string };
-
-type TenantResponseItem = {
-  id: string;
-  dealId: string;
-  orgId: string;
-  name: string;
-  contactName: string | null;
-  email: string | null;
-  phone: string | null;
-  notes: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-type LeaseResponseItem = {
-  id: string;
-  dealId: string;
-  orgId: string;
-  tenantId: string;
-  tenantName: string;
-  leaseName: string | null;
-  startDate: string;
-  endDate: string;
-  rentedAreaSf: number;
-  rentPerSf: number;
-  annualEscalationPct: number;
-  createdAt: string;
-  updatedAt: string;
-};
-
-type DevelopmentBudgetResponse = {
-  id: string;
-  dealId: string;
-  orgId: string;
-  lineItems: DevelopmentBudgetInput["lineItems"];
-  contingencies: DevelopmentBudgetInput["contingencies"];
-  createdAt: string;
-  updatedAt: string;
-};
-
-type CapitalSourceResponseItem = {
-  id: string;
-  dealId: string;
-  orgId: string;
-  name: string;
-  sourceKind: string;
-  amount: number;
-  notes: string | null;
-  sortOrder: number;
-  createdAt: string;
-  updatedAt: string;
-};
-
-type EquityWaterfallResponseItem = {
-  id: string;
-  dealId: string;
-  orgId: string;
-  tierName: string;
-  hurdleIrrPct: number;
-  lpDistributionPct: number;
-  gpDistributionPct: number;
-  sortOrder: number;
-  createdAt: string;
-  updatedAt: string;
-};
-
-function toNumber(value: DecimalLike | number): number {
-  if (typeof value === "number") {
-    return value;
+function toErrorResponse(error: unknown, fallbackMessage: string) {
+  if (error instanceof DealFinancialModelRouteError) {
+    return NextResponse.json({ error: error.message }, { status: error.status });
   }
-  return Number.parseFloat(value.toString());
-}
-
-function serializeTenant(tenant: {
-  id: string;
-  dealId: string;
-  orgId: string;
-  name: string;
-  contactName: string | null;
-  email: string | null;
-  phone: string | null;
-  notes: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}): TenantResponseItem {
-  return {
-    id: tenant.id,
-    dealId: tenant.dealId,
-    orgId: tenant.orgId,
-    name: tenant.name,
-    contactName: tenant.contactName,
-    email: tenant.email,
-    phone: tenant.phone,
-    notes: tenant.notes,
-    createdAt: tenant.createdAt.toISOString(),
-    updatedAt: tenant.updatedAt.toISOString(),
-  };
-}
-
-function serializeLease(lease: {
-  id: string;
-  dealId: string;
-  orgId: string;
-  tenantId: string;
-  leaseName: string | null;
-  startDate: Date;
-  endDate: Date;
-  rentedAreaSf: DecimalLike | number;
-  rentPerSf: DecimalLike | number;
-  annualEscalationPct: DecimalLike | number;
-  createdAt: Date;
-  updatedAt: Date;
-  tenant: { name: string };
-}): LeaseResponseItem {
-  return {
-    id: lease.id,
-    dealId: lease.dealId,
-    orgId: lease.orgId,
-    tenantId: lease.tenantId,
-    tenantName: lease.tenant.name,
-    leaseName: lease.leaseName,
-    startDate: lease.startDate.toISOString(),
-    endDate: lease.endDate.toISOString(),
-    rentedAreaSf: toNumber(lease.rentedAreaSf),
-    rentPerSf: toNumber(lease.rentPerSf),
-    annualEscalationPct: toNumber(lease.annualEscalationPct),
-    createdAt: lease.createdAt.toISOString(),
-    updatedAt: lease.updatedAt.toISOString(),
-  };
-}
-
-function serializeDevelopmentBudget(budget: {
-  id: string;
-  dealId: string;
-  orgId: string;
-  lineItems: unknown;
-  contingencies: unknown;
-  createdAt: Date;
-  updatedAt: Date;
-}): DevelopmentBudgetResponse {
-  const lineItems = DevelopmentBudgetCreateInputSchema.shape.lineItems.parse(budget.lineItems);
-  const contingencies = DevelopmentBudgetCreateInputSchema.shape.contingencies.parse(
-    budget.contingencies,
-  );
-  return {
-    id: budget.id,
-    dealId: budget.dealId,
-    orgId: budget.orgId,
-    lineItems,
-    contingencies,
-    createdAt: budget.createdAt.toISOString(),
-    updatedAt: budget.updatedAt.toISOString(),
-  };
-}
-
-function serializeCapitalSource(source: {
-  id: string;
-  dealId: string;
-  orgId: string;
-  name: string;
-  sourceKind: string;
-  amount: DecimalLike | number;
-  notes: string | null;
-  sortOrder: number;
-  createdAt: Date;
-  updatedAt: Date;
-}): CapitalSourceResponseItem {
-  return {
-    id: source.id,
-    dealId: source.dealId,
-    orgId: source.orgId,
-    name: source.name,
-    sourceKind: source.sourceKind,
-    amount: toNumber(source.amount),
-    notes: source.notes,
-    sortOrder: source.sortOrder,
-    createdAt: source.createdAt.toISOString(),
-    updatedAt: source.updatedAt.toISOString(),
-  };
-}
-
-function serializeEquityWaterfallTier(tier: {
-  id: string;
-  dealId: string;
-  orgId: string;
-  tierName: string;
-  hurdleIrrPct: DecimalLike | number;
-  lpDistributionPct: DecimalLike | number;
-  gpDistributionPct: DecimalLike | number;
-  sortOrder: number;
-  createdAt: Date;
-  updatedAt: Date;
-}): EquityWaterfallResponseItem {
-  return {
-    id: tier.id,
-    dealId: tier.dealId,
-    orgId: tier.orgId,
-    tierName: tier.tierName,
-    hurdleIrrPct: toNumber(tier.hurdleIrrPct),
-    lpDistributionPct: toNumber(tier.lpDistributionPct),
-    gpDistributionPct: toNumber(tier.gpDistributionPct),
-    sortOrder: tier.sortOrder,
-    createdAt: tier.createdAt.toISOString(),
-    updatedAt: tier.updatedAt.toISOString(),
-  };
-}
-
-async function authorizeDeal(
-  dealId: string,
-  orgId: string,
-): Promise<{ ok: true } | { ok: false; status: 403 | 404 }> {
-  const deal = await prisma.deal.findUnique({
-    where: { id: dealId },
-    select: { id: true, orgId: true },
-  });
-
-  if (!deal) {
-    return { ok: false, status: 404 };
+  if (error instanceof ZodError) {
+    return NextResponse.json(
+      {
+        error: fallbackMessage,
+        issues: error.flatten().fieldErrors,
+      },
+      { status: 400 },
+    );
   }
-  if (deal.orgId !== orgId) {
-    return { ok: false, status: 403 };
-  }
-  return { ok: true };
+  return NextResponse.json({ error: fallbackMessage }, { status: 500 });
 }
 
-// GET /api/deals/[id]/financial-model — load saved assumptions + rent roll + budget
-export async function GET(
+async function resolveAuthorizedDealId(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  params: Promise<{ id: string }>,
 ) {
   const auth = await resolveAuth(request);
   if (!auth) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return {
+      auth: null,
+      response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+      dealId: null,
+    };
   }
 
   const parseResult = paramsSchema.safeParse(await params);
   if (!parseResult.success) {
-    return NextResponse.json({ error: "Invalid deal id" }, { status: 400 });
+    return {
+      auth,
+      response: NextResponse.json({ error: "Invalid deal id" }, { status: 400 }),
+      dealId: null,
+    };
+  }
+
+  return { auth, response: null, dealId: parseResult.data.id };
+}
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const resolved = await resolveAuthorizedDealId(request, params);
+  if (resolved.response || !resolved.auth || !resolved.dealId) {
+    return resolved.response!;
   }
 
   try {
-    const { id } = parseResult.data;
-    const authorized = await authorizeDeal(id, auth.orgId);
-    if (!authorized.ok) {
-      const status = authorized.status;
-      return NextResponse.json(
-        { error: status === 403 ? "Forbidden: deal does not belong to your org" : "Deal not found" },
-        { status },
-      );
-    }
-
-    const deal = await prisma.deal.findFirst({
-      where: { id, orgId: auth.orgId },
-      select: {
-        id: true,
-        name: true,
-        sku: true,
-        status: true,
-        financialModelAssumptions: true,
-        terms: {
-          select: {
-            closingDate: true,
-          },
-        },
-        parcels: {
-          select: { acreage: true },
-          orderBy: { createdAt: "asc" },
-        },
-        tenants: {
-          orderBy: { createdAt: "asc" },
-        },
-        tenantLeases: {
-          include: {
-            tenant: {
-              select: { name: true },
-            },
-          },
-          orderBy: [{ startDate: "asc" }, { createdAt: "asc" }],
-        },
-        developmentBudget: true,
-        capitalSources: {
-          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-        },
-        equityWaterfalls: {
-          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-        },
-      },
-    });
-
-    if (!deal) {
-      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
-    }
-
-    return NextResponse.json({
-      assumptions: deal.financialModelAssumptions ?? null,
-      deal: {
-        id: deal.id,
-        name: deal.name,
-        sku: deal.sku,
-        status: deal.status,
-        closingDate: deal.terms?.closingDate ? deal.terms.closingDate.toISOString() : null,
-        totalAcreage: deal.parcels.reduce(
-          (sum, p) => sum + (p.acreage ? parseFloat(p.acreage.toString()) : 0),
-          0
-        ),
-      },
-      tenants: deal.tenants.map((tenant) => serializeTenant(tenant)),
-      tenantLeases: deal.tenantLeases.map((lease) => serializeLease(lease)),
-      developmentBudget: deal.developmentBudget
-        ? serializeDevelopmentBudget(deal.developmentBudget)
-        : null,
-      capitalSources: deal.capitalSources.map((source) => serializeCapitalSource(source)),
-      equityWaterfalls: deal.equityWaterfalls.map((tier) => serializeEquityWaterfallTier(tier)),
-    });
+    const data = await getDealFinancialModel(resolved.dealId, resolved.auth.orgId);
+    return NextResponse.json(data);
   } catch (error) {
     Sentry.captureException(error, {
       tags: { route: "api.deals.financial-model", method: "GET" },
     });
-    console.error("[financial-model.GET]", error);
-    return NextResponse.json(
-      { error: "Failed to load financial model" },
-      { status: 500 }
-    );
+    return toErrorResponse(error, "Failed to load financial model");
   }
 }
 
-// PUT /api/deals/[id]/financial-model — save assumptions
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await resolveAuth(request);
-  if (!auth) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const parseResult = paramsSchema.safeParse(await params);
-  if (!parseResult.success) {
-    return NextResponse.json({ error: "Invalid deal id" }, { status: 400 });
+  const resolved = await resolveAuthorizedDealId(request, params);
+  if (resolved.response || !resolved.auth || !resolved.dealId) {
+    return resolved.response!;
   }
 
   try {
-    const { id } = parseResult.data;
-    const authorized = await authorizeDeal(id, auth.orgId);
-    if (!authorized.ok) {
-      const status = authorized.status;
-      return NextResponse.json(
-        { error: status === 403 ? "Forbidden: deal does not belong to your org" : "Deal not found" },
-        { status },
-      );
-    }
-
     const body = await request.json();
     const parsed = updateFinancialModelSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid financial model payload", issues: parsed.error.flatten().fieldErrors },
-        { status: 400 }
-      );
-    }
-
-    const { assumptions, developmentBudget, capitalSources, equityWaterfalls } = parsed.data;
-    if (assumptions !== undefined && Array.isArray(assumptions)) {
-      return NextResponse.json(
-        { error: "Invalid assumptions payload" },
+        {
+          error: "Invalid financial model payload",
+          issues: parsed.error.flatten().fieldErrors,
+        },
         { status: 400 },
       );
     }
 
-    await prisma.$transaction(async (tx) => {
-      if (assumptions !== undefined) {
-        await tx.deal.update({
-          where: { id },
-          data: { financialModelAssumptions: assumptions as Prisma.InputJsonValue },
-        });
-      }
-
-      if (developmentBudget !== undefined) {
-        if (developmentBudget === null) {
-          await tx.developmentBudget.deleteMany({
-            where: { dealId: id, orgId: auth.orgId },
-          });
-        } else {
-          await tx.developmentBudget.upsert({
-            where: { dealId: id },
-            update: {
-              lineItems: developmentBudget.lineItems,
-              contingencies: developmentBudget.contingencies,
-            },
-            create: {
-              dealId: id,
-              orgId: auth.orgId,
-              lineItems: developmentBudget.lineItems,
-              contingencies: developmentBudget.contingencies,
-            },
-          });
-        }
-      }
-
-      if (capitalSources !== undefined) {
-        await tx.capitalSource.deleteMany({
-          where: { dealId: id, orgId: auth.orgId },
-        });
-        if (capitalSources !== null && capitalSources.length > 0) {
-          await tx.capitalSource.createMany({
-            data: capitalSources.map((source, index) => ({
-              dealId: id,
-              orgId: auth.orgId,
-              name: source.name,
-              sourceKind: source.sourceKind,
-              amount: source.amount,
-              notes: source.notes ?? null,
-              sortOrder: source.sortOrder ?? index,
-            })),
-          });
-        }
-      }
-
-      if (equityWaterfalls !== undefined) {
-        await tx.equityWaterfall.deleteMany({
-          where: { dealId: id, orgId: auth.orgId },
-        });
-        if (equityWaterfalls !== null && equityWaterfalls.length > 0) {
-          await tx.equityWaterfall.createMany({
-            data: equityWaterfalls.map((tier, index) => ({
-              dealId: id,
-              orgId: auth.orgId,
-              tierName: tier.tierName,
-              hurdleIrrPct: tier.hurdleIrrPct,
-              lpDistributionPct: tier.lpDistributionPct,
-              gpDistributionPct: tier.gpDistributionPct,
-              sortOrder: tier.sortOrder ?? index,
-            })),
-          });
-        }
-      }
-    });
-
-    return NextResponse.json({ success: true });
+    const data = await saveDealFinancialModel(
+      resolved.dealId,
+      resolved.auth.orgId,
+      parsed.data,
+    );
+    return NextResponse.json(data);
   } catch (error) {
     Sentry.captureException(error, {
       tags: { route: "api.deals.financial-model", method: "PUT" },
     });
-    if (error instanceof ZodError) {
-      return NextResponse.json(
-        { error: "Invalid financial model payload", issues: error.flatten().fieldErrors },
-        { status: 400 },
-      );
-    }
-    console.error("[financial-model.PUT]", error);
-    return NextResponse.json(
-      { error: "Failed to save financial model" },
-      { status: 500 }
-    );
+    return toErrorResponse(error, "Failed to save financial model");
   }
 }
 
-// POST /api/deals/[id]/financial-model — create tenant or lease
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await resolveAuth(request);
-  if (!auth) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const parseResult = paramsSchema.safeParse(await params);
-  if (!parseResult.success) {
-    return NextResponse.json({ error: "Invalid deal id" }, { status: 400 });
+  const resolved = await resolveAuthorizedDealId(request, params);
+  if (resolved.response || !resolved.auth || !resolved.dealId) {
+    return resolved.response!;
   }
 
   try {
-    const { id } = parseResult.data;
-    const authorized = await authorizeDeal(id, auth.orgId);
-    if (!authorized.ok) {
-      const status = authorized.status;
-      return NextResponse.json(
-        { error: status === 403 ? "Forbidden: deal does not belong to your org" : "Deal not found" },
-        { status },
-      );
-    }
-
     const body = await request.json();
     const parsed = createEntitySchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid financial model create payload", issues: parsed.error.flatten().fieldErrors },
+        {
+          error: "Invalid financial model create payload",
+          issues: parsed.error.flatten().fieldErrors,
+        },
         { status: 400 },
       );
     }
 
-    if (parsed.data.entity === "tenant") {
-      const tenantPayload = parsed.data.payload as TenantCreateInput;
-      const tenant = await prisma.tenant.create({
-        data: {
-          dealId: id,
-          orgId: auth.orgId,
-          name: tenantPayload.name,
-          contactName: tenantPayload.contactName ?? null,
-          email: tenantPayload.email ?? null,
-          phone: tenantPayload.phone ?? null,
-          notes: tenantPayload.notes ?? null,
-        },
-      });
-
-      return NextResponse.json({ tenant: serializeTenant(tenant) });
-    }
-
-    if (parsed.data.entity === "capitalSource") {
-      const sourcePayload = parsed.data.payload as CapitalSourceCreateInput;
-      const source = await prisma.capitalSource.create({
-        data: {
-          dealId: id,
-          orgId: auth.orgId,
-          name: sourcePayload.name,
-          sourceKind: sourcePayload.sourceKind,
-          amount: sourcePayload.amount,
-          notes: sourcePayload.notes ?? null,
-          sortOrder: sourcePayload.sortOrder ?? 0,
-        },
-      });
-      return NextResponse.json({ capitalSource: serializeCapitalSource(source) });
-    }
-
-    if (parsed.data.entity === "equityWaterfall") {
-      const tierPayload = parsed.data.payload as EquityWaterfallTierCreateInput;
-      const total = tierPayload.lpDistributionPct + tierPayload.gpDistributionPct;
-      if (Math.abs(total - 100) > 0.0001) {
-        return NextResponse.json(
-          { error: "LP and GP distribution must total 100%" },
-          { status: 400 },
-        );
-      }
-
-      const tier = await prisma.equityWaterfall.create({
-        data: {
-          dealId: id,
-          orgId: auth.orgId,
-          tierName: tierPayload.tierName,
-          hurdleIrrPct: tierPayload.hurdleIrrPct,
-          lpDistributionPct: tierPayload.lpDistributionPct,
-          gpDistributionPct: tierPayload.gpDistributionPct,
-          sortOrder: tierPayload.sortOrder ?? 0,
-        },
-      });
-      return NextResponse.json({ equityWaterfall: serializeEquityWaterfallTier(tier) });
-    }
-
-    const leasePayload = parsed.data.payload as TenantLeaseCreateInput;
-    const tenant = await prisma.tenant.findFirst({
-      where: {
-        id: leasePayload.tenantId,
-        dealId: id,
-        orgId: auth.orgId,
-      },
-      select: { id: true },
-    });
-    if (!tenant) {
-      return NextResponse.json(
-        { error: "Tenant not found for this deal" },
-        { status: 404 },
-      );
-    }
-
-    const lease = await prisma.tenantLease.create({
-      data: {
-        dealId: id,
-        orgId: auth.orgId,
-        tenantId: leasePayload.tenantId,
-        leaseName: leasePayload.leaseName ?? null,
-        startDate: leasePayload.startDate,
-        endDate: leasePayload.endDate,
-        rentedAreaSf: leasePayload.rentedAreaSf,
-        rentPerSf: leasePayload.rentPerSf,
-        annualEscalationPct: leasePayload.annualEscalationPct,
-      },
-      include: {
-        tenant: { select: { name: true } },
-      },
-    });
-
-    return NextResponse.json({ tenantLease: serializeLease(lease) });
+    const data = await createDealFinancialModelEntity(
+      resolved.dealId,
+      resolved.auth.orgId,
+      parsed.data,
+    );
+    return NextResponse.json(data);
   } catch (error) {
     Sentry.captureException(error, {
       tags: { route: "api.deals.financial-model", method: "POST" },
     });
-    if (error instanceof ZodError) {
-      return NextResponse.json(
-        { error: "Invalid financial model create payload", issues: error.flatten().fieldErrors },
-        { status: 400 },
-      );
-    }
-    console.error("[financial-model.POST]", error);
-    return NextResponse.json(
-      { error: "Failed to create financial model record" },
-      { status: 500 },
-    );
+    return toErrorResponse(error, "Failed to create financial model record");
   }
 }
 
-// PATCH /api/deals/[id]/financial-model — update tenant or lease
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await resolveAuth(request);
-  if (!auth) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const parseResult = paramsSchema.safeParse(await params);
-  if (!parseResult.success) {
-    return NextResponse.json({ error: "Invalid deal id" }, { status: 400 });
+  const resolved = await resolveAuthorizedDealId(request, params);
+  if (resolved.response || !resolved.auth || !resolved.dealId) {
+    return resolved.response!;
   }
 
   try {
-    const { id } = parseResult.data;
-    const authorized = await authorizeDeal(id, auth.orgId);
-    if (!authorized.ok) {
-      const status = authorized.status;
-      return NextResponse.json(
-        { error: status === 403 ? "Forbidden: deal does not belong to your org" : "Deal not found" },
-        { status },
-      );
-    }
-
     const body = await request.json();
     const parsed = patchEntitySchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid financial model update payload", issues: parsed.error.flatten().fieldErrors },
+        {
+          error: "Invalid financial model update payload",
+          issues: parsed.error.flatten().fieldErrors,
+        },
         { status: 400 },
       );
     }
 
-    if (parsed.data.entity === "tenant") {
-      const { id: tenantId, ...tenantPatch } = parsed.data.payload as TenantPatchWithIdInput;
-      const existing = await prisma.tenant.findFirst({
-        where: { id: tenantId, orgId: auth.orgId, dealId: id },
-        select: { id: true },
-      });
-      if (!existing) {
-        return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
-      }
-
-      const tenant = await prisma.tenant.update({
-        where: { id: tenantId },
-        data: tenantPatch,
-      });
-
-      return NextResponse.json({ tenant: serializeTenant(tenant) });
-    }
-
-    if (parsed.data.entity === "capitalSource") {
-      const { id: sourceId, ...sourcePatch } = parsed.data.payload as CapitalSourcePatchWithIdInput;
-      const existing = await prisma.capitalSource.findFirst({
-        where: { id: sourceId, orgId: auth.orgId, dealId: id },
-        select: { id: true },
-      });
-      if (!existing) {
-        return NextResponse.json({ error: "Capital source not found" }, { status: 404 });
-      }
-
-      const source = await prisma.capitalSource.update({
-        where: { id: sourceId },
-        data: sourcePatch,
-      });
-      return NextResponse.json({ capitalSource: serializeCapitalSource(source) });
-    }
-
-    if (parsed.data.entity === "equityWaterfall") {
-      const { id: tierId, ...tierPatch } = parsed.data.payload as EquityWaterfallTierPatchWithIdInput;
-      const existing = await prisma.equityWaterfall.findFirst({
-        where: { id: tierId, orgId: auth.orgId, dealId: id },
-        select: {
-          id: true,
-          lpDistributionPct: true,
-          gpDistributionPct: true,
-        },
-      });
-      if (!existing) {
-        return NextResponse.json({ error: "Equity waterfall tier not found" }, { status: 404 });
-      }
-
-      const nextLp = tierPatch.lpDistributionPct ?? toNumber(existing.lpDistributionPct);
-      const nextGp = tierPatch.gpDistributionPct ?? toNumber(existing.gpDistributionPct);
-      if (Math.abs(nextLp + nextGp - 100) > 0.0001) {
-        return NextResponse.json(
-          { error: "LP and GP distribution must total 100%" },
-          { status: 400 },
-        );
-      }
-
-      const tier = await prisma.equityWaterfall.update({
-        where: { id: tierId },
-        data: tierPatch,
-      });
-      return NextResponse.json({ equityWaterfall: serializeEquityWaterfallTier(tier) });
-    }
-
-    const { id: leaseId, ...leasePatch } = parsed.data.payload as TenantLeasePatchWithIdInput;
-    const existing = await prisma.tenantLease.findFirst({
-      where: { id: leaseId, orgId: auth.orgId, dealId: id },
-      select: { id: true, startDate: true, endDate: true },
-    });
-    if (!existing) {
-      return NextResponse.json({ error: "Lease not found" }, { status: 404 });
-    }
-
-    if (leasePatch.tenantId) {
-      const tenant = await prisma.tenant.findFirst({
-        where: {
-          id: leasePatch.tenantId,
-          orgId: auth.orgId,
-          dealId: id,
-        },
-        select: { id: true },
-      });
-      if (!tenant) {
-        return NextResponse.json(
-          { error: "Tenant not found for this deal" },
-          { status: 404 },
-        );
-      }
-    }
-
-    const nextStartDate = leasePatch.startDate ?? existing.startDate;
-    const nextEndDate = leasePatch.endDate ?? existing.endDate;
-    if (nextEndDate < nextStartDate) {
-      return NextResponse.json(
-        { error: "Lease end date must be on or after the start date" },
-        { status: 400 },
-      );
-    }
-
-    const lease = await prisma.tenantLease.update({
-      where: { id: leaseId },
-      data: leasePatch,
-      include: {
-        tenant: {
-          select: { name: true },
-        },
-      },
-    });
-
-    return NextResponse.json({ tenantLease: serializeLease(lease) });
+    const data = await updateDealFinancialModelEntity(
+      resolved.dealId,
+      resolved.auth.orgId,
+      parsed.data,
+    );
+    return NextResponse.json(data);
   } catch (error) {
     Sentry.captureException(error, {
       tags: { route: "api.deals.financial-model", method: "PATCH" },
     });
-    if (error instanceof ZodError) {
-      return NextResponse.json(
-        { error: "Invalid financial model update payload", issues: error.flatten().fieldErrors },
-        { status: 400 },
-      );
-    }
-    console.error("[financial-model.PATCH]", error);
-    return NextResponse.json(
-      { error: "Failed to update financial model record" },
-      { status: 500 },
-    );
+    return toErrorResponse(error, "Failed to update financial model record");
   }
 }
 
-// DELETE /api/deals/[id]/financial-model — delete tenant or lease
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await resolveAuth(request);
-  if (!auth) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const parseResult = paramsSchema.safeParse(await params);
-  if (!parseResult.success) {
-    return NextResponse.json({ error: "Invalid deal id" }, { status: 400 });
+  const resolved = await resolveAuthorizedDealId(request, params);
+  if (resolved.response || !resolved.auth || !resolved.dealId) {
+    return resolved.response!;
   }
 
   try {
-    const { id } = parseResult.data;
-    const authorized = await authorizeDeal(id, auth.orgId);
-    if (!authorized.ok) {
-      const status = authorized.status;
-      return NextResponse.json(
-        { error: status === 403 ? "Forbidden: deal does not belong to your org" : "Deal not found" },
-        { status },
-      );
-    }
-
     const body = await request.json();
     const parsed = deleteEntitySchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid financial model delete payload", issues: parsed.error.flatten().fieldErrors },
+        {
+          error: "Invalid financial model delete payload",
+          issues: parsed.error.flatten().fieldErrors,
+        },
         { status: 400 },
       );
     }
 
-    if (parsed.data.entity === "tenant") {
-      const tenantId = parsed.data.payload.id;
-      const existing = await prisma.tenant.findFirst({
-        where: { id: tenantId, dealId: id, orgId: auth.orgId },
-        select: { id: true },
-      });
-      if (!existing) {
-        return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
-      }
-
-      const tenant = await prisma.tenant.delete({
-        where: { id: tenantId },
-      });
-      return NextResponse.json({ tenant: serializeTenant(tenant) });
-    }
-
-    if (parsed.data.entity === "capitalSource") {
-      const sourceId = parsed.data.payload.id;
-      const existing = await prisma.capitalSource.findFirst({
-        where: { id: sourceId, dealId: id, orgId: auth.orgId },
-        select: { id: true },
-      });
-      if (!existing) {
-        return NextResponse.json({ error: "Capital source not found" }, { status: 404 });
-      }
-
-      const source = await prisma.capitalSource.delete({
-        where: { id: sourceId },
-      });
-      return NextResponse.json({ capitalSource: serializeCapitalSource(source) });
-    }
-
-    if (parsed.data.entity === "equityWaterfall") {
-      const tierId = parsed.data.payload.id;
-      const existing = await prisma.equityWaterfall.findFirst({
-        where: { id: tierId, dealId: id, orgId: auth.orgId },
-        select: { id: true },
-      });
-      if (!existing) {
-        return NextResponse.json({ error: "Equity waterfall tier not found" }, { status: 404 });
-      }
-
-      const tier = await prisma.equityWaterfall.delete({
-        where: { id: tierId },
-      });
-      return NextResponse.json({ equityWaterfall: serializeEquityWaterfallTier(tier) });
-    }
-
-    const leaseId = parsed.data.payload.id;
-    const existing = await prisma.tenantLease.findFirst({
-      where: { id: leaseId, dealId: id, orgId: auth.orgId },
-      select: { id: true },
-    });
-    if (!existing) {
-      return NextResponse.json({ error: "Lease not found" }, { status: 404 });
-    }
-
-    const lease = await prisma.tenantLease.delete({
-      where: { id: leaseId },
-      include: {
-        tenant: {
-          select: { name: true },
-        },
-      },
-    });
-    return NextResponse.json({ tenantLease: serializeLease(lease) });
+    const data = await deleteDealFinancialModelEntity(
+      resolved.dealId,
+      resolved.auth.orgId,
+      parsed.data,
+    );
+    return NextResponse.json(data);
   } catch (error) {
     Sentry.captureException(error, {
       tags: { route: "api.deals.financial-model", method: "DELETE" },
     });
-    if (error instanceof ZodError) {
-      return NextResponse.json(
-        { error: "Invalid financial model delete payload", issues: error.flatten().fieldErrors },
-        { status: 400 },
-      );
-    }
-    console.error("[financial-model.DELETE]", error);
-    return NextResponse.json(
-      { error: "Failed to delete financial model record" },
-      { status: 500 },
-    );
+    return toErrorResponse(error, "Failed to delete financial model record");
   }
 }

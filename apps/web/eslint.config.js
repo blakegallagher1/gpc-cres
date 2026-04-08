@@ -578,6 +578,54 @@ module.exports = [
     },
   },
   {
+    files: [
+      "app/api/deals/route.ts",
+      "app/api/deals/[id]/route.ts",
+      "app/api/deals/[id]/financial-model/route.ts",
+      "app/api/deals/[id]/artifacts/route.ts",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@entitlement-os/db",
+              message:
+                "This migrated route must not import Prisma directly. Use @gpc/server deal route services.",
+            },
+            {
+              name: "@entitlement-os/openai",
+              message:
+                "This migrated route must not import OpenAI package services directly. Use @gpc/server deal route services.",
+            },
+            {
+              name: "openai",
+              message:
+                "This migrated route must not instantiate raw OpenAI clients. Use @gpc/server deal route services.",
+            },
+            {
+              name: "@gpc/server/deals/deal.service",
+              message:
+                "This migrated route must import deal services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/deals/deal-financial-model-route.service",
+              message:
+                "This migrated route must import financial model services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/deals/deal-artifact-route.service",
+              message:
+                "This migrated route must import artifact services via the stable @gpc/server barrel.",
+            },
+          ],
+          patterns: ["@entitlement-os/db/*", "@entitlement-os/openai/*"],
+        },
+      ],
+    },
+  },
+  {
     // Soft fence: all of lib/automation/** and lib/jobs/** must avoid raw
     // @temporalio/client and openai imports — automation/jobs should delegate
     // backend orchestration to package-level services. Direct prisma imports
