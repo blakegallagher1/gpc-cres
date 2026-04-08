@@ -16,6 +16,12 @@ vi.mock("./knowledgeBase.service", () => ({
   searchKnowledgeBase: searchKnowledgeBaseMock,
 }));
 
+vi.mock("@gpc/server/search/knowledge-base.service", () => ({
+  deleteKnowledge: deleteKnowledgeMock,
+  ingestKnowledge: ingestKnowledgeMock,
+  searchKnowledgeBase: searchKnowledgeBaseMock,
+}));
+
 import {
   buildBusinessMemoryContext,
   captureBusinessChatMemory,

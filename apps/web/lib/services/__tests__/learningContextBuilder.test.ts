@@ -12,11 +12,11 @@ async function loadModule(options?: {
 }) {
   vi.resetModules();
 
-  vi.doMock("@/lib/services/knowledgeBase.service", () => ({
+  vi.doMock("@gpc/server/search/knowledge-base.service", () => ({
     searchKnowledgeBase: searchKnowledgeBaseMock,
   }));
 
-  vi.doMock("@/lib/automation/config", () => ({
+  vi.doMock("@gpc/server/automation/config", () => ({
     AUTOMATION_CONFIG: {
       agentLearning: {
         injectEpisodes: options?.injectEpisodes ?? true,

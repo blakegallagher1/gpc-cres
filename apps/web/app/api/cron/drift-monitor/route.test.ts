@@ -2,29 +2,19 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  calibrationSegmentFindManyMock,
-  trackDriftMock,
+  runDriftMonitorMock,
   sentryCaptureExceptionMock,
   loggerErrorMock,
   serializeErrorForLogsMock,
 } = vi.hoisted(() => ({
-  calibrationSegmentFindManyMock: vi.fn(),
-  trackDriftMock: vi.fn(),
+  runDriftMonitorMock: vi.fn(),
   sentryCaptureExceptionMock: vi.fn(),
   loggerErrorMock: vi.fn(),
   serializeErrorForLogsMock: vi.fn(),
 }));
 
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    calibrationSegment: {
-      findMany: calibrationSegmentFindManyMock,
-    },
-  },
-}));
-
-vi.mock("@/lib/services/driftFreezeService", () => ({
-  trackDrift: trackDriftMock,
+vi.mock("@gpc/server/jobs/drift-monitor.service", () => ({
+  runDriftMonitor: runDriftMonitorMock,
 }));
 
 vi.mock("@sentry/nextjs", () => ({
@@ -43,8 +33,7 @@ import { GET } from "./route";
 describe("GET /api/cron/drift-monitor", () => {
   beforeEach(() => {
     process.env.CRON_SECRET = "cron-secret";
-    calibrationSegmentFindManyMock.mockReset();
-    trackDriftMock.mockReset();
+    runDriftMonitorMock.mockReset();
     sentryCaptureExceptionMock.mockReset();
     loggerErrorMock.mockReset();
     serializeErrorForLogsMock.mockReset();
@@ -62,18 +51,20 @@ describe("GET /api/cron/drift-monitor", () => {
 
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: "Unauthorized" });
-    expect(calibrationSegmentFindManyMock).not.toHaveBeenCalled();
+    expect(runDriftMonitorMock).not.toHaveBeenCalled();
   });
 
-  it("tracks drift for segments with MAE values", async () => {
-    calibrationSegmentFindManyMock.mockResolvedValue([
-      { id: "seg-1", orgId: "org-1", mae: 0.18 },
-      { id: "seg-2", orgId: "org-1", mae: null },
-      { id: "seg-3", orgId: "org-2", mae: 0.42 },
-    ]);
-    trackDriftMock
-      .mockResolvedValueOnce({ frozen: false, consecutiveWorsenings: 1 })
-      .mockResolvedValueOnce({ frozen: true, consecutiveWorsenings: 3 });
+  it("delegates to runDriftMonitor and returns summary", async () => {
+    const mockSummary = {
+      success: true as const,
+      segmentsChecked: 2,
+      frozenSegments: 1,
+      results: [
+        { segmentId: "seg-1", frozen: false, consecutiveWorsenings: 1 },
+        { segmentId: "seg-3", frozen: true, consecutiveWorsenings: 3 },
+      ],
+    };
+    runDriftMonitorMock.mockResolvedValue(mockSummary);
 
     const response = await GET(
       new NextRequest("http://localhost/api/cron/drift-monitor", {
@@ -82,22 +73,13 @@ describe("GET /api/cron/drift-monitor", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
-      success: true,
-      segmentsChecked: 2,
-      frozenSegments: 1,
-      results: [
-        { segmentId: "seg-1", frozen: false, consecutiveWorsenings: 1 },
-        { segmentId: "seg-3", frozen: true, consecutiveWorsenings: 3 },
-      ],
-    });
-    expect(trackDriftMock).toHaveBeenNthCalledWith(1, "org-1", "seg-1", 0.18);
-    expect(trackDriftMock).toHaveBeenNthCalledWith(2, "org-2", "seg-3", 0.42);
+    expect(await response.json()).toEqual(mockSummary);
+    expect(runDriftMonitorMock).toHaveBeenCalledOnce();
   });
 
-  it("captures failures and returns 500", async () => {
+  it("returns 500 when service throws", async () => {
     const error = new Error("db unavailable");
-    calibrationSegmentFindManyMock.mockRejectedValue(error);
+    runDriftMonitorMock.mockRejectedValue(error);
 
     const response = await GET(
       new NextRequest("http://localhost/api/cron/drift-monitor", {

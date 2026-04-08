@@ -14,15 +14,15 @@ const {
 
 vi.mock("server-only", () => ({}));
 
-vi.mock("@/lib/services/intentClassifier", () => ({
+vi.mock("@gpc/server/services/intent-classifier.service", () => ({
   classifyIntent: classifyIntentMock,
 }));
 
-vi.mock("@/lib/services/memoryRetrieval", () => ({
+vi.mock("@gpc/server/services/memory-retrieval.service", () => ({
   retrieveMemoryForIntent: retrieveMemoryForIntentMock,
 }));
 
-vi.mock("@/lib/services/calibrationService", () => ({
+vi.mock("@gpc/server/services/calibration.service", () => ({
   getCalibrationSegmentForEntity: getCalibrationSegmentForEntityMock,
   getCalibrationDelta: getCalibrationDeltaMock,
 }));
@@ -118,4 +118,3 @@ describe("calibrationInjection", () => {
     expect(result?.contextBlock).not.toContain("[Calibration Adjustments]");
   });
 });
-

@@ -2,7 +2,14 @@ import { deserializeRunStateEnvelope } from "@entitlement-os/openai";
 import { prisma, type Prisma } from "@entitlement-os/db";
 import { SKU_TYPES } from "@entitlement-os/shared";
 
-export type { AgentExecutionResult } from "../../../../packages/server/src/chat/run-state";
+// NOTE: This file mirrors the implementation in
+// `packages/db/src/repositories/run.repository.ts` (and the re-export in
+// `packages/server/src/chat/run-state.ts`). The duplicate exists so that
+// vitest's `vi.mock("@entitlement-os/db", ...)` partial mocks intercept the
+// prisma client at the call site — relative imports inside packages/db
+// bypass the mock, while this file's bare-specifier import does not.
+
+export type { AgentExecutionResult } from "@gpc/server/chat/run-state";
 
 export function readSerializedRunStateFromStoredValue(value: unknown): string | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) {

@@ -27,13 +27,13 @@ vi.mock("@entitlement-os/openai", () => ({
   createStrictJsonResponse: createStrictJsonResponseMock,
 }));
 
-vi.mock("@/lib/services/memoryEventService", () => ({
+vi.mock("@gpc/server/services/memory-event.service", () => ({
   getMemoryEventService: () => ({
     recordEvent: recordEventMock,
   }),
 }));
 
-vi.mock("@/lib/services/conflictDetection", () => ({
+vi.mock("@gpc/server/services/conflict-detection.service", () => ({
   detectConflicts: vi.fn().mockResolvedValue({
     hasConflict: false,
     conflictingRecords: [],
@@ -41,7 +41,7 @@ vi.mock("@/lib/services/conflictDetection", () => ({
   }),
 }));
 
-vi.mock("@/lib/services/correctionService", () => ({
+vi.mock("@gpc/server/services/correction.service", () => ({
   applyCorrection: vi.fn().mockResolvedValue({ id: "correction-record-1" }),
 }));
 

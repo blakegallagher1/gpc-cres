@@ -7,11 +7,11 @@ const { classifyIntentMock, retrieveMemoryForIntentMock } = vi.hoisted(() => ({
 
 vi.mock("server-only", () => ({}));
 
-vi.mock("@/lib/services/intentClassifier", () => ({
+vi.mock("@gpc/server/services/intent-classifier.service", () => ({
   classifyIntent: classifyIntentMock,
 }));
 
-vi.mock("@/lib/services/memoryRetrieval", () => ({
+vi.mock("@gpc/server/services/memory-retrieval.service", () => ({
   retrieveMemoryForIntent: retrieveMemoryForIntentMock,
 }));
 

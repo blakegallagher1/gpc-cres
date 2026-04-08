@@ -16,11 +16,11 @@ const {
 }));
 
 vi.mock("@entitlement-os/db", () => dbMock);
-vi.mock("@/lib/services/entitlementIntelligence.service", () => ({
+vi.mock("@gpc/server/services/entitlement-intelligence.service", () => ({
   predictEntitlementStrategies: predictEntitlementStrategiesMock,
   getEntitlementIntelligenceKpis: getEntitlementIntelligenceKpisMock,
 }));
-vi.mock("@/lib/automation/notifications", () => ({
+vi.mock("@gpc/server/automation/notifications", () => ({
   createAutomationTask: createAutomationTaskMock,
 }));
 

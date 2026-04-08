@@ -1,9 +1,6 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
-import { prisma } from "@entitlement-os/db";
-import { recomputeAllSegments } from "@/lib/jobs/calibrationRecompute";
-import * as Sentry from "@sentry/nextjs";
-import { logger, serializeErrorForLogs } from "@/lib/logger";
+import { runCalibrationForAllOrgsSafely } from "@gpc/server/jobs/calibration-cron.service";
 
 function verifyCronSecret(req: Request): boolean {
   const secret = (process.env.CRON_SECRET || "").trim();
@@ -26,34 +23,11 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  try {
-    const orgs = await prisma.org.findMany({ select: { id: true } });
-    const errors: Array<{ orgId: string; error: string }> = [];
+  const outcome = await runCalibrationForAllOrgsSafely();
 
-    for (const org of orgs) {
-      try {
-        await recomputeAllSegments(org.id);
-      } catch (err) {
-        Sentry.captureException(err, {
-          tags: { route: "api.cron.calibration", method: "GET" },
-        });
-        errors.push({
-          orgId: org.id,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
-
-    return NextResponse.json({
-      success: errors.length === 0,
-      orgsProcessed: orgs.length,
-      errors,
-    });
-  } catch (err) {
-    Sentry.captureException(err, {
-      tags: { route: "api.cron.calibration", method: "GET" },
-    });
-    logger.error("Cron calibration failed", serializeErrorForLogs(err));
+  if (!outcome.ok) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
+
+  return NextResponse.json(outcome.result);
 }

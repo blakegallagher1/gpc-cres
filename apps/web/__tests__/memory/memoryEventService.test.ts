@@ -19,7 +19,7 @@ vi.mock("@entitlement-os/db", () => ({
 
 vi.mock("server-only", () => ({}));
 
-vi.mock("@/lib/services/entityResolution", () => ({
+vi.mock("@gpc/server/services/entity-resolution.service", () => ({
   resolveEntityId: resolveEntityIdMock,
 }));
 

@@ -3,25 +3,33 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   authorizeApiRouteMock,
-  queryRawUnsafeMock,
-  memoryVerifiedFindManyMock,
+  fetchKnowledgeExportRowsMock,
+  fetchMemoryExportRowsMock,
+  formatKnowledgeCsvHeaderMock,
+  formatKnowledgeCsvRowMock,
+  formatMemoryCsvHeaderMock,
+  formatMemoryCsvRowMock,
 } = vi.hoisted(() => ({
   authorizeApiRouteMock: vi.fn(),
-  queryRawUnsafeMock: vi.fn(),
-  memoryVerifiedFindManyMock: vi.fn(),
+  fetchKnowledgeExportRowsMock: vi.fn(),
+  fetchMemoryExportRowsMock: vi.fn(),
+  formatKnowledgeCsvHeaderMock: vi.fn(),
+  formatKnowledgeCsvRowMock: vi.fn(),
+  formatMemoryCsvHeaderMock: vi.fn(),
+  formatMemoryCsvRowMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/authorizeApiRoute", () => ({
   authorizeApiRoute: authorizeApiRouteMock,
 }));
 
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    $queryRawUnsafe: queryRawUnsafeMock,
-    memoryVerified: {
-      findMany: memoryVerifiedFindManyMock,
-    },
-  },
+vi.mock("@gpc/server/admin/export.service", () => ({
+  fetchKnowledgeExportRows: fetchKnowledgeExportRowsMock,
+  fetchMemoryExportRows: fetchMemoryExportRowsMock,
+  formatKnowledgeCsvHeader: formatKnowledgeCsvHeaderMock,
+  formatKnowledgeCsvRow: formatKnowledgeCsvRowMock,
+  formatMemoryCsvHeader: formatMemoryCsvHeaderMock,
+  formatMemoryCsvRow: formatMemoryCsvRowMock,
 }));
 
 import { POST } from "./route";
@@ -29,8 +37,12 @@ import { POST } from "./route";
 describe("POST /api/admin/export", () => {
   beforeEach(() => {
     authorizeApiRouteMock.mockReset();
-    queryRawUnsafeMock.mockReset();
-    memoryVerifiedFindManyMock.mockReset();
+    fetchKnowledgeExportRowsMock.mockReset();
+    fetchMemoryExportRowsMock.mockReset();
+    formatKnowledgeCsvHeaderMock.mockReset();
+    formatKnowledgeCsvRowMock.mockReset();
+    formatMemoryCsvHeaderMock.mockReset();
+    formatMemoryCsvRowMock.mockReset();
 
     authorizeApiRouteMock.mockResolvedValue({
       ok: true,
@@ -39,6 +51,11 @@ describe("POST /api/admin/export", () => {
       rule: { routePattern: "/api/admin/export", authMode: "session", scopes: [] },
       key: null,
     });
+
+    formatKnowledgeCsvHeaderMock.mockReturnValue("id,content_type,source_id,content_text,created_at\n");
+    formatKnowledgeCsvRowMock.mockImplementation((row: { id: string }) => `${row.id},...\n`);
+    formatMemoryCsvHeaderMock.mockReturnValue("id,entityId,address,factType,sourceType,economicWeight,payloadJson,createdAt\n");
+    formatMemoryCsvRowMock.mockImplementation((row: { id: string }) => `${row.id},...\n`);
   });
 
   it("returns the authorization response when access is denied", async () => {
@@ -70,15 +87,9 @@ describe("POST /api/admin/export", () => {
     expect(await response.json()).toEqual({ error: "Invalid export type" });
   });
 
-  it("streams a knowledge CSV export scoped to the authenticated org", async () => {
-    queryRawUnsafeMock.mockResolvedValue([
-      {
-        id: "row-1",
-        content_type: "memo",
-        source_id: "source-1",
-        content_text: 'Alpha "quoted" text',
-        created_at: new Date("2026-04-04T00:00:00.000Z"),
-      },
+  it("streams a knowledge CSV export using service functions", async () => {
+    fetchKnowledgeExportRowsMock.mockResolvedValue([
+      { id: "row-1" },
     ]);
 
     const response = await POST(
@@ -92,29 +103,16 @@ describe("POST /api/admin/export", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toBe("text/csv");
     expect(response.headers.get("Content-Disposition")).toContain("knowledge_export_");
-    expect(queryRawUnsafeMock).toHaveBeenCalledWith(
-      expect.stringContaining("FROM knowledge_embeddings WHERE org_id = $1::uuid"),
-      "org-1",
-      50000,
-    );
+    expect(fetchKnowledgeExportRowsMock).toHaveBeenCalledWith("org-1");
+    expect(formatKnowledgeCsvHeaderMock).toHaveBeenCalled();
+    expect(formatKnowledgeCsvRowMock).toHaveBeenCalledWith({ id: "row-1" });
     expect(body).toContain("id,content_type,source_id,content_text,created_at");
-    expect(body).toContain('row-1,memo,source-1,"Alpha ""quoted"" text",2026-04-04T00:00:00.000Z');
+    expect(body).toContain("row-1,...");
   });
 
-  it("streams a memory CSV export scoped to the authenticated org", async () => {
-    memoryVerifiedFindManyMock.mockResolvedValue([
-      {
-        id: "mem-1",
-        entityId: "entity-1",
-        factType: "ZONING",
-        sourceType: "HUMAN_REVIEW",
-        economicWeight: 0.8,
-        payloadJson: { district: "M-1" },
-        createdAt: new Date("2026-04-04T12:30:00.000Z"),
-        entity: {
-          canonicalAddress: '100 Main "Yard" St',
-        },
-      },
+  it("streams a memory CSV export using service functions", async () => {
+    fetchMemoryExportRowsMock.mockResolvedValue([
+      { id: "mem-1" },
     ]);
 
     const response = await POST(
@@ -128,13 +126,10 @@ describe("POST /api/admin/export", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toBe("text/csv");
     expect(response.headers.get("Content-Disposition")).toContain("memory_export_");
-    expect(memoryVerifiedFindManyMock).toHaveBeenCalledWith({
-      where: { orgId: "org-1" },
-      orderBy: { createdAt: "desc" },
-      take: 50000,
-      include: { entity: { select: { canonicalAddress: true } } },
-    });
+    expect(fetchMemoryExportRowsMock).toHaveBeenCalledWith("org-1");
+    expect(formatMemoryCsvHeaderMock).toHaveBeenCalled();
+    expect(formatMemoryCsvRowMock).toHaveBeenCalledWith({ id: "mem-1" });
     expect(body).toContain("id,entityId,address,factType,sourceType,economicWeight,payloadJson,createdAt");
-    expect(body).toContain('mem-1,entity-1,"100 Main ""Yard"" St",ZONING,HUMAN_REVIEW,0.8,"{""district"":""M-1""}"');
+    expect(body).toContain("mem-1,...");
   });
 });

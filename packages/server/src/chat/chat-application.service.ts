@@ -8,7 +8,7 @@ import {
 import { runAgentWorkflow, isDatabaseConnectivityError } from "./run-agent-workflow.service";
 import type { AgentStreamEvent } from "../../../../apps/web/lib/agent/executeAgent";
 import type { ResearchLaneSelection } from "../../../../apps/web/lib/agent/researchRouting";
-import { extractAndMergeConversationPreferences } from "../../../../apps/web/lib/services/preferenceExtraction.service";
+import { extractAndMergeConversationPreferences } from "../services/preference-extraction.service";
 import {
   getPropertyDbScopeHeaders,
   type PropertyDbGatewayScope,

@@ -19,11 +19,14 @@
     "./jobs/*": "./src/jobs/*.ts"
   },
   "dependencies": {
+    "@entitlement-os/artifacts": "workspace:*",
     "@entitlement-os/db": "workspace:*",
     "@entitlement-os/shared": "workspace:*",
     "@entitlement-os/openai": "workspace:*",
+    "@entitlement-os/evidence": "workspace:*",
     "@sentry/nextjs": "^10.15.0",
     "@temporalio/client": "^1.11.6",
+    "exceljs": "^4.4.0",
     "server-only": "^0.0.1",
     "zod": "^4.1.12"
   },

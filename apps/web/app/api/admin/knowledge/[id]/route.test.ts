@@ -3,20 +3,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   authorizeApiRouteMock,
-  queryRawUnsafeMock,
+  findKnowledgeRowMock,
+  deleteKnowledgeRowMock,
 } = vi.hoisted(() => ({
   authorizeApiRouteMock: vi.fn(),
-  queryRawUnsafeMock: vi.fn(),
+  findKnowledgeRowMock: vi.fn(),
+  deleteKnowledgeRowMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/authorizeApiRoute", () => ({
   authorizeApiRoute: authorizeApiRouteMock,
 }));
 
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    $queryRawUnsafe: queryRawUnsafeMock,
-  },
+vi.mock("@gpc/server/admin/knowledge.service", () => ({
+  findKnowledgeRow: findKnowledgeRowMock,
+  deleteKnowledgeRow: deleteKnowledgeRowMock,
 }));
 
 import { DELETE } from "./route";
@@ -24,7 +25,8 @@ import { DELETE } from "./route";
 describe("DELETE /api/admin/knowledge/[id]", () => {
   beforeEach(() => {
     authorizeApiRouteMock.mockReset();
-    queryRawUnsafeMock.mockReset();
+    findKnowledgeRowMock.mockReset();
+    deleteKnowledgeRowMock.mockReset();
 
     authorizeApiRouteMock.mockResolvedValue({
       ok: true,
@@ -48,10 +50,11 @@ describe("DELETE /api/admin/knowledge/[id]", () => {
 
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: "Unauthorized" });
+    expect(findKnowledgeRowMock).not.toHaveBeenCalled();
   });
 
   it("returns 404 when the embedding does not belong to the org", async () => {
-    queryRawUnsafeMock.mockResolvedValueOnce([]);
+    findKnowledgeRowMock.mockResolvedValue(null);
 
     const response = await DELETE(
       new NextRequest("http://localhost/api/admin/knowledge/knowledge-1"),
@@ -60,16 +63,13 @@ describe("DELETE /api/admin/knowledge/[id]", () => {
 
     expect(response.status).toBe(404);
     expect(await response.json()).toEqual({ error: "Not found" });
-    expect(queryRawUnsafeMock).toHaveBeenCalledTimes(1);
-    expect(queryRawUnsafeMock).toHaveBeenCalledWith(
-      expect.stringContaining("SELECT id FROM knowledge_embeddings"),
-      "knowledge-1",
-      "org-1",
-    );
+    expect(findKnowledgeRowMock).toHaveBeenCalledWith("knowledge-1", "org-1");
+    expect(deleteKnowledgeRowMock).not.toHaveBeenCalled();
   });
 
   it("deletes the embedding when it belongs to the org", async () => {
-    queryRawUnsafeMock.mockResolvedValueOnce([{ id: "knowledge-1" }]).mockResolvedValueOnce([]);
+    findKnowledgeRowMock.mockResolvedValue("knowledge-1");
+    deleteKnowledgeRowMock.mockResolvedValue(undefined);
 
     const response = await DELETE(
       new NextRequest("http://localhost/api/admin/knowledge/knowledge-1"),
@@ -78,17 +78,7 @@ describe("DELETE /api/admin/knowledge/[id]", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ success: true });
-    expect(queryRawUnsafeMock).toHaveBeenNthCalledWith(
-      1,
-      expect.stringContaining("SELECT id FROM knowledge_embeddings"),
-      "knowledge-1",
-      "org-1",
-    );
-    expect(queryRawUnsafeMock).toHaveBeenNthCalledWith(
-      2,
-      expect.stringContaining("DELETE FROM knowledge_embeddings"),
-      "knowledge-1",
-      "org-1",
-    );
+    expect(findKnowledgeRowMock).toHaveBeenCalledWith("knowledge-1", "org-1");
+    expect(deleteKnowledgeRowMock).toHaveBeenCalledWith("knowledge-1", "org-1");
   });
 });

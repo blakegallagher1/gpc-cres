@@ -2,7 +2,7 @@ import type { Prisma } from "@entitlement-os/db";
 import { deserializeRunStateEnvelope } from "@entitlement-os/openai";
 import type { AgentReport } from "@entitlement-os/shared";
 import { isRecord } from "@entitlement-os/shared";
-import {
+export {
   normalizeSku,
   persistFinalRunResult,
   upsertRunRecord,

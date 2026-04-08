@@ -29,7 +29,7 @@ const {
 
 vi.mock("@entitlement-os/db", () => dbMock);
 
-vi.mock("@/lib/services/documentProcessing.service", () => ({
+vi.mock("@gpc/server/services/document-processing.service", () => ({
   getDocumentProcessingService: documentProcessingServiceMock,
 }));
 

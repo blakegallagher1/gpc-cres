@@ -1,120 +1,53 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { authMock } = vi.hoisted(() => ({
-  authMock: vi.fn(),
-}));
-const { isEmailAllowedMock } = vi.hoisted(() => ({
-  isEmailAllowedMock: vi.fn(),
-}));
-
 const {
-  queryRawUnsafeMock,
-  memoryVerifiedCountMock,
-  internalEntityCountMock,
-  runCountMock,
-  runAggregateMock,
-  runFindManyMock,
-  runGroupByMock,
-  memoryEventLogFindManyMock,
-  trajectoryLogCountMock,
-  episodicEntryCountMock,
-  proceduralSkillCountMock,
-  proceduralSkillEpisodeCountMock,
-  dealCountMock,
-  conversationCountMock,
+  authorizeApiRouteMock,
+  getAdminStatsMock,
 } = vi.hoisted(() => ({
-  queryRawUnsafeMock: vi.fn(),
-  memoryVerifiedCountMock: vi.fn(),
-  internalEntityCountMock: vi.fn(),
-  runCountMock: vi.fn(),
-  runAggregateMock: vi.fn(),
-  runFindManyMock: vi.fn(),
-  runGroupByMock: vi.fn(),
-  memoryEventLogFindManyMock: vi.fn(),
-  trajectoryLogCountMock: vi.fn(),
-  episodicEntryCountMock: vi.fn(),
-  proceduralSkillCountMock: vi.fn(),
-  proceduralSkillEpisodeCountMock: vi.fn(),
-  dealCountMock: vi.fn(),
-  conversationCountMock: vi.fn(),
+  authorizeApiRouteMock: vi.fn(),
+  getAdminStatsMock: vi.fn(),
 }));
 
-vi.mock("@/auth", () => ({
-  auth: authMock,
+vi.mock("@/lib/auth/authorizeApiRoute", () => ({
+  authorizeApiRoute: authorizeApiRouteMock,
 }));
 
-vi.mock("@/lib/auth/allowedEmails", () => ({
-  isEmailAllowed: isEmailAllowedMock,
-}));
-
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    $queryRawUnsafe: queryRawUnsafeMock,
-    memoryVerified: { count: memoryVerifiedCountMock },
-    internalEntity: { count: internalEntityCountMock },
-    run: {
-      count: runCountMock,
-      aggregate: runAggregateMock,
-      findMany: runFindManyMock,
-      groupBy: runGroupByMock,
-    },
-    memoryEventLog: { findMany: memoryEventLogFindManyMock },
-    trajectoryLog: { count: trajectoryLogCountMock },
-    episodicEntry: { count: episodicEntryCountMock },
-    proceduralSkill: { count: proceduralSkillCountMock },
-    proceduralSkillEpisode: { count: proceduralSkillEpisodeCountMock },
-    deal: { count: dealCountMock },
-    conversation: { count: conversationCountMock },
-  },
+vi.mock("@gpc/server/admin/stats.service", () => ({
+  getAdminStats: getAdminStatsMock,
+  VALID_TABS: ["overview", "knowledge", "memory", "agents", "system", "all"],
 }));
 
 import { GET } from "./route";
 
-const AUTH = {
-  user: {
-    id: "11111111-1111-4111-8111-111111111111",
-    email: "blake@gallagherpropco.com",
-    orgId: "22222222-2222-4222-8222-222222222222",
-  },
-  expires: new Date(Date.now() + 86_400_000).toISOString(),
-};
-
-function setupOverviewMocks() {
-  queryRawUnsafeMock
-    .mockResolvedValueOnce([{ count: BigInt(11) }])
-    .mockResolvedValueOnce([{ content_type: "memory_note", count: BigInt(3) }]);
-  memoryVerifiedCountMock.mockResolvedValue(2);
-  internalEntityCountMock.mockResolvedValue(4);
-  runCountMock.mockResolvedValue(5);
-  runAggregateMock.mockResolvedValue({ _count: 5 });
-  runFindManyMock.mockResolvedValue([]);
-  memoryEventLogFindManyMock.mockResolvedValue([]);
-  trajectoryLogCountMock.mockResolvedValue(6);
-  episodicEntryCountMock.mockResolvedValue(7);
-  proceduralSkillCountMock.mockResolvedValue(8);
-  runGroupByMock.mockImplementation(async ({ by }: { by: string[] }) => {
-    if (by[0] === "memoryPromotionStatus") {
-      return [{ memoryPromotionStatus: "promoted", _count: 3 }];
-    }
-    return [];
-  });
-}
-
 describe("GET /api/admin/stats", () => {
   beforeEach(() => {
-    vi.resetAllMocks();
-    authMock.mockResolvedValue(AUTH);
-    isEmailAllowedMock.mockReturnValue(true);
+    authorizeApiRouteMock.mockReset();
+    getAdminStatsMock.mockReset();
+
+    authorizeApiRouteMock.mockResolvedValue({
+      ok: true,
+      auth: {
+        orgId: "22222222-2222-4222-8222-222222222222",
+        userId: "11111111-1111-4111-8111-111111111111",
+      },
+      authorizedBy: "admin_session",
+      rule: { routePattern: "/api/admin/stats", authMode: "session", scopes: [] },
+      key: null,
+    });
   });
 
-  it("returns 401 when unauthenticated", async () => {
-    authMock.mockResolvedValueOnce(null);
+  it("returns the authorization response when unauthenticated", async () => {
+    authorizeApiRouteMock.mockResolvedValue({
+      ok: false,
+      response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    });
 
     const response = await GET(new NextRequest("http://localhost/api/admin/stats"));
 
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: "Unauthorized" });
+    expect(getAdminStatsMock).not.toHaveBeenCalled();
   });
 
   it("returns 400 for invalid tab names", async () => {
@@ -127,13 +60,24 @@ describe("GET /api/admin/stats", () => {
       error: "Invalid tab parameter",
       detail: "Expected one of: overview, knowledge, memory, agents, system, all",
     });
+    expect(getAdminStatsMock).not.toHaveBeenCalled();
   });
 
-  it("returns overview data when procedural skill episodes table is missing", async () => {
-    setupOverviewMocks();
-    proceduralSkillEpisodeCountMock.mockRejectedValueOnce({
-      code: "P2021",
-      message: 'relation "public.procedural_skill_episodes" does not exist',
+  it("delegates to getAdminStats and returns overview data", async () => {
+    getAdminStatsMock.mockResolvedValue({
+      overview: {
+        knowledgeCount: 11,
+        verifiedCount: 2,
+        entityCount: 4,
+        trajectoryLogCount: 6,
+        episodicEntryCount: 7,
+        proceduralSkillCount: 8,
+        proceduralSkillEpisodeCount: 0,
+        runs24h: 5,
+        promotionBreakdown: { promoted: 3 },
+        knowledgeByType: [{ contentType: "memory_note", count: 3 }],
+        recentActivity: [],
+      },
     });
 
     const response = await GET(
@@ -154,101 +98,48 @@ describe("GET /api/admin/stats", () => {
       promotionBreakdown: { promoted: 3 },
       knowledgeByType: [{ contentType: "memory_note", count: 3 }],
     });
-  });
-
-  it("returns system counts when procedural skill episodes table is missing", async () => {
-    runCountMock.mockResolvedValue(10);
-    trajectoryLogCountMock.mockResolvedValue(20);
-    episodicEntryCountMock.mockResolvedValue(30);
-    proceduralSkillCountMock.mockResolvedValue(40);
-    proceduralSkillEpisodeCountMock.mockRejectedValueOnce({
-      code: "P2021",
-      message: 'relation "public.procedural_skill_episodes" does not exist',
-    });
-    memoryVerifiedCountMock.mockResolvedValue(50);
-    internalEntityCountMock.mockResolvedValue(60);
-    dealCountMock.mockResolvedValue(70);
-    conversationCountMock.mockResolvedValue(80);
-    queryRawUnsafeMock.mockResolvedValueOnce([{ count: BigInt(90) }]);
-
-    const response = await GET(
-      new NextRequest("http://localhost/api/admin/stats?tab=system"),
-    );
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body.system).toEqual({
-      tableCounts: {
-        runs: 10,
-        trajectoryLogs: 20,
-        episodicEntries: 30,
-        proceduralSkills: 40,
-        proceduralSkillEpisodes: 0,
-        memoryVerified: 50,
-        internalEntities: 60,
-        deals: 70,
-        conversations: 80,
-        knowledgeEmbeddings: 90,
+    expect(getAdminStatsMock).toHaveBeenCalledOnce();
+    expect(getAdminStatsMock).toHaveBeenCalledWith(
+      "22222222-2222-4222-8222-222222222222",
+      {
+        tab: "overview",
+        page: 1,
+        limit: 25,
+        offset: 0,
+        search: "",
+        contentType: "",
+        subTab: "facts",
       },
-    });
+    );
   });
 
-  it("returns agent runs without promotion metadata when learning columns are missing", async () => {
-    runFindManyMock
-      .mockRejectedValueOnce({
-        code: "P2022",
-        message: 'column runs.memory_promotion_status does not exist',
-      })
-      .mockResolvedValueOnce([
-        {
-          id: "run-1",
-          runType: "chat",
-          status: "succeeded",
-          startedAt: new Date("2026-03-20T10:00:00.000Z"),
-          finishedAt: new Date("2026-03-20T10:01:00.000Z"),
-          error: null,
-          dealId: "deal-1",
+  it("passes query params and returns partial errors with fallback values", async () => {
+    getAdminStatsMock.mockResolvedValue({
+      overview: {
+        knowledgeCount: 11,
+        verifiedCount: 0,
+        entityCount: 4,
+        proceduralSkillEpisodeCount: 9,
+        runs24h: 0,
+        trajectoryLogCount: 0,
+        episodicEntryCount: 0,
+        proceduralSkillCount: 0,
+        promotionBreakdown: {},
+        recentActivity: [],
+        knowledgeByType: [],
+      },
+      errors: {
+        overview: {
+          message: "Unable to load this section",
+          detail: "db unavailable",
         },
-      ]);
-    runCountMock.mockResolvedValue(1);
-    runAggregateMock.mockResolvedValue({ _count: 1 });
-    runGroupByMock.mockResolvedValueOnce([{ runType: "chat", _count: 1 }]);
-    trajectoryLogCountMock.mockResolvedValue(2);
-    episodicEntryCountMock.mockResolvedValue(3);
-    proceduralSkillCountMock.mockResolvedValue(4);
-
-    const response = await GET(
-      new NextRequest("http://localhost/api/admin/stats?tab=agents"),
-    );
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body.agents).toMatchObject({
-      total: 1,
-      dailyByRunType: [{ runType: "chat", count: 1 }],
-      learningCounts: {
-        trajectoryLogs: 2,
-        episodicEntries: 3,
-        proceduralSkills: 4,
       },
     });
-    expect(body.agents.runs).toEqual([
-      expect.objectContaining({
-        id: "run-1",
-        memoryPromotionStatus: null,
-        memoryPromotedAt: null,
-        memoryPromotionError: null,
-      }),
-    ]);
-  });
-
-  it("returns partial overview errors with fallback values", async () => {
-    setupOverviewMocks();
-    memoryVerifiedCountMock.mockRejectedValueOnce(new Error("db unavailable"));
-    proceduralSkillEpisodeCountMock.mockResolvedValueOnce(9);
 
     const response = await GET(
-      new NextRequest("http://localhost/api/admin/stats?tab=overview"),
+      new NextRequest(
+        "http://localhost/api/admin/stats?tab=overview&page=2&limit=10&search=variance&contentType=memory_note&subTab=episodes",
+      ),
     );
     const body = await response.json();
 
@@ -259,12 +150,32 @@ describe("GET /api/admin/stats", () => {
         detail: "db unavailable",
       },
     });
-    expect(body.overview).toMatchObject({
-      knowledgeCount: 11,
-      verifiedCount: 0,
-      entityCount: 4,
-      proceduralSkillEpisodeCount: 9,
-    });
+    expect(getAdminStatsMock).toHaveBeenCalledWith(
+      "22222222-2222-4222-8222-222222222222",
+      {
+        tab: "overview",
+        page: 2,
+        limit: 10,
+        offset: 10,
+        search: "variance",
+        contentType: "memory_note",
+        subTab: "episodes",
+      },
+    );
   });
 
+  it("returns 500 with the current error shape when the service throws", async () => {
+    getAdminStatsMock.mockRejectedValue(new Error("stats failed"));
+
+    const response = await GET(
+      new NextRequest("http://localhost/api/admin/stats?tab=overview"),
+    );
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: "Internal server error",
+      detail: "stats failed",
+      tab: "overview",
+    });
+  });
 });
