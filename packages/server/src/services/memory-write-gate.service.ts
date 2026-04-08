@@ -13,7 +13,7 @@ import {
 import { detectConflicts } from "./conflict-detection.service";
 import { applyCorrection } from "./correction.service";
 import { getMemoryEventService } from "./memory-event.service";
-import { assignTier } from "../../../../apps/web/lib/services/memoryTierService";
+import { assignTier } from "./memory-tier.service";
 
 type WriteContext = {
   entityId: string;

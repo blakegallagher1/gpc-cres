@@ -35,7 +35,7 @@ vi.mock("@gpc/server/services/gateway-storage.service", () => ({
   systemAuth: systemAuthMock,
 }));
 
-vi.mock("@/lib/services/knowledgeBase.service", () => ({
+vi.mock("@gpc/server/search/knowledge-base.service", () => ({
   ensureInstitutionalKnowledgeCollectionReady: ensureInstitutionalKnowledgeCollectionReadyMock,
   ingestKnowledge: ingestKnowledgeMock,
   searchKnowledgeBase: searchKnowledgeBaseMock,

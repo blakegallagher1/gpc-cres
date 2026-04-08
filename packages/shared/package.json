@@ -26,6 +26,14 @@
       "types": "./dist/errors.d.ts",
       "default": "./dist/errors.js"
     },
+    "./automation-gates": {
+      "types": "./dist/automation-gates.d.ts",
+      "default": "./dist/automation-gates.js"
+    },
+    "./calibration-decay": {
+      "types": "./dist/calibration-decay.d.ts",
+      "default": "./dist/calibration-decay.js"
+    },
     "./extraction-schemas": {
       "types": "./dist/extraction-schemas.d.ts",
       "default": "./dist/extraction-schemas.js"

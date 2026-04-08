@@ -1,7 +1,7 @@
 import "server-only";
 
 import { prisma } from "@entitlement-os/db";
-import { computeEffectiveWeight } from "../../../../apps/web/lib/services/calibrationDecay";
+import { computeEffectiveWeight } from "@entitlement-os/shared/calibration-decay";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 

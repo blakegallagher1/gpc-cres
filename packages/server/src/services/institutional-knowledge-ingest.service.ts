@@ -7,7 +7,7 @@ import {
   ingestKnowledge,
   searchKnowledgeBase,
   type KnowledgeSearchResult,
-} from "../../../../apps/web/lib/services/knowledgeBase.service";
+} from "../search/knowledge-base.service";
 import type ExcelJSNamespace from "exceljs";
 
 type ExcelJSModule = typeof ExcelJSNamespace;

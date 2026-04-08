@@ -23,5 +23,7 @@ export * from "./types/mapWorkspace.js";
 export * from "./types/parcelIntelligence.js";
 export * from "./types/streamEvents.js";
 export * from "./async.js";
+export * from "./automation-gates.js";
+export * from "./calibration-decay.js";
 export * from "./typeguards.js";
 export * from "./files.js";

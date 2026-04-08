@@ -33,7 +33,7 @@ vi.mock("@gpc/server/services/document-processing.service", () => ({
   getDocumentProcessingService: documentProcessingServiceMock,
 }));
 
-vi.mock("@/lib/services/institutionalKnowledgeIngest.service", () => ({
+vi.mock("@gpc/server/services/institutional-knowledge-ingest.service", () => ({
   getInstitutionalKnowledgeIngestService: institutionalKnowledgeIngestServiceMock,
 }));
 

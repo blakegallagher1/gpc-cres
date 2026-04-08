@@ -5,7 +5,7 @@ import {
   deleteKnowledge,
   ingestKnowledge,
   type KnowledgeContentType,
-} from "../../../../apps/web/lib/services/knowledgeBase.service";
+} from "../search/knowledge-base.service";
 import { captureAutomationTimeout } from "./sentry";
 import { withTimeout } from "./timeout";
 

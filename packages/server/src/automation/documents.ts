@@ -181,7 +181,7 @@ function triggerWorkbookKnowledgeIngest(
   dealId: string,
   orgId: string
 ): void {
-  import("../../../../apps/web/lib/services/institutionalKnowledgeIngest.service")
+  import("../services/institutional-knowledge-ingest.service")
     .then(({ getInstitutionalKnowledgeIngestService }) => {
       const service = getInstitutionalKnowledgeIngestService();
       return service.ingestWorkbookUpload(uploadId, dealId, orgId);

@@ -17,7 +17,7 @@ import {
   type ObservabilityQueryOptions,
   type ObservabilityQueryResult,
   type ObservabilityLevel,
-} from "../../../../apps/web/lib/server/observabilityStore";
+} from "./store";
 
 interface HeaderReader {
   get(name: string): string | null;

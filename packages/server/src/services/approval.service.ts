@@ -1,6 +1,6 @@
-import { prisma } from "@entitlement-os/db";
-import { requiresHumanApproval, getAdvancementCriteria } from "../../../../apps/web/lib/automation/gates";
 import type { DealStatus } from "@entitlement-os/shared";
+import { getAdvancementCriteria, requiresHumanApproval } from "@entitlement-os/shared/automation-gates";
+import { prisma } from "@entitlement-os/db";
 
 // ---------------------------------------------------------------------------
 // Types

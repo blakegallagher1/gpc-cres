@@ -16,8 +16,8 @@ const { captureAutomationTimeoutMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("@entitlement-os/db", () => dbMock);
-vi.mock("@/lib/services/knowledgeBase.service", () => knowledgeMock);
-vi.mock("../sentry", () => ({
+vi.mock("@gpc/server/search/knowledge-base.service", () => knowledgeMock);
+vi.mock("@gpc/server/automation/sentry", () => ({
   captureAutomationTimeout: captureAutomationTimeoutMock,
 }));
 
