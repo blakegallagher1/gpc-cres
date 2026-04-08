@@ -83,3 +83,113 @@ model KnowledgeEmbedding {
   @@index([contentType], map: "idx_knowledge_content_type")
   @@index([sourceId], map: "idx_knowledge_source_id")
 }
+
+// ---------------------------------------------------------------------------
+// Cartographer models — spatial intelligence persistence
+// All rows scoped with orgId for multi-tenancy.
+// ---------------------------------------------------------------------------
+
+model SavedThesis {
+  id          String   @id @default(uuid()) @db.Uuid
+  orgId       String   @map("org_id") @db.Text
+  name        String   @db.Text
+  description String?  @db.Text
+  weights     Json     @db.JsonB
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy   String?  @map("created_by") @db.Text
+
+  @@map("saved_thesis")
+  @@index([orgId], map: "idx_saved_thesis_org_id")
+  @@index([orgId, name], map: "idx_saved_thesis_org_name")
+}
+
+model SavedLayer {
+  id               String   @id @default(uuid()) @db.Uuid
+  orgId            String   @map("org_id") @db.Text
+  name             String   @db.Text
+  description      String?  @db.Text
+  layerType        String   @map("layer_type") @db.Text
+  sqlQuery         String?  @map("sql_query") @db.Text
+  geojsonSnapshot  Json?    @map("geojson_snapshot") @db.JsonB
+  style            Json?    @db.JsonB
+  metadata         Json     @default("{}") @db.JsonB
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy        String?  @map("created_by") @db.Text
+
+  @@map("saved_layer")
+  @@index([orgId], map: "idx_saved_layer_org_id")
+  @@index([orgId, layerType], map: "idx_saved_layer_org_type")
+}
+
+model SiteFitScore {
+  id          String   @id @default(uuid()) @db.Uuid
+  orgId       String   @map("org_id") @db.Text
+  thesisId    String?  @map("thesis_id") @db.Uuid
+  thesisName  String   @map("thesis_name") @db.Text
+  parcelId    String   @map("parcel_id") @db.Text
+  score       Float
+  breakdown   Json     @db.JsonB
+  computedAt  DateTime @map("computed_at") @db.Timestamptz(6)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("site_fit_score")
+  @@index([orgId], map: "idx_site_fit_score_org_id")
+  @@index([orgId, thesisId], map: "idx_site_fit_score_org_thesis")
+  @@index([orgId, parcelId], map: "idx_site_fit_score_org_parcel")
+}
+
+model AssemblageCandidate {
+  id                String   @id @default(uuid()) @db.Uuid
+  orgId             String   @map("org_id") @db.Text
+  assemblageName    String   @map("assemblage_name") @db.Text
+  parcelIds         Json     @map("parcel_ids") @db.JsonB
+  totalAcreage      Float    @map("total_acreage")
+  combinedGeometry  Json?    @map("combined_geometry") @db.JsonB
+  fitScore          Float?   @map("fit_score")
+  notes             String?  @db.Text
+  metadata          Json     @default("{}") @db.JsonB
+  computedAt        DateTime @map("computed_at") @db.Timestamptz(6)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("assemblage_candidate")
+  @@index([orgId], map: "idx_assemblage_candidate_org_id")
+  @@index([orgId, fitScore], map: "idx_assemblage_candidate_org_score")
+}
+
+model HypotheticalSitePlan {
+  id           String   @id @default(uuid()) @db.Uuid
+  orgId        String   @map("org_id") @db.Text
+  planName     String   @map("plan_name") @db.Text
+  parcelIds    Json     @map("parcel_ids") @db.JsonB
+  zones        Json     @db.JsonB
+  totalAcreage Float    @map("total_acreage")
+  notes        String?  @db.Text
+  metadata     Json     @default("{}") @db.JsonB
+  computedAt   DateTime @map("computed_at") @db.Timestamptz(6)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy    String?  @map("created_by") @db.Text
+
+  @@map("hypothetical_site_plan")
+  @@index([orgId], map: "idx_hypothetical_site_plan_org_id")
+}
+
+model MapCuriosityTrail {
+  id              String   @id @default(uuid()) @db.Uuid
+  orgId           String   @map("org_id") @db.Text
+  label           String   @db.Text
+  description     String   @db.Text
+  trigger         String   @db.Text
+  suggestedActions Json    @map("suggested_actions") @db.JsonB
+  relevanceScore  Float    @map("relevance_score")
+  viewportBbox    Json?    @map("viewport_bbox") @db.JsonB
+  accepted        Boolean  @default(false)
+  dismissed       Boolean  @default(false)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy       String?  @map("created_by") @db.Text
+
+  @@map("map_curiosity_trail")
+  @@index([orgId], map: "idx_map_curiosity_trail_org_id")
+  @@index([orgId, accepted], map: "idx_map_curiosity_trail_org_accepted")
+}
