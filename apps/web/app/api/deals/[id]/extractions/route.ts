@@ -1,21 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@entitlement-os/db";
+import {
+  DealAccessError,
+  DealUploadNotFoundError,
+  getExtractionsSummaryForDeal,
+  triggerExtractionForDeal,
+} from "@gpc/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { AppError } from "@/lib/errors";
-import { getDocumentProcessingService } from "@/lib/services/documentProcessing.service";
 import { TriggerExtractionRequestSchema } from "@/lib/validation/extractionSchemas";
 import * as Sentry from "@sentry/nextjs";
-
-type ExtractionReviewStatus = "none" | "pending_review" | "review_complete";
-
-function getExtractionStatus(
-  totalCount: number,
-  pendingCount: number
-): ExtractionReviewStatus {
-  if (totalCount === 0) return "none";
-  if (pendingCount > 0) return "pending_review";
-  return "review_complete";
-}
 
 // GET /api/deals/[id]/extractions — list all document extractions for a deal
 export async function GET(
@@ -29,32 +22,16 @@ export async function GET(
     }
 
     const { id } = await params;
-
-    const deal = await prisma.deal.findFirst({
-      where: { id, orgId: auth.orgId },
-      select: { id: true },
+    const summary = await getExtractionsSummaryForDeal({
+      dealId: id,
+      orgId: auth.orgId,
     });
-    if (!deal) {
+
+    return NextResponse.json(summary);
+  } catch (error) {
+    if (error instanceof DealAccessError) {
       return NextResponse.json({ error: "Deal not found" }, { status: 404 });
     }
-
-    const service = getDocumentProcessingService();
-    const extractions = await service.getExtractionsByDeal(id, auth.orgId);
-    const unreviewedCount = await service.getUnreviewedCount(id, auth.orgId);
-    const totalCount = extractions.length;
-    const pendingCount = Math.max(0, Math.min(unreviewedCount, totalCount));
-    const reviewedCount = Math.max(0, totalCount - pendingCount);
-    const extractionStatus = getExtractionStatus(totalCount, pendingCount);
-
-    return NextResponse.json({
-      extractions,
-      unreviewedCount: pendingCount,
-      pendingCount,
-      reviewedCount,
-      totalCount,
-      extractionStatus,
-    });
-  } catch (error) {
     Sentry.captureException(error, {
       tags: { route: "api.deals.extractions", method: "GET" },
     });
@@ -79,14 +56,6 @@ export async function POST(
 
     const { id } = await params;
 
-    const deal = await prisma.deal.findFirst({
-      where: { id, orgId: auth.orgId },
-      select: { id: true },
-    });
-    if (!deal) {
-      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
-    }
-
     const body = await request.json();
     const parsedBody = TriggerExtractionRequestSchema.safeParse(body);
     if (!parsedBody.success) {
@@ -99,22 +68,16 @@ export async function POST(
       );
     }
     const { uploadId } = parsedBody.data;
-
-    // Verify upload belongs to this deal
-    const upload = await prisma.upload.findFirst({
-      where: { id: uploadId, dealId: id, orgId: auth.orgId },
+    const result = await triggerExtractionForDeal({
+      dealId: id,
+      orgId: auth.orgId,
+      uploadId,
     });
-    if (!upload) {
-      return NextResponse.json({ error: "Upload not found" }, { status: 404 });
-    }
-
-    const service = getDocumentProcessingService();
-    const result = await service.processUpload(uploadId, id, auth.orgId);
 
     return NextResponse.json(
       {
         success: true,
-        idempotent: !result.created,
+        idempotent: result.idempotent,
         extractionId: result.extractionId,
         docType: result.docType,
         extractedData: result.extractedData,
@@ -125,6 +88,12 @@ export async function POST(
     Sentry.captureException(error, {
       tags: { route: "api.deals.extractions", method: "POST" },
     });
+    if (error instanceof DealAccessError) {
+      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
+    }
+    if (error instanceof DealUploadNotFoundError) {
+      return NextResponse.json({ error: "Upload not found" }, { status: 404 });
+    }
     if (error instanceof AppError) {
       const statusCode =
         "statusCode" in error && typeof error.statusCode === "number"

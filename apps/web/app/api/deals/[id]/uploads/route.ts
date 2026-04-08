@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@entitlement-os/db";
+import {
+  DealAccessError,
+  createUploadRecordForDeal,
+  ensureDealUploadAccess,
+  listUploadsForDeal,
+} from "@gpc/server";
 import { buildUploadObjectKey } from "@entitlement-os/shared";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { uploadDealFileToGateway } from "@/lib/storage/gatewayStorage";
@@ -22,21 +27,16 @@ export async function GET(
 
     const { id } = await params;
 
-    const deal = await prisma.deal.findFirst({
-      where: { id, orgId: auth.orgId },
-      select: { id: true },
-    });
-    if (!deal) {
-      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
-    }
-
-    const uploads = await prisma.upload.findMany({
-      where: { dealId: id, orgId: auth.orgId },
-      orderBy: { createdAt: "desc" },
+    const uploads = await listUploadsForDeal({
+      dealId: id,
+      orgId: auth.orgId,
     });
 
     return NextResponse.json({ uploads });
   } catch (error) {
+    if (error instanceof DealAccessError) {
+      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
+    }
     console.error("Error fetching uploads:", error);
     Sentry.captureException(error, {
       tags: { route: "/api/deals/[id]/uploads", method: "GET" },
@@ -63,14 +63,7 @@ export async function POST(
     }
 
     const { id } = await params;
-
-    const deal = await prisma.deal.findFirst({
-      where: { id, orgId: auth.orgId },
-      select: { id: true },
-    });
-    if (!deal) {
-      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
-    }
+    await ensureDealUploadAccess({ dealId: id, orgId: auth.orgId });
 
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
@@ -108,18 +101,16 @@ export async function POST(
       contentType: file.type || "application/octet-stream",
     });
 
-    const upload = await prisma.upload.create({
-      data: {
-        id: uploadId,
-        orgId: auth.orgId,
-        dealId: id,
-        kind,
-        filename: file.name,
-        contentType: file.type || "application/octet-stream",
-        sizeBytes: file.size,
-        storageObjectKey,
-        uploadedBy: auth.userId,
-      },
+    const upload = await createUploadRecordForDeal({
+      uploadId,
+      orgId: auth.orgId,
+      dealId: id,
+      userId: auth.userId,
+      kind,
+      filename: file.name,
+      contentType: file.type || "application/octet-stream",
+      sizeBytes: file.size,
+      storageObjectKey,
     });
 
     // Dispatch upload.created event for auto-classification (#6)
@@ -139,6 +130,9 @@ export async function POST(
 
     return NextResponse.json({ upload }, { status: 201 });
   } catch (error) {
+    if (error instanceof DealAccessError) {
+      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
+    }
     console.error("Error uploading file:", error);
     Sentry.captureException(error, {
       tags: { route: "/api/deals/[id]/uploads", method: "POST" },

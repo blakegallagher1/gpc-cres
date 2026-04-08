@@ -306,6 +306,11 @@ module.exports = [
       "app/api/deals/[id]/property-survey/route.ts",
       "app/api/deals/[id]/entitlement-path/route.ts",
       "app/api/deals/[id]/screen/route.ts",
+      "app/api/deals/[id]/uploads/route.ts",
+      "app/api/deals/[id]/uploads/[uploadId]/route.ts",
+      "app/api/deals/[id]/extractions/route.ts",
+      "app/api/deals/[id]/extractions/[extractionId]/route.ts",
+      "app/api/deals/artifacts/[artifactId]/download/route.ts",
       "app/api/runs/route.ts",
       "app/api/runs/[runId]/route.ts",
       "app/api/runs/[runId]/reward/route.ts",
@@ -387,6 +392,11 @@ module.exports = [
       "app/api/deals/[id]/property-survey/route.ts",
       "app/api/deals/[id]/entitlement-path/route.ts",
       "app/api/deals/[id]/screen/route.ts",
+      "app/api/deals/[id]/uploads/route.ts",
+      "app/api/deals/[id]/uploads/[uploadId]/route.ts",
+      "app/api/deals/[id]/extractions/route.ts",
+      "app/api/deals/[id]/extractions/[extractionId]/route.ts",
+      "app/api/deals/artifacts/[artifactId]/download/route.ts",
       "app/api/runs/route.ts",
       "app/api/runs/[runId]/route.ts",
       "app/api/runs/[runId]/reward/route.ts",
@@ -462,6 +472,21 @@ module.exports = [
               name: "@gpc/server/deals/deal-screen.service",
               message:
                 "This migrated route must import deal screen services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/deals/deal-upload.service",
+              message:
+                "This migrated route must import deal upload services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/deals/deal-extraction-route.service",
+              message:
+                "This migrated route must import deal extraction services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/deals/deal-artifact-delivery.service",
+              message:
+                "This migrated route must import deal artifact delivery services via the stable @gpc/server barrel.",
             },
             {
               name: "@gpc/server/services/evidence-delivery.service",

@@ -7,30 +7,34 @@ import {
 
 const mocks = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
-  dealFindFirstMock: vi.fn(),
-  uploadFindFirstMock: vi.fn(),
-  processUploadMock: vi.fn(),
-  getExtractionsByDealMock: vi.fn(),
-  getUnreviewedCountMock: vi.fn(),
+  getExtractionsSummaryForDealMock: vi.fn(),
+  triggerExtractionForDealMock: vi.fn(),
+  DealAccessErrorMock: class DealAccessError extends Error {
+    status: number;
+
+    constructor(status: number) {
+      super(status === 404 ? "Deal not found" : "Forbidden");
+      this.name = "DealAccessError";
+      this.status = status;
+    }
+  },
+  DealUploadNotFoundErrorMock: class DealUploadNotFoundError extends Error {
+    constructor() {
+      super("Upload not found");
+      this.name = "DealUploadNotFoundError";
+    }
+  },
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
   resolveAuth: mocks.resolveAuthMock,
 }));
 
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    deal: { findFirst: mocks.dealFindFirstMock },
-    upload: { findFirst: mocks.uploadFindFirstMock },
-  },
-}));
-
-vi.mock("@/lib/services/documentProcessing.service", () => ({
-  getDocumentProcessingService: () => ({
-    processUpload: mocks.processUploadMock,
-    getExtractionsByDeal: mocks.getExtractionsByDealMock,
-    getUnreviewedCount: mocks.getUnreviewedCountMock,
-  }),
+vi.mock("@gpc/server", () => ({
+  getExtractionsSummaryForDeal: mocks.getExtractionsSummaryForDealMock,
+  triggerExtractionForDeal: mocks.triggerExtractionForDealMock,
+  DealAccessError: mocks.DealAccessErrorMock,
+  DealUploadNotFoundError: mocks.DealUploadNotFoundErrorMock,
 }));
 
 import { GET, POST } from "./route";
@@ -53,12 +57,17 @@ describe("GET /api/deals/[id]/extractions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.resolveAuthMock.mockResolvedValue({ orgId: "org-1", userId: "user-1" });
-    mocks.dealFindFirstMock.mockResolvedValue({ id: "deal-1" });
-    mocks.getExtractionsByDealMock.mockResolvedValue([
-      { id: "ext-1", reviewed: false },
-      { id: "ext-2", reviewed: true },
-    ]);
-    mocks.getUnreviewedCountMock.mockResolvedValue(1);
+    mocks.getExtractionsSummaryForDealMock.mockResolvedValue({
+      extractions: [
+        { id: "ext-1", reviewed: false },
+        { id: "ext-2", reviewed: true },
+      ],
+      totalCount: 2,
+      pendingCount: 1,
+      reviewedCount: 1,
+      unreviewedCount: 1,
+      extractionStatus: "pending_review",
+    });
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -72,7 +81,9 @@ describe("GET /api/deals/[id]/extractions", () => {
   });
 
   it("enforces org-scoped deal access", async () => {
-    mocks.dealFindFirstMock.mockResolvedValue(null);
+    mocks.getExtractionsSummaryForDealMock.mockRejectedValue(
+      new mocks.DealAccessErrorMock(404),
+    );
 
     const response = await GET(buildGetRequest(), {
       params: Promise.resolve({ id: "deal-1" }),
@@ -95,13 +106,21 @@ describe("GET /api/deals/[id]/extractions", () => {
       unreviewedCount: 1,
       extractionStatus: "pending_review",
     });
-    expect(mocks.getExtractionsByDealMock).toHaveBeenCalledWith("deal-1", "org-1");
-    expect(mocks.getUnreviewedCountMock).toHaveBeenCalledWith("deal-1", "org-1");
+    expect(mocks.getExtractionsSummaryForDealMock).toHaveBeenCalledWith({
+      dealId: "deal-1",
+      orgId: "org-1",
+    });
   });
 
   it("clamps pending counts when service values exceed extraction length", async () => {
-    mocks.getExtractionsByDealMock.mockResolvedValue([{ id: "ext-1", reviewed: false }]);
-    mocks.getUnreviewedCountMock.mockResolvedValue(9);
+    mocks.getExtractionsSummaryForDealMock.mockResolvedValue({
+      extractions: [{ id: "ext-1", reviewed: false }],
+      totalCount: 1,
+      pendingCount: 1,
+      reviewedCount: 0,
+      unreviewedCount: 1,
+      extractionStatus: "pending_review",
+    });
 
     const response = await GET(buildGetRequest(), {
       params: Promise.resolve({ id: "deal-1" }),
@@ -122,14 +141,10 @@ describe("POST /api/deals/[id]/extractions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.resolveAuthMock.mockResolvedValue({ orgId: "org-1", userId: "user-1" });
-    mocks.dealFindFirstMock.mockResolvedValue({ id: "deal-1" });
-    mocks.uploadFindFirstMock.mockResolvedValue({
-      id: "upload-1",
-      dealId: "deal-1",
-      orgId: "org-1",
-    });
-    mocks.processUploadMock.mockResolvedValue({
+    mocks.triggerExtractionForDealMock.mockResolvedValue({
       created: true,
+      success: true,
+      idempotent: false,
       extractionId: "ext-1",
       docType: "psa",
       extractedData: {
@@ -149,7 +164,9 @@ describe("POST /api/deals/[id]/extractions", () => {
   });
 
   it("enforces org-scoped deal access", async () => {
-    mocks.dealFindFirstMock.mockResolvedValue(null);
+    mocks.triggerExtractionForDealMock.mockRejectedValue(
+      new mocks.DealAccessErrorMock(404),
+    );
 
     const response = await POST(buildRequest({ uploadId: "upload-1" }), {
       params: Promise.resolve({ id: "deal-1" }),
@@ -169,7 +186,9 @@ describe("POST /api/deals/[id]/extractions", () => {
   });
 
   it("returns 404 when upload does not match org/deal", async () => {
-    mocks.uploadFindFirstMock.mockResolvedValue(null);
+    mocks.triggerExtractionForDealMock.mockRejectedValue(
+      new mocks.DealUploadNotFoundErrorMock(),
+    );
 
     const response = await POST(buildRequest({ uploadId: "upload-1" }), {
       params: Promise.resolve({ id: "deal-1" }),
@@ -194,8 +213,10 @@ describe("POST /api/deals/[id]/extractions", () => {
   });
 
   it("returns 200 with idempotent flag for existing extraction", async () => {
-    mocks.processUploadMock.mockResolvedValue({
+    mocks.triggerExtractionForDealMock.mockResolvedValue({
       created: false,
+      success: true,
+      idempotent: true,
       extractionId: "ext-1",
       docType: "psa",
       extractedData: { purchase_price: 1000000 },

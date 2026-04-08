@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@entitlement-os/db";
-import type { Prisma } from "@entitlement-os/db";
+import {
+  DealAccessError,
+  DealExtractionNotFoundError,
+  DealExtractionValidationError,
+  getExtractionForDeal,
+  reviewExtractionForDeal,
+  updateExtractionForDeal,
+} from "@gpc/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { AppError } from "@/lib/errors";
-import { getDocumentProcessingService } from "@/lib/services/documentProcessing.service";
 import * as Sentry from "@sentry/nextjs";
 import {
-  DocTypeSchema,
   PatchExtractionRequestSchema,
-  type DocType,
-  validateExtractionPayload,
 } from "@/lib/validation/extractionSchemas";
 
 // GET /api/deals/[id]/extractions/[extractionId] — get single extraction
@@ -24,27 +26,20 @@ export async function GET(
     }
 
     const { id, extractionId } = await params;
-
-    const deal = await prisma.deal.findFirst({
-      where: { id, orgId: auth.orgId },
-      select: { id: true },
+    const extraction = await getExtractionForDeal({
+      dealId: id,
+      extractionId,
+      orgId: auth.orgId,
     });
-    if (!deal) {
-      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
-    }
-
-    const service = getDocumentProcessingService();
-    const extraction = await service.getExtraction(extractionId, auth.orgId);
-
-    if (!extraction || extraction.dealId !== id) {
-      return NextResponse.json(
-        { error: "Extraction not found" },
-        { status: 404 }
-      );
-    }
 
     return NextResponse.json({ extraction });
   } catch (error) {
+    if (error instanceof DealAccessError) {
+      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
+    }
+    if (error instanceof DealExtractionNotFoundError) {
+      return NextResponse.json({ error: "Extraction not found" }, { status: 404 });
+    }
     Sentry.captureException(error, {
       tags: { route: "api.deals.extractions", method: "GET" },
     });
@@ -69,14 +64,6 @@ export async function PATCH(
 
     const { id, extractionId } = await params;
 
-    const deal = await prisma.deal.findFirst({
-      where: { id, orgId: auth.orgId },
-      select: { id: true },
-    });
-    if (!deal) {
-      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
-    }
-
     const body = await request.json();
     const parsedBody = PatchExtractionRequestSchema.safeParse(body);
     if (!parsedBody.success) {
@@ -91,73 +78,27 @@ export async function PATCH(
 
     const { extractedData, docType, reviewed } = parsedBody.data;
 
-    const service = getDocumentProcessingService();
-
     if (reviewed === true) {
-      const updated = await service.reviewExtraction(extractionId, auth.orgId, auth.userId, {
+      const updated = await reviewExtractionForDeal({
+        extractionId,
+        orgId: auth.orgId,
+        userId: auth.userId,
         dealId: id,
         extractedData,
-        docType: docType as DocType | undefined,
+        docType,
       });
       return NextResponse.json({ extraction: updated });
     }
 
     // Just update data without marking reviewed
     if (extractedData !== undefined || docType !== undefined) {
-      const extraction = await prisma.documentExtraction.findFirst({
-        where: { id: extractionId, orgId: auth.orgId, dealId: id },
+      const updated = await updateExtractionForDeal({
+        extractionId,
+        orgId: auth.orgId,
+        dealId: id,
+        extractedData,
+        docType,
       });
-      if (!extraction) {
-        return NextResponse.json(
-          { error: "Extraction not found" },
-          { status: 404 }
-        );
-      }
-
-      const docTypeResult = DocTypeSchema.safeParse(docType ?? extraction.docType);
-      if (!docTypeResult.success) {
-        return NextResponse.json(
-          { error: "Validation failed", details: { docType: ["Invalid document type"] } },
-          { status: 400 }
-        );
-      }
-      const targetDocType: DocType = docTypeResult.data;
-      const normalizedData =
-        extractedData !== undefined ? extractedData : extraction.extractedData;
-      const validated = validateExtractionPayload(targetDocType, normalizedData);
-      if (!validated.success) {
-        return NextResponse.json(
-          {
-            error: "Validation failed",
-            details: { extractedData: validated.issues },
-          },
-          { status: 400 }
-        );
-      }
-
-      const updateResult = await prisma.documentExtraction.updateMany({
-        where: { id: extractionId, orgId: auth.orgId, dealId: id },
-        data: {
-          ...(extractedData !== undefined
-            ? { extractedData: validated.data as Prisma.InputJsonValue }
-            : {}),
-          ...(docType !== undefined ? { docType: targetDocType } : {}),
-        },
-      });
-      if (updateResult.count === 0) {
-        return NextResponse.json(
-          { error: "Extraction not found" },
-          { status: 404 }
-        );
-      }
-
-      const updated = await service.getExtraction(extractionId, auth.orgId);
-      if (!updated || updated.dealId !== id) {
-        return NextResponse.json(
-          { error: "Extraction not found" },
-          { status: 404 }
-        );
-      }
 
       return NextResponse.json({ extraction: updated });
     }
@@ -170,6 +111,18 @@ export async function PATCH(
     Sentry.captureException(error, {
       tags: { route: "api.deals.extractions", method: "PATCH" },
     });
+    if (error instanceof DealAccessError) {
+      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
+    }
+    if (error instanceof DealExtractionNotFoundError) {
+      return NextResponse.json({ error: "Extraction not found" }, { status: 404 });
+    }
+    if (error instanceof DealExtractionValidationError) {
+      return NextResponse.json(
+        { error: error.message, details: error.details },
+        { status: 400 },
+      );
+    }
     if (error instanceof AppError) {
       const statusCode =
         "statusCode" in error && typeof error.statusCode === "number"

@@ -3,9 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   resolveAuthMock,
-  dealFindFirstMock,
-  uploadFindManyMock,
-  uploadCreateMock,
+  ensureDealUploadAccessMock,
+  listUploadsForDealMock,
+  createUploadRecordForDealMock,
   uploadDealFileToGatewayMock,
   buildUploadObjectKeyMock,
   randomUuidMock,
@@ -15,9 +15,9 @@ const {
   flushMock,
 } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
-  dealFindFirstMock: vi.fn(),
-  uploadFindManyMock: vi.fn(),
-  uploadCreateMock: vi.fn(),
+  ensureDealUploadAccessMock: vi.fn(),
+  listUploadsForDealMock: vi.fn(),
+  createUploadRecordForDealMock: vi.fn(),
   uploadDealFileToGatewayMock: vi.fn(),
   buildUploadObjectKeyMock: vi.fn(),
   randomUuidMock: vi.fn(),
@@ -31,14 +31,10 @@ vi.mock("@/lib/auth/resolveAuth", () => ({
   resolveAuth: resolveAuthMock,
 }));
 
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    deal: { findFirst: dealFindFirstMock },
-    upload: {
-      findMany: uploadFindManyMock,
-      create: uploadCreateMock,
-    },
-  },
+vi.mock("@gpc/server", () => ({
+  ensureDealUploadAccess: ensureDealUploadAccessMock,
+  listUploadsForDeal: listUploadsForDealMock,
+  createUploadRecordForDeal: createUploadRecordForDealMock,
 }));
 
 vi.mock("@entitlement-os/shared", () => ({
@@ -77,9 +73,10 @@ import { GET, POST } from "./route";
 describe("/api/deals/[id]/uploads route", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
-    dealFindFirstMock.mockReset();
-    uploadFindManyMock.mockReset();
-    uploadCreateMock.mockReset();
+    ensureDealUploadAccessMock.mockReset();
+    ensureDealUploadAccessMock.mockResolvedValue(undefined);
+    listUploadsForDealMock.mockReset();
+    createUploadRecordForDealMock.mockReset();
     uploadDealFileToGatewayMock.mockReset();
     buildUploadObjectKeyMock.mockReset();
     randomUuidMock.mockReset();
@@ -107,8 +104,7 @@ describe("/api/deals/[id]/uploads route", () => {
   });
 
   it("lists uploads for the scoped deal", async () => {
-    dealFindFirstMock.mockResolvedValue({ id: "deal-1" });
-    uploadFindManyMock.mockResolvedValue([{ id: "upload-1", filename: "lease.pdf" }]);
+    listUploadsForDealMock.mockResolvedValue([{ id: "upload-1", filename: "lease.pdf" }]);
 
     const res = await GET(new NextRequest("http://localhost/api/deals/deal-1/uploads"), {
       params: Promise.resolve({ id: "deal-1" }),
@@ -116,15 +112,14 @@ describe("/api/deals/[id]/uploads route", () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ uploads: [{ id: "upload-1", filename: "lease.pdf" }] });
-    expect(uploadFindManyMock).toHaveBeenCalledWith({
-      where: { dealId: "deal-1", orgId: "org-1" },
-      orderBy: { createdAt: "desc" },
+    expect(listUploadsForDealMock).toHaveBeenCalledWith({
+      dealId: "deal-1",
+      orgId: "org-1",
     });
   });
 
   it("uploads a file, persists metadata, and dispatches upload.created", async () => {
-    dealFindFirstMock.mockResolvedValue({ id: "deal-1" });
-    uploadCreateMock.mockResolvedValue({ id: "upload-1", filename: "lease.pdf" });
+    createUploadRecordForDealMock.mockResolvedValue({ id: "upload-1", filename: "lease.pdf" });
 
     const formData = new FormData();
     formData.append("file", new File(["hello world"], "lease.pdf", { type: "application/pdf" }));
@@ -145,16 +140,20 @@ describe("/api/deals/[id]/uploads route", () => {
         contentType: "application/pdf",
       }),
     );
-    expect(uploadCreateMock).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        id: expect.any(String),
-        orgId: "org-1",
-        dealId: "deal-1",
-        kind: "legal",
-        filename: "lease.pdf",
-        storageObjectKey: "uploads/org-1/deal-1/upload-1/lease.pdf",
-        uploadedBy: "user-1",
-      }),
+    expect(ensureDealUploadAccessMock).toHaveBeenCalledWith({
+      dealId: "deal-1",
+      orgId: "org-1",
+    });
+    expect(createUploadRecordForDealMock).toHaveBeenCalledWith({
+      uploadId: expect.any(String),
+      orgId: "org-1",
+      dealId: "deal-1",
+      userId: "user-1",
+      kind: "legal",
+      filename: "lease.pdf",
+      contentType: "application/pdf",
+      sizeBytes: 11,
+      storageObjectKey: "uploads/org-1/deal-1/upload-1/lease.pdf",
     });
     expect(dispatchEventMock).toHaveBeenCalledWith({
       type: "upload.created",

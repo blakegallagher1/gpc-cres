@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@entitlement-os/db";
+import {
+  DealUploadNotFoundError,
+  deleteUploadRecordForDeal,
+  getUploadForDeal,
+} from "@gpc/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import * as Sentry from "@sentry/nextjs";
 import {
@@ -19,13 +23,11 @@ export async function GET(
     }
 
     const { id, uploadId } = await params;
-
-    const upload = await prisma.upload.findFirst({
-      where: { id: uploadId, dealId: id, orgId: auth.orgId },
+    const upload = await getUploadForDeal({
+      dealId: id,
+      uploadId,
+      orgId: auth.orgId,
     });
-    if (!upload) {
-      return NextResponse.json({ error: "Upload not found" }, { status: 404 });
-    }
 
     const { downloadUrl } = await getDownloadUrlFromGateway({
       auth: { orgId: auth.orgId, userId: auth.userId },
@@ -35,6 +37,9 @@ export async function GET(
 
     return NextResponse.json({ url: downloadUrl });
   } catch (error) {
+    if (error instanceof DealUploadNotFoundError) {
+      return NextResponse.json({ error: "Upload not found" }, { status: 404 });
+    }
     Sentry.captureException(error, {
       tags: { route: "api.deals.uploads", method: "GET" },
     });
@@ -58,23 +63,28 @@ export async function DELETE(
     }
 
     const { id, uploadId } = await params;
-
-    const upload = await prisma.upload.findFirst({
-      where: { id: uploadId, dealId: id, orgId: auth.orgId },
+    const upload = await getUploadForDeal({
+      dealId: id,
+      uploadId,
+      orgId: auth.orgId,
     });
-    if (!upload) {
-      return NextResponse.json({ error: "Upload not found" }, { status: 404 });
-    }
 
     await deleteObjectFromGateway(upload.storageObjectKey, {
       orgId: auth.orgId,
       userId: auth.userId,
     });
 
-    await prisma.upload.delete({ where: { id: uploadId } });
+    await deleteUploadRecordForDeal({
+      dealId: id,
+      uploadId,
+      orgId: auth.orgId,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof DealUploadNotFoundError) {
+      return NextResponse.json({ error: "Upload not found" }, { status: 404 });
+    }
     Sentry.captureException(error, {
       tags: { route: "api.deals.uploads", method: "DELETE" },
     });
