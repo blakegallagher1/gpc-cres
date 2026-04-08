@@ -20,6 +20,7 @@ export * from "./deals/deal-workspace.service";
 export * from "./deals/opportunity-phase-compatibility";
 export * from "./automation/proactive-action.service";
 export * from "./automation/automation-event.service";
+export * from "./automation/events";
 export * from "./automation/advancement.service";
 export * from "./automation/config";
 export * from "./automation/deadline-monitoring.service";

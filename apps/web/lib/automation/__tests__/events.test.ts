@@ -20,17 +20,17 @@ const {
   scopeSetContextMock: vi.fn(),
 }));
 
-vi.mock("../handlers", () => ({
+vi.mock("@gpc/server/automation/handlers", () => ({
   ensureHandlersRegistered: ensureHandlersRegisteredMock,
 }));
 
-vi.mock("@/lib/services/automationEvent.service", () => ({
+vi.mock("@gpc/server/automation/automation-event.service", () => ({
   startEvent: startEventMock,
   completeEvent: completeEventMock,
   failEvent: failEventMock,
 }));
 
-vi.mock("@/lib/services/proactiveTrigger.service", () => ({
+vi.mock("@gpc/server/automation/proactive-trigger.service", () => ({
   evaluateProactiveEvent: evaluateProactiveEventMock,
 }));
 
@@ -44,7 +44,7 @@ vi.mock("@sentry/nextjs", () => ({
 }));
 
 async function loadModule() {
-  return import("../events");
+  return import("@gpc/server/automation/events");
 }
 
 describe("dispatchEvent", () => {

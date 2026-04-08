@@ -35,7 +35,7 @@ import {
 import { parseToolResultMapFeatures } from "../../../../apps/web/lib/chat/toolResultWrapper";
 import type { MapFeature } from "../../../../apps/web/lib/chat/mapActionTypes";
 import { logger } from "../../../../apps/web/lib/agent/loggerAdapter";
-import { dispatchEvent } from "../../../../apps/web/lib/automation/events";
+import { dispatchEvent } from "../automation/events";
 import type { ResearchLaneSelection } from "../../../../apps/web/lib/agent/researchRouting";
 
 /**

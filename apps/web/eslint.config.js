@@ -252,6 +252,7 @@ module.exports = [
       "lib/automation/intake.ts",
       "lib/automation/triage.ts",
       "lib/automation/gates.ts",
+      "lib/automation/events.ts",
       "lib/automation/taskExecution.ts",
       "lib/automation/documents.ts",
       "lib/automation/buyerOutreach.ts",

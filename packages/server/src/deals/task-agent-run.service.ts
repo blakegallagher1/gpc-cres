@@ -1,7 +1,7 @@
 import { prisma } from "@entitlement-os/db";
 import * as Sentry from "@sentry/nextjs";
-import { dispatchEvent } from "../../../../apps/web/lib/automation/events";
-import { captureAutomationDispatchError } from "../../../../apps/web/lib/automation/sentry";
+import { dispatchEvent } from "../automation/events";
+import { captureAutomationDispatchError } from "../automation/sentry";
 import { runAgentWorkflow } from "../chat/run-agent-workflow.service";
 
 const MAX_TASK_TURNS = 15;
