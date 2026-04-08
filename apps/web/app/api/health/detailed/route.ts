@@ -1,14 +1,8 @@
 import crypto from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
-import { prisma } from "@entitlement-os/db";
-import { getPropertyDbConfigOrNull } from "@/lib/server/propertyDbEnv";
+import { getDetailedHealthStatus, userHasHealthAccess } from "@gpc/server";
 import { getAuthSecret } from "@/lib/auth/authSecret";
-
-type DbStatus = {
-  ok: boolean;
-  latencyMs?: number;
-};
 
 function getBearerToken(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
@@ -59,51 +53,7 @@ async function isAuthorized(request: NextRequest) {
     return false;
   }
 
-  const membership = await prisma.orgMembership.findFirst({
-    where: { userId: token.userId as string },
-    select: { orgId: true },
-  });
-  return Boolean(membership?.orgId);
-}
-
-async function getDbStatus(): Promise<DbStatus> {
-  const start = Date.now();
-
-  try {
-    await prisma.$queryRawUnsafe("SELECT 1");
-    return { ok: true, latencyMs: Date.now() - start };
-  } catch {
-    return { ok: false };
-  }
-}
-
-async function getMigrationVersion(): Promise<string | null> {
-  try {
-    const rows = await prisma.$queryRawUnsafe<
-      Array<{ migration_name: string | null }>
-    >(
-      `SELECT migration_name
-       FROM _prisma_migrations
-       ORDER BY finished_at DESC NULLS LAST, started_at DESC
-       LIMIT 1`
-    );
-    return rows[0]?.migration_name ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function getDbMode(
-  gatewayConfigured: boolean,
-  directUrlConfigured: boolean
-): "gateway" | "direct" | "unconfigured" {
-  if (gatewayConfigured) {
-    return "gateway";
-  }
-  if (directUrlConfigured) {
-    return "direct";
-  }
-  return "unconfigured";
+  return userHasHealthAccess(token.userId as string);
 }
 
 export async function GET(request: NextRequest) {
@@ -113,24 +63,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const dbStatus = await getDbStatus();
-  const migrationVersion = dbStatus.ok ? await getMigrationVersion() : null;
-  const gatewayConfigured = Boolean(getPropertyDbConfigOrNull());
-  const directUrlConfigured = Boolean(process.env.DATABASE_URL?.trim());
-  const dbMode = getDbMode(gatewayConfigured, directUrlConfigured);
+  const payload = await getDetailedHealthStatus();
 
   return NextResponse.json(
-    {
-      dbStatus,
-      propertyDb: {
-        dbMode,
-        gatewayConfigured,
-        directUrlConfigured,
-      },
-      migrationVersion,
-      timestamp: new Date().toISOString(),
-      uptimeSeconds: Math.floor(process.uptime()),
-    },
-    { status: dbStatus.ok ? 200 : 500 }
+    payload,
+    { status: payload.dbStatus.ok ? 200 : 500 }
   );
 }

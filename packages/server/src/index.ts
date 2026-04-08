@@ -83,6 +83,7 @@ export * from "./services/outcome-reinforcement.service";
 export * from "./services/novelty-detector.service";
 export * from "./services/preference-extraction.service";
 export * from "./services/preference.service";
+export * from "./services/intelligence-deadlines.service";
 export {
   buildProcedureDedupeHash,
   normalizeToolSequence,
@@ -127,6 +128,9 @@ export * from "./deals/task-agent-run.service";
 export * from "./deals/triage.service";
 export * from "./jobs/deadline-monitor.job";
 export * from "./jobs/deadline-monitor-cron.service";
+export * from "./chat/conversation-route.service";
+export * from "./observability/health-access.service";
+export * from "./observability/health-status.service";
 export * from "./observability/tool-health.service";
 export * from "./search/parcel-search.service";
 export * from "./search/prospect-search.service";

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@entitlement-os/db";
+import { listConversationsForOrg } from "@gpc/server";
 import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
 import { isChatPersistenceUnavailable } from "@/app/api/chat/_lib/errorHandling";
 import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
@@ -20,26 +20,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const conversations = await prisma.conversation.findMany({
-      where: { orgId: auth.orgId },
-      orderBy: { updatedAt: "desc" },
-      select: {
-        id: true,
-        title: true,
-        dealId: true,
-        updatedAt: true,
-        _count: { select: { messages: true } },
-      },
-    });
-
     return NextResponse.json({
-      conversations: conversations.map((c) => ({
-        id: c.id,
-        title: c.title,
-        dealId: c.dealId,
-        updatedAt: c.updatedAt.toISOString(),
-        messageCount: c._count.messages,
-      })),
+      conversations: await listConversationsForOrg(auth.orgId),
     });
   } catch (error) {
     Sentry.captureException(error, {

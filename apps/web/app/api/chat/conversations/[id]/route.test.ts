@@ -1,69 +1,60 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  resolveAuthMock,
-  conversationFindFirstMock,
-  conversationDeleteMock,
-  runFindFirstMock,
+  authorizeApiRouteMock,
+  getConversationForOrgMock,
+  deleteConversationForOrgMock,
+  shouldUseAppDatabaseDevFallbackMock,
 } = vi.hoisted(() => ({
-  resolveAuthMock: vi.fn(),
-  conversationFindFirstMock: vi.fn(),
-  conversationDeleteMock: vi.fn(),
-  runFindFirstMock: vi.fn(),
+  authorizeApiRouteMock: vi.fn(),
+  getConversationForOrgMock: vi.fn(),
+  deleteConversationForOrgMock: vi.fn(),
+  shouldUseAppDatabaseDevFallbackMock: vi.fn(() => false),
 }));
 
-vi.mock("@/lib/auth/resolveAuth", () => ({
-  resolveAuth: resolveAuthMock,
+vi.mock("@/lib/auth/authorizeApiRoute", () => ({
+  authorizeApiRoute: authorizeApiRouteMock,
 }));
 
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    conversation: {
-      findFirst: conversationFindFirstMock,
-      delete: conversationDeleteMock,
-    },
-    run: {
-      findFirst: runFindFirstMock,
-    },
-  },
+vi.mock("@gpc/server", () => ({
+  getConversationForOrg: getConversationForOrgMock,
+  deleteConversationForOrg: deleteConversationForOrgMock,
 }));
 
 vi.mock("@/lib/server/appDbEnv", () => ({
-  shouldUseAppDatabaseDevFallback: vi.fn(() => false),
+  shouldUseAppDatabaseDevFallback: shouldUseAppDatabaseDevFallbackMock,
 }));
 
 import { DELETE, GET } from "./route";
-import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
 
-const CONVERSATION_ID_1 = "11111111-1111-4111-8111-111111111111";
-const CONVERSATION_ID_2 = "22222222-2222-4222-8222-222222222222";
+const CONVERSATION_ID = "11111111-1111-4111-8111-111111111111";
 
 describe("/api/chat/conversations/[id]", () => {
   beforeEach(() => {
-    resolveAuthMock.mockReset();
-    conversationFindFirstMock.mockReset();
-    conversationDeleteMock.mockReset();
-    runFindFirstMock.mockReset();
-    vi.mocked(shouldUseAppDatabaseDevFallback).mockReturnValue(false);
+    authorizeApiRouteMock.mockReset();
+    getConversationForOrgMock.mockReset();
+    deleteConversationForOrgMock.mockReset();
+    shouldUseAppDatabaseDevFallbackMock.mockReset();
+    shouldUseAppDatabaseDevFallbackMock.mockReturnValue(false);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("returns persisted metadata and pending approval recovery state", async () => {
-    resolveAuthMock.mockResolvedValue({
-      userId: "99999999-9999-4999-8999-999999999999",
-      orgId: "11111111-1111-4111-8111-111111111111",
+  it("returns the persisted conversation payload", async () => {
+    authorizeApiRouteMock.mockResolvedValue({
+      ok: true,
+      auth: { orgId: "org-1", userId: "user-1" },
     });
-    conversationFindFirstMock.mockResolvedValue({
-      id: CONVERSATION_ID_1,
+    getConversationForOrgMock.mockResolvedValue({
+      id: CONVERSATION_ID,
       title: "Parcel review",
       dealId: "deal-1",
       deal: { id: "deal-1", name: "Main Street", status: "ACTIVE" },
-      createdAt: new Date("2026-03-12T10:00:00.000Z"),
-      updatedAt: new Date("2026-03-12T10:10:00.000Z"),
+      createdAt: "2026-03-12T10:00:00.000Z",
+      updatedAt: "2026-03-12T10:10:00.000Z",
       messages: [
         {
           id: "msg-1",
@@ -75,275 +66,186 @@ describe("/api/chat/conversations/[id]", () => {
             kind: "chat_assistant_message",
             runId: "run-finished-1",
             openaiResponseId: "resp_123",
-            mapFeatures: [{ parcelId: "parcel-1", address: "123 Main St" }],
           },
-          createdAt: new Date("2026-03-12T10:05:00.000Z"),
+          createdAt: "2026-03-12T10:05:00.000Z",
         },
       ],
     });
-    runFindFirstMock.mockResolvedValue({
-      id: "run-pending-1",
-      startedAt: new Date("2026-03-12T10:06:00.000Z"),
-      outputJson: {
-        pendingApproval: {
-          conversationId: CONVERSATION_ID_1,
-          toolCallId: "call-42",
-          toolName: "update_deal_status",
-        },
-      },
-    });
 
     const req = new NextRequest(
-      `http://localhost/api/chat/conversations/${CONVERSATION_ID_1}`,
+      `http://localhost/api/chat/conversations/${CONVERSATION_ID}`,
     );
     const res = await GET(req, {
-      params: Promise.resolve({ id: CONVERSATION_ID_1 }),
+      params: Promise.resolve({ id: CONVERSATION_ID }),
     });
-    const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body.conversation.messages).toEqual([
-      {
-        id: "msg-1",
-        role: "assistant",
-        content: "Loaded parcel context.",
-        agentName: "Coordinator",
-        toolCalls: null,
-        metadata: {
-          kind: "chat_assistant_message",
-          runId: "run-finished-1",
-          openaiResponseId: "resp_123",
-          mapFeatures: [{ parcelId: "parcel-1", address: "123 Main St" }],
-        },
-        createdAt: "2026-03-12T10:05:00.000Z",
-      },
-      {
-        id: "pending-approval-run-pending-1",
-        role: "system",
-        content: "Approval required for update_deal_status",
-        agentName: null,
-        toolCalls: [{ name: "update_deal_status" }],
-        metadata: {
-          kind: "tool_approval_requested",
-          runId: "run-pending-1",
-          toolCallId: "call-42",
-          toolName: "update_deal_status",
-          pendingApproval: true,
-        },
-        createdAt: "2026-03-12T10:06:00.000Z",
-      },
-    ]);
-    expect(runFindFirstMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          orgId: "11111111-1111-4111-8111-111111111111",
-          status: "running",
-        }),
-      }),
-    );
-  });
-
-  it("degrades GET when persistence is unavailable", async () => {
-    resolveAuthMock.mockResolvedValue({
-      userId: "99999999-9999-4999-8999-999999999999",
-      orgId: "11111111-1111-4111-8111-111111111111",
-    });
-    conversationFindFirstMock.mockRejectedValue(
-      new Error(
-        "PrismaClientInitializationError: Environment variable not found: DATABASE_URL",
-      ),
-    );
-    runFindFirstMock.mockResolvedValue(null);
-
-    const req = new NextRequest(
-      `http://localhost/api/chat/conversations/${CONVERSATION_ID_1}`,
-    );
-    const res = await GET(req, {
-      params: Promise.resolve({ id: CONVERSATION_ID_1 }),
-    });
-    const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(body).toEqual({ conversation: null, degraded: true });
-  });
-
-  it("returns a draft-safe null conversation when the record does not exist", async () => {
-    resolveAuthMock.mockResolvedValue({
-      userId: "99999999-9999-4999-8999-999999999999",
-      orgId: "11111111-1111-4111-8111-111111111111",
-    });
-
-    const req = new NextRequest("http://localhost/api/chat/conversations/draft-1");
-    const res = await GET(req, { params: Promise.resolve({ id: "draft-1" }) });
-    const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(body).toEqual({ conversation: null });
-    expect(conversationFindFirstMock).not.toHaveBeenCalled();
-    expect(runFindFirstMock).not.toHaveBeenCalled();
-  });
-
-  it("returns the persisted conversation when pending approval lookup fails", async () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    resolveAuthMock.mockResolvedValue({
-      userId: "99999999-9999-4999-8999-999999999999",
-      orgId: "11111111-1111-4111-8111-111111111111",
-    });
-    conversationFindFirstMock.mockResolvedValue({
-      id: CONVERSATION_ID_2,
-      title: "Pending approval lookup drift",
-      dealId: null,
-      deal: null,
-      createdAt: new Date("2026-03-16T14:00:00.000Z"),
-      updatedAt: new Date("2026-03-16T14:01:00.000Z"),
-      messages: [
-        {
-          id: "msg-2",
-          role: "assistant",
-          content: "Conversation still loads.",
-          agentName: "Coordinator",
-          toolCalls: null,
-          metadata: { kind: "chat_assistant_message", runId: "run-2" },
-          createdAt: new Date("2026-03-16T14:00:30.000Z"),
-        },
-      ],
-    });
-    runFindFirstMock.mockRejectedValue(new Error("json path lookup failed"));
-
-    const req = new NextRequest(
-      `http://localhost/api/chat/conversations/${CONVERSATION_ID_2}`,
-    );
-    const res = await GET(req, {
-      params: Promise.resolve({ id: CONVERSATION_ID_2 }),
-    });
-    const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(body).toEqual({
+    expect(await res.json()).toEqual({
       conversation: {
-        id: CONVERSATION_ID_2,
-        title: "Pending approval lookup drift",
-        dealId: null,
-        deal: null,
-        createdAt: "2026-03-16T14:00:00.000Z",
-        updatedAt: "2026-03-16T14:01:00.000Z",
+        id: CONVERSATION_ID,
+        title: "Parcel review",
+        dealId: "deal-1",
+        deal: { id: "deal-1", name: "Main Street", status: "ACTIVE" },
+        createdAt: "2026-03-12T10:00:00.000Z",
+        updatedAt: "2026-03-12T10:10:00.000Z",
         messages: [
           {
-            id: "msg-2",
+            id: "msg-1",
             role: "assistant",
-            content: "Conversation still loads.",
+            content: "Loaded parcel context.",
             agentName: "Coordinator",
             toolCalls: null,
-            metadata: { kind: "chat_assistant_message", runId: "run-2" },
-            createdAt: "2026-03-16T14:00:30.000Z",
+            metadata: {
+              kind: "chat_assistant_message",
+              runId: "run-finished-1",
+              openaiResponseId: "resp_123",
+            },
+            createdAt: "2026-03-12T10:05:00.000Z",
           },
         ],
       },
     });
-    expect(warnSpy).toHaveBeenCalledWith(
-      "[chat-conversation-detail] pending approval lookup failed",
-      expect.objectContaining({
-        conversationId: CONVERSATION_ID_2,
-        orgId: "11111111-1111-4111-8111-111111111111",
-        error: "json path lookup failed",
-      }),
-    );
+    expect(getConversationForOrgMock).toHaveBeenCalledWith("org-1", CONVERSATION_ID);
   });
 
-  it("short-circuits GET before Prisma when dev fallback is active", async () => {
-    resolveAuthMock.mockResolvedValue({
-      userId: "99999999-9999-4999-8999-999999999999",
-      orgId: "11111111-1111-4111-8111-111111111111",
+  it("returns a null conversation when the record does not exist", async () => {
+    authorizeApiRouteMock.mockResolvedValue({
+      ok: true,
+      auth: { orgId: "org-1", userId: "user-1" },
     });
-    vi.mocked(shouldUseAppDatabaseDevFallback).mockReturnValue(true);
+    getConversationForOrgMock.mockResolvedValue(null);
 
     const req = new NextRequest(
-      `http://localhost/api/chat/conversations/${CONVERSATION_ID_1}`,
+      `http://localhost/api/chat/conversations/${CONVERSATION_ID}`,
     );
     const res = await GET(req, {
-      params: Promise.resolve({ id: CONVERSATION_ID_1 }),
+      params: Promise.resolve({ id: CONVERSATION_ID }),
     });
-    const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body).toEqual({ conversation: null, degraded: true });
-    expect(conversationFindFirstMock).not.toHaveBeenCalled();
-    expect(runFindFirstMock).not.toHaveBeenCalled();
+    expect(await res.json()).toEqual({ conversation: null });
   });
 
-  it("returns 503 on DELETE when conversation storage is unavailable", async () => {
-    resolveAuthMock.mockResolvedValue({
-      userId: "99999999-9999-4999-8999-999999999999",
-      orgId: "11111111-1111-4111-8111-111111111111",
+  it("degrades GET when persistence is unavailable", async () => {
+    authorizeApiRouteMock.mockResolvedValue({
+      ok: true,
+      auth: { orgId: "org-1", userId: "user-1" },
     });
-    conversationFindFirstMock.mockRejectedValue(
+    getConversationForOrgMock.mockRejectedValue(
       new Error(
         "PrismaClientInitializationError: Environment variable not found: DATABASE_URL",
       ),
     );
 
     const req = new NextRequest(
-      `http://localhost/api/chat/conversations/${CONVERSATION_ID_1}`,
-      {
-        method: "DELETE",
-      },
+      `http://localhost/api/chat/conversations/${CONVERSATION_ID}`,
     );
-    const res = await DELETE(req, {
-      params: Promise.resolve({ id: CONVERSATION_ID_1 }),
+    const res = await GET(req, {
+      params: Promise.resolve({ id: CONVERSATION_ID }),
     });
-    const body = await res.json();
 
-    expect(res.status).toBe(503);
-    expect(body).toEqual({
-      error: "Conversation store unavailable",
-      degraded: true,
-    });
-    expect(conversationDeleteMock).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ conversation: null, degraded: true });
   });
 
-  it("short-circuits DELETE before Prisma when dev fallback is active", async () => {
-    resolveAuthMock.mockResolvedValue({
-      userId: "99999999-9999-4999-8999-999999999999",
-      orgId: "11111111-1111-4111-8111-111111111111",
+  it("short-circuits GET before service access when dev fallback is active", async () => {
+    authorizeApiRouteMock.mockResolvedValue({
+      ok: true,
+      auth: { orgId: "org-1", userId: "user-1" },
     });
-    vi.mocked(shouldUseAppDatabaseDevFallback).mockReturnValue(true);
+    shouldUseAppDatabaseDevFallbackMock.mockReturnValue(true);
 
     const req = new NextRequest(
-      `http://localhost/api/chat/conversations/${CONVERSATION_ID_1}`,
-      {
-        method: "DELETE",
-      },
+      `http://localhost/api/chat/conversations/${CONVERSATION_ID}`,
+    );
+    const res = await GET(req, {
+      params: Promise.resolve({ id: CONVERSATION_ID }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ conversation: null, degraded: true });
+    expect(getConversationForOrgMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 when delete target does not exist", async () => {
+    authorizeApiRouteMock.mockResolvedValue({
+      ok: true,
+      auth: { orgId: "org-1", userId: "user-1" },
+    });
+    deleteConversationForOrgMock.mockResolvedValue(false);
+
+    const req = new NextRequest(
+      `http://localhost/api/chat/conversations/${CONVERSATION_ID}`,
+      { method: "DELETE" },
     );
     const res = await DELETE(req, {
-      params: Promise.resolve({ id: CONVERSATION_ID_1 }),
+      params: Promise.resolve({ id: CONVERSATION_ID }),
     });
-    const body = await res.json();
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "Conversation not found" });
+  });
+
+  it("returns success when delete succeeds", async () => {
+    authorizeApiRouteMock.mockResolvedValue({
+      ok: true,
+      auth: { orgId: "org-1", userId: "user-1" },
+    });
+    deleteConversationForOrgMock.mockResolvedValue(true);
+
+    const req = new NextRequest(
+      `http://localhost/api/chat/conversations/${CONVERSATION_ID}`,
+      { method: "DELETE" },
+    );
+    const res = await DELETE(req, {
+      params: Promise.resolve({ id: CONVERSATION_ID }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ success: true });
+    expect(deleteConversationForOrgMock).toHaveBeenCalledWith("org-1", CONVERSATION_ID);
+  });
+
+  it("returns 503 on DELETE when conversation storage is unavailable", async () => {
+    authorizeApiRouteMock.mockResolvedValue({
+      ok: true,
+      auth: { orgId: "org-1", userId: "user-1" },
+    });
+    deleteConversationForOrgMock.mockRejectedValue(
+      new Error(
+        "PrismaClientInitializationError: Environment variable not found: DATABASE_URL",
+      ),
+    );
+
+    const req = new NextRequest(
+      `http://localhost/api/chat/conversations/${CONVERSATION_ID}`,
+      { method: "DELETE" },
+    );
+    const res = await DELETE(req, {
+      params: Promise.resolve({ id: CONVERSATION_ID }),
+    });
 
     expect(res.status).toBe(503);
-    expect(body).toEqual({
+    expect(await res.json()).toEqual({
       error: "Conversation store unavailable",
       degraded: true,
     });
-    expect(conversationFindFirstMock).not.toHaveBeenCalled();
-    expect(conversationDeleteMock).not.toHaveBeenCalled();
   });
 
-  it("returns 404 for invalid draft ids on DELETE without touching Prisma", async () => {
-    resolveAuthMock.mockResolvedValue({
-      userId: "99999999-9999-4999-8999-999999999999",
-      orgId: "11111111-1111-4111-8111-111111111111",
+  it("returns the authorization response when auth resolution fails upstream", async () => {
+    authorizeApiRouteMock.mockResolvedValue({
+      ok: false,
+      response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
     });
 
-    const req = new NextRequest("http://localhost/api/chat/conversations/draft-1", {
-      method: "DELETE",
+    const req = new NextRequest(
+      `http://localhost/api/chat/conversations/${CONVERSATION_ID}`,
+    );
+    const res = await GET(req, {
+      params: Promise.resolve({ id: CONVERSATION_ID }),
     });
-    const res = await DELETE(req, { params: Promise.resolve({ id: "draft-1" }) });
-    const body = await res.json();
 
-    expect(res.status).toBe(404);
-    expect(body).toEqual({ error: "Conversation not found" });
-    expect(conversationFindFirstMock).not.toHaveBeenCalled();
-    expect(conversationDeleteMock).not.toHaveBeenCalled();
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Forbidden" });
   });
 });

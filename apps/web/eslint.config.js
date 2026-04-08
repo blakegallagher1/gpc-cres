@@ -359,6 +359,9 @@ module.exports = [
       "app/api/buyers/route.ts",
       "app/api/geofences/route.ts",
       "app/api/geofences/[id]/route.ts",
+      "app/api/health/route.ts",
+      "app/api/health/detailed/route.ts",
+      "app/api/intelligence/deadlines/route.ts",
       "app/api/jurisdictions/route.ts",
       "app/api/map/prospect/route.ts",
       "app/api/memory/ingest/route.ts",
@@ -371,6 +374,8 @@ module.exports = [
       "app/api/runs/[runId]/reward/route.ts",
       "app/api/runs/[runId]/traces/route.ts",
       "app/api/runs/dashboard/route.ts",
+      "app/api/chat/conversations/route.ts",
+      "app/api/chat/conversations/[id]/route.ts",
       "app/api/agent-learning/stats/route.ts",
       "app/api/tools/health/route.ts",
       "app/api/workflows/[id]/route.ts",
@@ -414,6 +419,11 @@ module.exports = [
               name: "@gpc/server/services/geofence-management.service",
               message:
                 "This migrated route must import geofence services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/chat/conversation-route.service",
+              message:
+                "This migrated route must import conversation services via the stable @gpc/server barrel.",
             },
             {
               name: "@gpc/server/services/evidence-delivery.service",
@@ -464,6 +474,21 @@ module.exports = [
               name: "@gpc/server/observability/agent-learning-stats.service",
               message:
                 "This migrated route must import agent-learning stats via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/observability/health-access.service",
+              message:
+                "This migrated route must import health access services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/observability/health-status.service",
+              message:
+                "This migrated route must import health status services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/services/intelligence-deadlines.service",
+              message:
+                "This migrated route must import intelligence deadline services via the stable @gpc/server barrel.",
             },
             {
               name: "@gpc/server/observability/reward-signal.service",
