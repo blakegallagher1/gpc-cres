@@ -3,21 +3,32 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   resolveAuthMock,
-  dealFindFirstMock,
-  taskFindManyMock,
-  taskCreateMock,
-  taskFindFirstMock,
-  taskUpdateMock,
+  listDealTasksMock,
+  createDealTaskMock,
+  updateDealTaskMock,
+  DealAccessErrorMock,
+  DealTaskNotFoundErrorMock,
   dispatchEventMock,
   captureAutomationDispatchErrorMock,
   captureExceptionMock,
 } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
-  dealFindFirstMock: vi.fn(),
-  taskFindManyMock: vi.fn(),
-  taskCreateMock: vi.fn(),
-  taskFindFirstMock: vi.fn(),
-  taskUpdateMock: vi.fn(),
+  listDealTasksMock: vi.fn(),
+  createDealTaskMock: vi.fn(),
+  updateDealTaskMock: vi.fn(),
+  DealAccessErrorMock: class DealAccessError extends Error {
+    constructor(status) {
+      super(status === 403 ? "Forbidden" : "Deal not found");
+      this.name = "DealAccessError";
+      this.status = status;
+    }
+  },
+  DealTaskNotFoundErrorMock: class DealTaskNotFoundError extends Error {
+    constructor() {
+      super("Task not found");
+      this.name = "DealTaskNotFoundError";
+    }
+  },
   dispatchEventMock: vi.fn(),
   captureAutomationDispatchErrorMock: vi.fn(),
   captureExceptionMock: vi.fn(),
@@ -27,18 +38,12 @@ vi.mock("@/lib/auth/resolveAuth", () => ({
   resolveAuth: resolveAuthMock,
 }));
 
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    deal: {
-      findFirst: dealFindFirstMock,
-    },
-    task: {
-      findMany: taskFindManyMock,
-      create: taskCreateMock,
-      findFirst: taskFindFirstMock,
-      update: taskUpdateMock,
-    },
-  },
+vi.mock("@gpc/server", () => ({
+  listDealTasks: listDealTasksMock,
+  createDealTask: createDealTaskMock,
+  updateDealTask: updateDealTaskMock,
+  DealAccessError: DealAccessErrorMock,
+  DealTaskNotFoundError: DealTaskNotFoundErrorMock,
 }));
 
 vi.mock("@/lib/automation/events", () => ({
@@ -60,11 +65,9 @@ import { GET, PATCH, POST } from "./route";
 describe("/api/deals/[id]/tasks route", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
-    dealFindFirstMock.mockReset();
-    taskFindManyMock.mockReset();
-    taskCreateMock.mockReset();
-    taskFindFirstMock.mockReset();
-    taskUpdateMock.mockReset();
+    listDealTasksMock.mockReset();
+    createDealTaskMock.mockReset();
+    updateDealTaskMock.mockReset();
     dispatchEventMock.mockReset();
     captureAutomationDispatchErrorMock.mockReset();
     captureExceptionMock.mockReset();
@@ -84,8 +87,7 @@ describe("/api/deals/[id]/tasks route", () => {
 
   it("returns deal tasks when the deal belongs to the auth org", async () => {
     resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
-    dealFindFirstMock.mockResolvedValue({ id: "deal-1" });
-    taskFindManyMock.mockResolvedValue([{ id: "task-1", title: "Call surveyor" }]);
+    listDealTasksMock.mockResolvedValue({ tasks: [{ id: "task-1", title: "Call surveyor" }] });
 
     const res = await GET(new NextRequest("http://localhost/api/deals/deal-1/tasks"), {
       params: Promise.resolve({ id: "deal-1" }),
@@ -93,16 +95,15 @@ describe("/api/deals/[id]/tasks route", () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ tasks: [{ id: "task-1", title: "Call surveyor" }] });
-    expect(taskFindManyMock).toHaveBeenCalledWith({
-      where: { dealId: "deal-1" },
-      orderBy: [{ pipelineStep: "asc" }, { createdAt: "asc" }],
+    expect(listDealTasksMock).toHaveBeenCalledWith({
+      dealId: "deal-1",
+      orgId: "org-1",
     });
   });
 
   it("creates a task and dispatches task.created", async () => {
     resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
-    dealFindFirstMock.mockResolvedValue({ id: "deal-1" });
-    taskCreateMock.mockResolvedValue({ id: "task-2", title: "Order survey" });
+    createDealTaskMock.mockResolvedValue({ task: { id: "task-2", title: "Order survey" } });
 
     const req = new NextRequest("http://localhost/api/deals/deal-1/tasks", {
       method: "POST",
@@ -112,14 +113,15 @@ describe("/api/deals/[id]/tasks route", () => {
 
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual({ task: { id: "task-2", title: "Order survey" } });
-    expect(taskCreateMock).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        orgId: "org-1",
-        dealId: "deal-1",
-        title: "Order survey",
-        pipelineStep: 2,
-        status: "TODO",
-      }),
+    expect(createDealTaskMock).toHaveBeenCalledWith({
+      dealId: "deal-1",
+      orgId: "org-1",
+      title: "Order survey",
+      description: null,
+      status: "TODO",
+      pipelineStep: 2,
+      dueAt: null,
+      ownerUserId: null,
     });
     expect(dispatchEventMock).toHaveBeenCalledWith({
       type: "task.created",
@@ -144,9 +146,10 @@ describe("/api/deals/[id]/tasks route", () => {
 
   it("updates a task and dispatches task.completed when transitioning to DONE", async () => {
     resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
-    dealFindFirstMock.mockResolvedValue({ id: "deal-1" });
-    taskFindFirstMock.mockResolvedValue({ id: "task-1", status: "TODO" });
-    taskUpdateMock.mockResolvedValue({ id: "task-1", status: "DONE" });
+    updateDealTaskMock.mockResolvedValue({
+      task: { id: "task-1", status: "DONE" },
+      completedTransition: true,
+    });
 
     const req = new NextRequest("http://localhost/api/deals/deal-1/tasks", {
       method: "PATCH",
@@ -156,8 +159,10 @@ describe("/api/deals/[id]/tasks route", () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ task: { id: "task-1", status: "DONE" } });
-    expect(taskUpdateMock).toHaveBeenCalledWith({
-      where: { id: "task-1" },
+    expect(updateDealTaskMock).toHaveBeenCalledWith({
+      dealId: "deal-1",
+      orgId: "org-1",
+      taskId: "task-1",
       data: { status: "DONE", pipelineStep: 3 },
     });
     expect(dispatchEventMock).toHaveBeenCalledWith({

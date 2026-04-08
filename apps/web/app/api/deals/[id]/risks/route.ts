@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError, z } from "zod";
 
-import { prisma } from "@entitlement-os/db";
 import {
-  DealRiskPatchInput,
+  DealAccessError,
+  DealRiskNotFoundError,
+  createDealRisk,
+  deleteDealRisk,
+  listDealRisks,
+  updateDealRisk,
+} from "@gpc/server";
+import {
   DealRiskPatchInputSchema,
   DealRiskPatchWithIdInput,
   DealRiskPatchWithIdInputSchema,
@@ -15,124 +21,6 @@ import * as Sentry from "@sentry/nextjs";
 const paramsSchema = z.object({
   id: z.string().uuid(),
 });
-
-type DateOrString = Date | string | null | undefined;
-
-type RiskRecord = {
-  id: string;
-  orgId: string;
-  dealId: string;
-  category: string | null;
-  title: string | null;
-  description: string | null;
-  severity: string | null;
-  status: string | null;
-  owner: string | null;
-  source: string | null;
-  score: number | null;
-  notes: string | null;
-  createdAt: DateOrString;
-  updatedAt: DateOrString;
-};
-
-type ResponseItem = {
-  id: string;
-  orgId: string;
-  dealId: string;
-  category: string | null;
-  title: string | null;
-  description: string | null;
-  severity: string | null;
-  status: string | null;
-  owner: string | null;
-  source: string | null;
-  score: number | null;
-  notes: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-};
-
-function toIsoString(value: DateOrString): string | null {
-  if (value === null || value === undefined) {
-    return null;
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  return value.toISOString();
-}
-
-function serializeRisk(item: RiskRecord): ResponseItem {
-  return {
-    id: item.id,
-    orgId: item.orgId,
-    dealId: item.dealId,
-    category: item.category,
-    title: item.title,
-    description: item.description,
-    severity: item.severity,
-    status: item.status,
-    owner: item.owner,
-    source: item.source,
-    score: item.score,
-    notes: item.notes,
-    createdAt: toIsoString(item.createdAt),
-    updatedAt: toIsoString(item.updatedAt),
-  };
-}
-
-function toRiskPayload(input: DealRiskPatchInput): Record<string, unknown> {
-  const payload: Record<string, unknown> = {};
-
-  if (input.category !== undefined) {
-    payload.category = input.category;
-  }
-  if (input.title !== undefined) {
-    payload.title = input.title;
-  }
-  if (input.description !== undefined) {
-    payload.description = input.description;
-  }
-  if (input.severity !== undefined) {
-    payload.severity = input.severity;
-  }
-  if (input.status !== undefined) {
-    payload.status = input.status;
-  }
-  if (input.owner !== undefined) {
-    payload.owner = input.owner;
-  }
-  if (input.source !== undefined) {
-    payload.source = input.source;
-  }
-  if (input.score !== undefined) {
-    payload.score = input.score;
-  }
-  if (input.notes !== undefined) {
-    payload.notes = input.notes;
-  }
-
-  return payload;
-}
-
-async function authorizeDeal(
-  id: string,
-  orgId: string,
-): Promise<{ ok: true; dealId: string } | { ok: false; status: 403 | 404 }> {
-  const deal = await prisma.deal.findUnique({
-    where: { id },
-    select: { id: true, orgId: true },
-  });
-
-  if (!deal) {
-    return { ok: false, status: 404 };
-  }
-  if (deal.orgId !== orgId) {
-    return { ok: false, status: 403 };
-  }
-
-  return { ok: true, dealId: deal.id };
-}
 
 export async function GET(
   request: NextRequest,
@@ -150,22 +38,15 @@ export async function GET(
 
   try {
     const { id } = parseResult.data;
-    const authorized = await authorizeDeal(id, auth.orgId);
-    if (!authorized.ok) {
-      const status = authorized.status;
+    const { risks } = await listDealRisks({ dealId: id, orgId: auth.orgId });
+    return NextResponse.json({ risks });
+  } catch (error) {
+    if (error instanceof DealAccessError) {
       return NextResponse.json(
-        { error: status === 403 ? "Forbidden: deal does not belong to your org" : "Deal not found" },
-        { status },
+        { error: error.status === 403 ? "Forbidden: deal does not belong to your org" : "Deal not found" },
+        { status: error.status },
       );
     }
-
-    const risks = await prisma.dealRisk.findMany({
-      where: { dealId: authorized.dealId },
-      orderBy: { createdAt: "desc" },
-    });
-
-    return NextResponse.json({ risks: risks.map((risk) => serializeRisk(risk as RiskRecord)) });
-  } catch (error) {
     Sentry.captureException(error, {
       tags: { route: "api.deals.risks", method: "GET" },
     });
@@ -193,15 +74,6 @@ export async function POST(
 
   try {
     const { id } = parseResult.data;
-    const authorized = await authorizeDeal(id, auth.orgId);
-    if (!authorized.ok) {
-      const status = authorized.status;
-      return NextResponse.json(
-        { error: status === 403 ? "Forbidden: deal does not belong to your org" : "Deal not found" },
-        { status },
-      );
-    }
-
     const body = await request.json();
     const parsed = DealRiskPatchInputSchema.safeParse(body);
     if (!parsed.success) {
@@ -211,17 +83,20 @@ export async function POST(
       );
     }
 
-    const payload = toRiskPayload(parsed.data);
-    const risk = await prisma.dealRisk.create({
-      data: {
-        ...payload,
-        orgId: auth.orgId,
-        dealId: authorized.dealId,
-      },
+    const { risk } = await createDealRisk({
+      dealId: id,
+      orgId: auth.orgId,
+      payload: parsed.data,
     });
 
-    return NextResponse.json({ risk: serializeRisk(risk as RiskRecord) });
+    return NextResponse.json({ risk });
   } catch (error) {
+    if (error instanceof DealAccessError) {
+      return NextResponse.json(
+        { error: error.status === 403 ? "Forbidden: deal does not belong to your org" : "Deal not found" },
+        { status: error.status },
+      );
+    }
     Sentry.captureException(error, {
       tags: { route: "api.deals.risks", method: "POST" },
     });
@@ -255,15 +130,6 @@ export async function PATCH(
 
   try {
     const { id } = parseResult.data;
-    const authorized = await authorizeDeal(id, auth.orgId);
-    if (!authorized.ok) {
-      const status = authorized.status;
-      return NextResponse.json(
-        { error: status === 403 ? "Forbidden: deal does not belong to your org" : "Deal not found" },
-        { status },
-      );
-    }
-
     const body = await request.json();
     const parsed = DealRiskPatchWithIdInputSchema.safeParse(body);
     if (!parsed.success) {
@@ -274,23 +140,24 @@ export async function PATCH(
     }
 
     const { id: riskId, ...rest } = parsed.data as DealRiskPatchWithIdInput;
-    const payload = toRiskPayload(rest as DealRiskPatchInput);
-
-    const existing = await prisma.dealRisk.findFirst({
-      where: { id: riskId, orgId: auth.orgId, dealId: authorized.dealId },
-      select: { id: true },
+    const { risk } = await updateDealRisk({
+      dealId: id,
+      orgId: auth.orgId,
+      riskId,
+      payload: rest,
     });
-    if (!existing) {
+
+    return NextResponse.json({ risk });
+  } catch (error) {
+    if (error instanceof DealAccessError) {
+      return NextResponse.json(
+        { error: error.status === 403 ? "Forbidden: deal does not belong to your org" : "Deal not found" },
+        { status: error.status },
+      );
+    }
+    if (error instanceof DealRiskNotFoundError) {
       return NextResponse.json({ error: "Deal risk not found" }, { status: 404 });
     }
-
-    const risk = await prisma.dealRisk.update({
-      where: { id: riskId },
-      data: payload,
-    });
-
-    return NextResponse.json({ risk: serializeRisk(risk as RiskRecord) });
-  } catch (error) {
     Sentry.captureException(error, {
       tags: { route: "api.deals.risks", method: "PATCH" },
     });
@@ -324,35 +191,29 @@ export async function DELETE(
 
   try {
     const { id } = parseResult.data;
-    const authorized = await authorizeDeal(id, auth.orgId);
-    if (!authorized.ok) {
-      const status = authorized.status;
-      return NextResponse.json(
-        { error: status === 403 ? "Forbidden: deal does not belong to your org" : "Deal not found" },
-        { status },
-      );
-    }
-
     const body = await request.json();
     const parsed = DealRiskIdSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid risk id" }, { status: 400 });
     }
 
-    const existing = await prisma.dealRisk.findFirst({
-      where: { id: parsed.data.id, orgId: auth.orgId, dealId: authorized.dealId },
-      select: { id: true },
+    const { risk } = await deleteDealRisk({
+      dealId: id,
+      orgId: auth.orgId,
+      riskId: parsed.data.id,
     });
-    if (!existing) {
+
+    return NextResponse.json({ risk });
+  } catch (error) {
+    if (error instanceof DealAccessError) {
+      return NextResponse.json(
+        { error: error.status === 403 ? "Forbidden: deal does not belong to your org" : "Deal not found" },
+        { status: error.status },
+      );
+    }
+    if (error instanceof DealRiskNotFoundError) {
       return NextResponse.json({ error: "Deal risk not found" }, { status: 404 });
     }
-
-    const risk = await prisma.dealRisk.delete({
-      where: { id: parsed.data.id },
-    });
-
-    return NextResponse.json({ risk: serializeRisk(risk as RiskRecord) });
-  } catch (error) {
     Sentry.captureException(error, {
       tags: { route: "api.deals.risks", method: "DELETE" },
     });

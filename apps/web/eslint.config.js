@@ -297,6 +297,11 @@ module.exports = [
       "app/api/evidence/snapshots/[snapshotId]/download/route.ts",
       "app/api/parcels/route.ts",
       "app/api/parcels/suggest/route.ts",
+      "app/api/deals/[id]/activity/route.ts",
+      "app/api/deals/[id]/tasks/route.ts",
+      "app/api/deals/[id]/stakeholders/route.ts",
+      "app/api/deals/[id]/risks/route.ts",
+      "app/api/deals/[id]/terms/route.ts",
       "app/api/runs/route.ts",
       "app/api/runs/[runId]/route.ts",
       "app/api/runs/[runId]/reward/route.ts",
@@ -369,6 +374,11 @@ module.exports = [
       "app/api/parcels/route.ts",
       "app/api/parcels/suggest/route.ts",
       "app/api/portfolio/route.ts",
+      "app/api/deals/[id]/activity/route.ts",
+      "app/api/deals/[id]/tasks/route.ts",
+      "app/api/deals/[id]/stakeholders/route.ts",
+      "app/api/deals/[id]/risks/route.ts",
+      "app/api/deals/[id]/terms/route.ts",
       "app/api/runs/route.ts",
       "app/api/runs/[runId]/route.ts",
       "app/api/runs/[runId]/reward/route.ts",
@@ -424,6 +434,16 @@ module.exports = [
               name: "@gpc/server/chat/conversation-route.service",
               message:
                 "This migrated route must import conversation services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/deals/deal-activity.service",
+              message:
+                "This migrated route must import deal activity services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/deals/deal-workspace.service",
+              message:
+                "This migrated route must import deal workspace services via the stable @gpc/server barrel.",
             },
             {
               name: "@gpc/server/services/evidence-delivery.service",

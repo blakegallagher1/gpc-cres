@@ -3,35 +3,25 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   resolveAuthMock,
-  dealFindFirstMock,
-  runFindManyMock,
-  taskFindManyMock,
-  uploadFindManyMock,
-  conversationFindFirstMock,
-  messageFindManyMock,
+  getDealActivityMock,
+  DealNotFoundErrorMock,
   captureExceptionMock,
 } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
-  dealFindFirstMock: vi.fn(),
-  runFindManyMock: vi.fn(),
-  taskFindManyMock: vi.fn(),
-  uploadFindManyMock: vi.fn(),
-  conversationFindFirstMock: vi.fn(),
-  messageFindManyMock: vi.fn(),
+  getDealActivityMock: vi.fn(),
+  DealNotFoundErrorMock: class DealNotFoundError extends Error {
+    constructor() {
+      super("Deal not found");
+      this.name = "DealNotFoundError";
+    }
+  },
   captureExceptionMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({ resolveAuth: resolveAuthMock }));
-
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    deal: { findFirst: dealFindFirstMock },
-    run: { findMany: runFindManyMock },
-    task: { findMany: taskFindManyMock },
-    upload: { findMany: uploadFindManyMock },
-    conversation: { findFirst: conversationFindFirstMock },
-    message: { findMany: messageFindManyMock },
-  },
+vi.mock("@gpc/server", () => ({
+  getDealActivity: getDealActivityMock,
+  DealNotFoundError: DealNotFoundErrorMock,
 }));
 
 vi.mock("@sentry/nextjs", () => ({ captureException: captureExceptionMock }));
@@ -41,12 +31,7 @@ import { GET } from "./route";
 describe("GET /api/deals/[id]/activity", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
-    dealFindFirstMock.mockReset();
-    runFindManyMock.mockReset();
-    taskFindManyMock.mockReset();
-    uploadFindManyMock.mockReset();
-    conversationFindFirstMock.mockReset();
-    messageFindManyMock.mockReset();
+    getDealActivityMock.mockReset();
     captureExceptionMock.mockReset();
   });
 
@@ -63,7 +48,7 @@ describe("GET /api/deals/[id]/activity", () => {
 
   it("returns 404 when the deal is not in the auth org", async () => {
     resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
-    dealFindFirstMock.mockResolvedValue(null);
+    getDealActivityMock.mockRejectedValue(new DealNotFoundErrorMock());
 
     const res = await GET(new NextRequest("http://localhost/api/deals/deal-1/activity"), {
       params: Promise.resolve({ id: "deal-1" }),
@@ -75,30 +60,30 @@ describe("GET /api/deals/[id]/activity", () => {
 
   it("aggregates and sorts runs, tasks, uploads, and messages", async () => {
     resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
-    dealFindFirstMock.mockResolvedValue({ id: "deal-1" });
-    runFindManyMock.mockResolvedValue([
+    getDealActivityMock.mockResolvedValue([
       {
-        id: "run-1",
-        runType: "TRIAGE",
-        status: "succeeded",
-        startedAt: new Date("2026-04-04T10:00:00.000Z"),
-        finishedAt: new Date("2026-04-04T10:01:00.000Z"),
+        type: "message",
+        timestamp: "2026-04-04T10:05:00.000Z",
+        description: `Coordinator: ${"A".repeat(100)}...`,
+        metadata: { messageId: "msg-1", role: "assistant" },
       },
-    ]);
-    taskFindManyMock.mockResolvedValue([
-      { id: "task-1", title: "Order survey", status: "TODO", createdAt: new Date("2026-04-04T09:30:00.000Z") },
-    ]);
-    uploadFindManyMock.mockResolvedValue([
-      { id: "upload-1", filename: "lease.pdf", kind: "legal", createdAt: new Date("2026-04-04T09:45:00.000Z") },
-    ]);
-    conversationFindFirstMock.mockResolvedValue({ id: "conv-1" });
-    messageFindManyMock.mockResolvedValue([
       {
-        id: "msg-1",
-        role: "assistant",
-        agentName: "Coordinator",
-        content: "A".repeat(120),
-        createdAt: new Date("2026-04-04T10:05:00.000Z"),
+        type: "run",
+        timestamp: "2026-04-04T10:01:00.000Z",
+        description: "TRIAGE run succeeded",
+        metadata: { runId: "run-1", status: "succeeded", runType: "TRIAGE" },
+      },
+      {
+        type: "upload",
+        timestamp: "2026-04-04T09:45:00.000Z",
+        description: 'Uploaded "lease.pdf" (legal)',
+        metadata: { uploadId: "upload-1", kind: "legal" },
+      },
+      {
+        type: "task",
+        timestamp: "2026-04-04T09:30:00.000Z",
+        description: 'Task "Order survey" created (TODO)',
+        metadata: { taskId: "task-1", status: "TODO" },
       },
     ]);
 

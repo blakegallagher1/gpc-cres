@@ -3,30 +3,30 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   resolveAuthMock,
-  findDealMock,
-  findManyMock,
-  createMock,
+  listDealRisksMock,
+  createDealRiskMock,
+  DealAccessErrorMock,
 } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
-  findDealMock: vi.fn(),
-  findManyMock: vi.fn(),
-  createMock: vi.fn(),
+  listDealRisksMock: vi.fn(),
+  createDealRiskMock: vi.fn(),
+  DealAccessErrorMock: class DealAccessError extends Error {
+    constructor(status) {
+      super(status === 403 ? "Forbidden" : "Deal not found");
+      this.name = "DealAccessError";
+      this.status = status;
+    }
+  },
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
   resolveAuth: resolveAuthMock,
 }));
 
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    deal: {
-      findUnique: findDealMock,
-    },
-    dealRisk: {
-      findMany: findManyMock,
-      create: createMock,
-    },
-  },
+vi.mock("@gpc/server", () => ({
+  listDealRisks: listDealRisksMock,
+  createDealRisk: createDealRiskMock,
+  DealAccessError: DealAccessErrorMock,
 }));
 
 import { GET, POST } from "./route";
@@ -56,8 +56,7 @@ const RISK_RECORD = {
 describe("GET /api/deals/[id]/risks", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
-    findDealMock.mockReset();
-    findManyMock.mockReset();
+    listDealRisksMock.mockReset();
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -69,13 +68,12 @@ describe("GET /api/deals/[id]/risks", () => {
 
     expect(res.status).toBe(401);
     expect(body).toEqual({ error: "Unauthorized" });
-    expect(findDealMock).not.toHaveBeenCalled();
-    expect(findManyMock).not.toHaveBeenCalled();
+    expect(listDealRisksMock).not.toHaveBeenCalled();
   });
 
   it("returns 403 when requested deal belongs to another org", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    findDealMock.mockResolvedValue({ id: DEAL_ID, orgId: OTHER_ORG_ID });
+    listDealRisksMock.mockRejectedValue(new DealAccessErrorMock(403));
 
     const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/risks`);
     const res = await GET(req, { params: Promise.resolve({ id: DEAL_ID }) });
@@ -83,13 +81,11 @@ describe("GET /api/deals/[id]/risks", () => {
 
     expect(res.status).toBe(403);
     expect(body).toEqual({ error: "Forbidden: deal does not belong to your org" });
-    expect(findManyMock).not.toHaveBeenCalled();
   });
 
   it("returns risks for a scoped deal", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    findDealMock.mockResolvedValue({ id: DEAL_ID, orgId: ORG_ID });
-    findManyMock.mockResolvedValue([{ ...RISK_RECORD }]);
+    listDealRisksMock.mockResolvedValue({ risks: [{ ...RISK_RECORD }] });
 
     const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/risks`);
     const res = await GET(req, { params: Promise.resolve({ id: DEAL_ID }) });
@@ -106,9 +102,9 @@ describe("GET /api/deals/[id]/risks", () => {
         },
       ],
     });
-    expect(findManyMock).toHaveBeenCalledWith({
-      where: { dealId: DEAL_ID },
-      orderBy: { createdAt: "desc" },
+    expect(listDealRisksMock).toHaveBeenCalledWith({
+      dealId: DEAL_ID,
+      orgId: ORG_ID,
     });
   });
 });
@@ -116,13 +112,11 @@ describe("GET /api/deals/[id]/risks", () => {
 describe("POST /api/deals/[id]/risks", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
-    findDealMock.mockReset();
-    createMock.mockReset();
+    createDealRiskMock.mockReset();
   });
 
   it("returns 400 for empty payload", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    findDealMock.mockResolvedValue({ id: DEAL_ID, orgId: ORG_ID });
 
     const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/risks`, {
       method: "POST",
@@ -133,13 +127,12 @@ describe("POST /api/deals/[id]/risks", () => {
 
     expect(res.status).toBe(400);
     expect(body.error).toBe("Invalid risk payload");
-    expect(createMock).not.toHaveBeenCalled();
+    expect(createDealRiskMock).not.toHaveBeenCalled();
   });
 
   it("creates risk for a scoped deal", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    findDealMock.mockResolvedValue({ id: DEAL_ID, orgId: ORG_ID });
-    createMock.mockResolvedValue({ ...RISK_RECORD });
+    createDealRiskMock.mockResolvedValue({ risk: { ...RISK_RECORD } });
 
     const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/risks`, {
       method: "POST",
@@ -150,12 +143,12 @@ describe("POST /api/deals/[id]/risks", () => {
 
     expect(res.status).toBe(200);
     expect(body.risk.title).toBe("Wetland buffer shortfall");
-    expect(createMock).toHaveBeenCalledWith({
-      data: {
+    expect(createDealRiskMock).toHaveBeenCalledWith({
+      dealId: DEAL_ID,
+      orgId: ORG_ID,
+      payload: {
         title: "Wetland buffer shortfall",
         category: "Regulatory",
-        orgId: ORG_ID,
-        dealId: DEAL_ID,
       },
     });
   });
