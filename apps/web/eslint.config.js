@@ -241,6 +241,7 @@ module.exports = [
       "lib/services/deal-reader.ts",
       "lib/services/trajectoryLog.service.ts",
       "lib/services/outcomeReinforcement.service.ts",
+      "lib/agent/reward.service.ts",
       "lib/automation/config.ts",
       "lib/automation/deadlineMonitoring.ts",
       "lib/automation/advancement.ts",
@@ -291,6 +292,13 @@ module.exports = [
       "app/api/jurisdictions/route.ts",
       "app/api/evidence/sources/[sourceId]/package/route.ts",
       "app/api/evidence/snapshots/[snapshotId]/download/route.ts",
+      "app/api/runs/route.ts",
+      "app/api/runs/[runId]/route.ts",
+      "app/api/runs/[runId]/reward/route.ts",
+      "app/api/runs/[runId]/traces/route.ts",
+      "app/api/runs/dashboard/route.ts",
+      "app/api/agent-learning/stats/route.ts",
+      "app/api/tools/health/route.ts",
     ],
     rules: {
       "no-restricted-imports": [
@@ -348,6 +356,13 @@ module.exports = [
       "app/api/memory/ingest/route.ts",
       "app/api/memory/entities/[entityId]/route.ts",
       "app/api/portfolio/route.ts",
+      "app/api/runs/route.ts",
+      "app/api/runs/[runId]/route.ts",
+      "app/api/runs/[runId]/reward/route.ts",
+      "app/api/runs/[runId]/traces/route.ts",
+      "app/api/runs/dashboard/route.ts",
+      "app/api/agent-learning/stats/route.ts",
+      "app/api/tools/health/route.ts",
       "app/api/workflows/[id]/route.ts",
     ],
     rules: {
@@ -404,6 +419,31 @@ module.exports = [
               name: "@gpc/server/services/portfolio-summary.service",
               message:
                 "This migrated route must import portfolio services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/services/run-route.service",
+              message:
+                "This migrated route must import run services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/observability/run-dashboard.service",
+              message:
+                "This migrated route must import run dashboard services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/observability/tool-health.service",
+              message:
+                "This migrated route must import tool health services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/observability/agent-learning-stats.service",
+              message:
+                "This migrated route must import agent-learning stats via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/observability/reward-signal.service",
+              message:
+                "This migrated helper must import reward signal persistence via the stable @gpc/server barrel.",
             },
           ],
         },

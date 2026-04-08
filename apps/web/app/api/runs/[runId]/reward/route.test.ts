@@ -3,31 +3,27 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   resolveAuthMock,
-  runFindFirstMock,
-  addRewardSignalMock,
-  queryRawUnsafeMock,
+  createRunRewardMock,
+  RunConflictErrorMock,
+  RunRouteNotFoundErrorMock,
+  RunValidationErrorMock,
 } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
-  runFindFirstMock: vi.fn(),
-  addRewardSignalMock: vi.fn(),
-  queryRawUnsafeMock: vi.fn(),
+  createRunRewardMock: vi.fn(),
+  RunConflictErrorMock: class RunConflictError extends Error {},
+  RunRouteNotFoundErrorMock: class RunRouteNotFoundError extends Error {},
+  RunValidationErrorMock: class RunValidationError extends Error {},
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
   resolveAuth: resolveAuthMock,
 }));
 
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    run: {
-      findFirst: runFindFirstMock,
-    },
-    $queryRawUnsafe: queryRawUnsafeMock,
-  },
-}));
-
-vi.mock("@/lib/agent/reward.service", () => ({
-  addRewardSignal: addRewardSignalMock,
+vi.mock("@gpc/server", () => ({
+  createRunReward: createRunRewardMock,
+  RunConflictError: RunConflictErrorMock,
+  RunRouteNotFoundError: RunRouteNotFoundErrorMock,
+  RunValidationError: RunValidationErrorMock,
 }));
 
 import { POST } from "./route";
@@ -39,9 +35,7 @@ const RUN_ID = "run-1";
 describe("POST /api/runs/[runId]/reward", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
-    runFindFirstMock.mockReset();
-    queryRawUnsafeMock.mockReset();
-    addRewardSignalMock.mockReset();
+    createRunRewardMock.mockReset();
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -60,18 +54,11 @@ describe("POST /api/runs/[runId]/reward", () => {
 
   it("validates payload and returns 400", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    runFindFirstMock.mockResolvedValue({
-      id: RUN_ID,
-      outputJson: { confidence: 0.9 },
-    });
-    queryRawUnsafeMock.mockResolvedValue([{ id: "ep-1" }]);
-    addRewardSignalMock.mockResolvedValue({
-      id: "reward-1",
-      episodeId: "ep-1",
-      userScore: 4,
-      autoScore: 0.9,
-      timestamp: "2026-02-15T00:00:00.000Z",
-    });
+    createRunRewardMock.mockRejectedValue(
+      new RunValidationErrorMock(
+        "Invalid userScore. Must be an integer between 0 and 5.",
+      ),
+    );
 
     const req = new NextRequest(`http://localhost/api/runs/${RUN_ID}/reward`, {
       method: "POST",
@@ -86,12 +73,7 @@ describe("POST /api/runs/[runId]/reward", () => {
 
   it("persists manual reward by resolved episode id", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    runFindFirstMock.mockResolvedValue({
-      id: RUN_ID,
-      outputJson: { confidence: 0.75 },
-    });
-    queryRawUnsafeMock.mockResolvedValue([{ id: "ep-1" }]);
-    addRewardSignalMock.mockResolvedValue({
+    createRunRewardMock.mockResolvedValue({
       id: "reward-1",
       episodeId: "ep-1",
       userScore: 5,
@@ -108,7 +90,10 @@ describe("POST /api/runs/[runId]/reward", () => {
 
     expect(res.status).toBe(200);
     expect(payload.ok).toBe(true);
-    expect(addRewardSignalMock).toHaveBeenCalledWith("ep-1", 5, 0.75);
+    expect(createRunRewardMock).toHaveBeenCalledWith(ORG_ID, RUN_ID, {
+      userScore: 5,
+      autoScore: 0.75,
+    });
     expect(payload.reward.episodeId).toBe("ep-1");
   });
 });
