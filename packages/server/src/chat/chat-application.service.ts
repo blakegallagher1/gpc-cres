@@ -7,7 +7,7 @@ import {
 } from "@entitlement-os/openai/planning";
 import { runAgentWorkflow, isDatabaseConnectivityError } from "./run-agent-workflow.service";
 import type { AgentStreamEvent } from "../../../../apps/web/lib/agent/executeAgent";
-import type { ResearchLaneSelection } from "../../../../apps/web/lib/agent/researchRouting";
+import type { ResearchLaneSelection } from "@entitlement-os/shared/research-routing";
 import { extractAndMergeConversationPreferences } from "../services/preference-extraction.service";
 import {
   getPropertyDbScopeHeaders,

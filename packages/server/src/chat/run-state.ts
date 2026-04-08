@@ -7,7 +7,7 @@ export {
   persistFinalRunResult,
   upsertRunRecord,
 } from "@entitlement-os/db";
-import type { AgentTrustEnvelope } from "../../../../apps/web/types/index";
+import type { AgentTrustEnvelope } from "@entitlement-os/shared/agent-trust";
 
 /**
  * Normalized agent run payload returned by local execution and replay paths.

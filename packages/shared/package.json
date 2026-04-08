@@ -26,6 +26,26 @@
       "types": "./dist/financial-proforma.d.ts",
       "default": "./dist/financial-proforma.js"
     },
+    "./map-action-types": {
+      "types": "./dist/map-action-types.d.ts",
+      "default": "./dist/map-action-types.js"
+    },
+    "./research-routing": {
+      "types": "./dist/research-routing.d.ts",
+      "default": "./dist/research-routing.js"
+    },
+    "./map-feature-utils": {
+      "types": "./dist/map-feature-utils.d.ts",
+      "default": "./dist/map-feature-utils.js"
+    },
+    "./tool-result-wrapper": {
+      "types": "./dist/tool-result-wrapper.d.ts",
+      "default": "./dist/tool-result-wrapper.js"
+    },
+    "./agent-trust": {
+      "types": "./dist/agent-trust.d.ts",
+      "default": "./dist/agent-trust.js"
+    },
     "./errors": {
       "types": "./dist/errors.d.ts",
       "default": "./dist/errors.js"

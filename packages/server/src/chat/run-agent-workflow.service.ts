@@ -7,7 +7,7 @@ import {
   type AgentStreamEvent,
   toDatabaseRunId,
 } from "../../../../apps/web/lib/agent/executeAgent";
-import { getTemporalClient } from "../../../../apps/web/lib/workflowClient";
+import { getTemporalClient } from "../workflows/temporal-client";
 import { hashJsonSha256 } from "@entitlement-os/shared/crypto";
 import { sleepMs } from "@entitlement-os/shared";
 import { isDatabaseConnectivityError } from "@entitlement-os/db";
@@ -21,22 +21,22 @@ import {
 } from "@entitlement-os/shared";
 import { PrismaChatSession } from "./chat-session.service";
 import { buildPreferenceContext } from "../services/preference.service";
-import { buildMemoryContext } from "../../../../apps/web/lib/services/memoryContextBuilder";
-import type { AgentTrustEnvelope } from "../../../../apps/web/types/index";
+import { buildMemoryContext } from "../services/memory-context-builder.service";
+import type { AgentTrustEnvelope } from "@entitlement-os/shared/agent-trust";
 import {
   buildBusinessMemoryContext,
   captureBusinessChatMemory,
-} from "../../../../apps/web/lib/services/businessMemory.service";
-import { buildLearningContext } from "../../../../apps/web/lib/services/learningContextBuilder";
+} from "../services/business-memory.service";
+import { buildLearningContext } from "../services/learning-context-builder.service";
 import {
   mapFeaturesFromActionPayload,
   mergeMapFeatures,
-} from "../../../../apps/web/lib/chat/mapFeatureUtils";
-import { parseToolResultMapFeatures } from "../../../../apps/web/lib/chat/toolResultWrapper";
-import type { MapFeature } from "../../../../apps/web/lib/chat/mapActionTypes";
-import { logger } from "../../../../apps/web/lib/agent/loggerAdapter";
+} from "@entitlement-os/shared/map-feature-utils";
+import { parseToolResultMapFeatures } from "@entitlement-os/shared/tool-result-wrapper";
+import type { MapFeature } from "@entitlement-os/shared/map-action-types";
+import { logger } from "./logger-adapter";
 import { dispatchEvent } from "../automation/events";
-import type { ResearchLaneSelection } from "../../../../apps/web/lib/agent/researchRouting";
+import type { ResearchLaneSelection } from "@entitlement-os/shared/research-routing";
 
 /**
  * Fire-and-forget dispatch of agent.run.completed for learning promotion (DA-007).

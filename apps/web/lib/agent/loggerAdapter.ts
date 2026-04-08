@@ -1,3 +1,1 @@
-import { logger, recordDataAgentAutoFeed } from "@/lib/logger";
-
-export { logger, recordDataAgentAutoFeed };
+export * from "@gpc/server/chat/logger-adapter";
