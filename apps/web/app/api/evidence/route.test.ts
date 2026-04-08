@@ -10,12 +10,8 @@ vi.mock("@/lib/auth/resolveAuth", () => ({
   resolveAuth: resolveAuthMock,
 }));
 
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    evidenceSource: {
-      findMany: evidenceSourceFindManyMock,
-    },
-  },
+vi.mock("@gpc/server", () => ({
+  listEvidenceSources: evidenceSourceFindManyMock,
 }));
 
 import { GET } from "./route";
@@ -57,18 +53,24 @@ describe("GET /api/evidence", () => {
         domain: "example.com",
         title: "Example Zoning",
         isOfficial: true,
-        firstSeenAt: new Date("2026-02-14T10:00:00.000Z"),
-        _count: { evidenceSnapshots: 2 },
-        evidenceSnapshots: [
-          {
-            id: "snapshot-1",
-            retrievedAt: new Date("2026-02-14T11:00:00.000Z"),
-            contentHash: "hash-1",
-            runId: "run-1",
-            httpStatus: 200,
-            contentType: "text/html",
-          },
-        ],
+        firstSeenAt: "2026-02-14T10:00:00.000Z",
+        snapshotCount: 2,
+        freshness: {
+          freshnessState: "fresh",
+          freshnessScore: 100,
+          driftSignal: "insufficient",
+          alertLevel: "none",
+          alertReasons: [],
+        },
+        latestSnapshot: {
+          id: "snapshot-1",
+          retrievedAt: "2026-02-14T11:00:00.000Z",
+          contentHash: "hash-1",
+          runId: "run-1",
+          httpStatus: 200,
+          contentType: "text/html",
+          hasTextExtract: false,
+        },
       },
     ]);
 
@@ -78,6 +80,14 @@ describe("GET /api/evidence", () => {
 
     expect(res.status).toBe(200);
     expect(body.sources).toHaveLength(1);
+    expect(evidenceSourceFindManyMock).toHaveBeenCalledWith({
+      orgId: ORG_ID,
+      search: null,
+      officialOnly: false,
+      sourceId: null,
+      includeSnapshots: false,
+      snapshotLimit: 25,
+    });
     expect(body.sources[0]).toMatchObject({
       id: SOURCE_ID,
       url: "https://example.com/zoning",
@@ -110,24 +120,42 @@ describe("GET /api/evidence", () => {
         domain: "example.com",
         title: null,
         isOfficial: false,
-        firstSeenAt: new Date("2026-02-14T10:00:00.000Z"),
-        _count: { evidenceSnapshots: 2 },
-        evidenceSnapshots: [
+        firstSeenAt: "2026-02-14T10:00:00.000Z",
+        snapshotCount: 2,
+        freshness: {
+          freshnessState: "fresh",
+          freshnessScore: 100,
+          driftSignal: "changed",
+          alertLevel: "warning",
+          alertReasons: ["Content hash drift detected from previous snapshot."],
+        },
+        latestSnapshot: {
+          id: "snapshot-2",
+          retrievedAt: "2026-02-14T11:55:00.000Z",
+          contentHash: "hash-2",
+          runId: "run-2",
+          httpStatus: 200,
+          contentType: "application/pdf",
+          hasTextExtract: false,
+        },
+        snapshots: [
           {
             id: "snapshot-2",
-            retrievedAt: new Date("2026-02-14T11:55:00.000Z"),
+            retrievedAt: "2026-02-14T11:55:00.000Z",
             contentHash: "hash-2",
             runId: "run-2",
             httpStatus: 200,
             contentType: "application/pdf",
+            hasTextExtract: false,
           },
           {
             id: "snapshot-3",
-            retrievedAt: new Date("2026-02-14T11:50:00.000Z"),
+            retrievedAt: "2026-02-14T11:50:00.000Z",
             contentHash: "hash-3",
             runId: "run-3",
             httpStatus: 200,
             contentType: "text/plain",
+            hasTextExtract: false,
           },
         ],
       },
@@ -158,6 +186,14 @@ describe("GET /api/evidence", () => {
     expect(body.sources[0].freshness.alertReasons).toContain(
       "Content hash drift detected from previous snapshot.",
     );
+    expect(evidenceSourceFindManyMock).toHaveBeenCalledWith({
+      orgId: ORG_ID,
+      search: null,
+      officialOnly: false,
+      sourceId: SOURCE_ID,
+      includeSnapshots: true,
+      snapshotLimit: 50,
+    });
   });
 
   it("returns critical drift/staleness alerts for old or failed captures", async () => {
@@ -169,24 +205,45 @@ describe("GET /api/evidence", () => {
         domain: "example.com",
         title: "Aged source",
         isOfficial: true,
-        firstSeenAt: new Date("2026-01-01T00:00:00.000Z"),
-        _count: { evidenceSnapshots: 2 },
-        evidenceSnapshots: [
+        firstSeenAt: "2026-01-01T00:00:00.000Z",
+        snapshotCount: 2,
+        freshness: {
+          freshnessState: "critical",
+          freshnessScore: 20,
+          driftSignal: "changed",
+          alertLevel: "critical",
+          alertReasons: [
+            "Latest capture returned a non-successful status.",
+            "Evidence source has become critically stale.",
+          ],
+        },
+        latestSnapshot: {
+          id: "snapshot-old",
+          retrievedAt: "2026-01-10T12:00:00.000Z",
+          contentHash: "old-hash-1",
+          runId: "run-old",
+          httpStatus: 404,
+          contentType: "text/html",
+          hasTextExtract: false,
+        },
+        snapshots: [
           {
             id: "snapshot-old",
-            retrievedAt: new Date("2026-01-10T12:00:00.000Z"),
+            retrievedAt: "2026-01-10T12:00:00.000Z",
             contentHash: "old-hash-1",
             runId: "run-old",
             httpStatus: 404,
             contentType: "text/html",
+            hasTextExtract: false,
           },
           {
             id: "snapshot-older",
-            retrievedAt: new Date("2026-01-09T12:00:00.000Z"),
+            retrievedAt: "2026-01-09T12:00:00.000Z",
             contentHash: "old-hash-2",
             runId: "run-older",
             httpStatus: 200,
             contentType: "text/html",
+            hasTextExtract: false,
           },
         ],
       },

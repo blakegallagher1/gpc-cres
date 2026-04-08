@@ -28,9 +28,32 @@ export * from "./services/document-processing.service";
 export * from "./services/counterfactual-learning.service";
 export * from "./services/dynamic-threshold.service";
 export * from "./services/entity-collision-detector.service";
+export * from "./services/entity-management.service";
 export * from "./services/entity-lookup.service";
+export {
+  backfillEntitlementOutcomePrecedents,
+  type BackfillEntitlementPrecedentsInput,
+  type BackfillEntitlementPrecedentsResult,
+} from "./services/entitlement-precedent-backfill.service";
 export * from "./services/entity-resolution.service";
 export * from "./services/episodic-memory.service";
+export * from "./services/evidence-source.service";
+export {
+  getEntitlementFeaturePrimitives,
+  getEntitlementGraph,
+  getEntitlementIntelligenceKpis,
+  predictEntitlementStrategies,
+  upsertEntitlementGraphEdge,
+  upsertEntitlementGraphNode,
+  upsertEntitlementOutcomePrecedent,
+  type EntitlementFeatureQueryInput,
+  type EntitlementGraphReadInput,
+  type EntitlementKpiQueryInput,
+  type PredictEntitlementStrategiesInput,
+  type UpsertEntitlementGraphEdgeInput,
+  type UpsertEntitlementGraphNodeInput,
+  type UpsertEntitlementOutcomePrecedentInput,
+} from "./services/entitlement-intelligence.service";
 export * from "./services/injection-budget.service";
 export * from "./services/intent-classifier.service";
 export * from "./services/learning-context-builder.service";
@@ -38,6 +61,7 @@ export * from "./services/learning-fact-promotion.service";
 export * from "./services/market-monitor.service";
 export * from "./services/memory-context-builder.service";
 export * from "./services/memory-event.service";
+export * from "./services/memory-entity.service";
 export * from "./services/memory-feedback.service";
 export * from "./services/memory-ingestion.service";
 export * from "./services/memory-stats.service";
@@ -49,7 +73,13 @@ export * from "./services/outcome-reinforcement.service";
 export * from "./services/novelty-detector.service";
 export * from "./services/preference-extraction.service";
 export * from "./services/preference.service";
-export * from "./services/procedural-skill.service";
+export {
+  buildProcedureDedupeHash,
+  normalizeToolSequence,
+  upsertProceduralSkillsFromEpisode,
+  type UpsertProceduralSkillsFromEpisodeInput,
+  type UpsertProceduralSkillsFromEpisodeResult,
+} from "./services/procedural-skill.service";
 export * from "./services/prompt-optimization.service";
 export * from "./services/prompt-versioning.service";
 export * from "./services/trajectory-log.service";
@@ -61,8 +91,25 @@ export * from "./search/saved-search.service";
 export * from "./admin/memory.service";
 export * from "./monitoring/daily-briefing.service";
 export * from "./monitoring/drift-freeze.service";
-export * from "./monitoring/entitlement-kpi-monitor.service";
-export * from "./monitoring/entitlement-strategy-autopilot.service";
+export {
+  runEntitlementKpiDriftMonitor,
+  type KpiDriftBreach,
+  type KpiDriftEvaluation,
+  type RunEntitlementKpiDriftMonitorInput,
+  type RunEntitlementKpiDriftMonitorResult,
+} from "./monitoring/entitlement-kpi-monitor.service";
+export {
+  recommendEntitlementStrategy,
+  runEntitlementStrategyAutopilot,
+  runEntitlementStrategyAutopilotSweep,
+  type EntitlementStrategyAutopilotInput,
+  type EntitlementStrategyAutopilotRecommendation,
+  type RunEntitlementStrategyAutopilotResult,
+  type RunEntitlementStrategyAutopilotSweepInput,
+  type RunEntitlementStrategyAutopilotSweepResult,
+  type StrategyAutopilotGuardrailStatus,
+  type StrategyRecommendationCandidate,
+} from "./monitoring/entitlement-strategy-autopilot.service";
 export * from "./notifications/notification.service";
 export * from "./deals/task-agent-run.service";
 export * from "./deals/triage.service";

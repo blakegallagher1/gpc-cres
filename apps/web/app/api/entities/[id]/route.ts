@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@entitlement-os/db";
+import {
+  EntityNotFoundError,
+  EntityValidationError,
+  deleteEntity,
+  getEntity,
+  updateEntity,
+} from "@gpc/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import * as Sentry from "@sentry/nextjs";
 
@@ -11,16 +17,7 @@ export async function GET(
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-
-  const entity = await prisma.entity.findFirst({
-    where: { id, orgId: auth.orgId },
-    include: {
-      parent: { select: { id: true, name: true } },
-      children: { select: { id: true, name: true, entityType: true } },
-      deals: { include: { deal: { select: { id: true, name: true, status: true } } } },
-      taxEvents: { orderBy: { createdAt: "desc" }, take: 10 },
-    },
-  });
+  const entity = await getEntity(auth.orgId, id);
 
   if (!entity) return NextResponse.json({ error: "Entity not found" }, { status: 404 });
 
@@ -36,28 +33,18 @@ export async function PATCH(
 
   const { id } = await params;
 
-  const existing = await prisma.entity.findFirst({ where: { id, orgId: auth.orgId } });
-  if (!existing) return NextResponse.json({ error: "Entity not found" }, { status: 404 });
-
   try {
     const body = await request.json();
-    const { name, entityType, parentId, ownershipPct, taxId, state } = body;
-
-    const updateData: Record<string, unknown> = {};
-    if (name !== undefined) updateData.name = name;
-    if (entityType !== undefined) updateData.entityType = entityType;
-    if (parentId !== undefined) updateData.parentId = parentId || null;
-    if (ownershipPct !== undefined) updateData.ownershipPct = ownershipPct;
-    if (taxId !== undefined) updateData.taxId = taxId || null;
-    if (state !== undefined) updateData.state = state || null;
-
-    const entity = await prisma.entity.update({
-      where: { id },
-      data: updateData,
-    });
+    const entity = await updateEntity(auth.orgId, id, body);
 
     return NextResponse.json({ entity });
   } catch (error) {
+    if (error instanceof EntityValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    if (error instanceof EntityNotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
     Sentry.captureException(error, {
       tags: { route: "api.entities", method: "PATCH" },
     });
@@ -74,11 +61,14 @@ export async function DELETE(
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-
-  const existing = await prisma.entity.findFirst({ where: { id, orgId: auth.orgId } });
-  if (!existing) return NextResponse.json({ error: "Entity not found" }, { status: 404 });
-
-  await prisma.entity.delete({ where: { id } });
+  try {
+    await deleteEntity(auth.orgId, id);
+  } catch (error) {
+    if (error instanceof EntityNotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+    throw error;
+  }
 
   return NextResponse.json({ success: true });
 }

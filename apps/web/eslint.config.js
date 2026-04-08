@@ -276,11 +276,16 @@ module.exports = [
       "app/api/cron/opportunity-scan/route.ts",
       // Wave 9 — thinned memory/workflow/entity routes
       "app/api/entities/lookup/route.ts",
+      "app/api/entities/route.ts",
+      "app/api/entities/[id]/route.ts",
+      "app/api/evidence/route.ts",
+      "app/api/memory/entities/[entityId]/route.ts",
       "app/api/memory/collisions/route.ts",
       "app/api/memory/feedback/route.ts",
       "app/api/memory/innovation-queue/route.ts",
       "app/api/memory/stats/route.ts",
       "app/api/workflows/route.ts",
+      "app/api/workflows/[id]/route.ts",
     ],
     rules: {
       "no-restricted-imports": [
@@ -318,6 +323,18 @@ module.exports = [
               group: ["@entitlement-os/db/*", "@entitlement-os/openai/*"],
               message:
                 "This migrated web-layer seam must use package-level services instead of backend internals.",
+            },
+            {
+              group: [
+                "@gpc/server/services/*",
+                "@gpc/server/workflows/*",
+                "@gpc/server/automation/*",
+                "@gpc/server/monitoring/*",
+                "@gpc/server/search/*",
+                "@gpc/server/jobs/*",
+              ],
+              message:
+                "This migrated route must depend on the stable @gpc/server barrel instead of low-level package internals.",
             },
           ],
         },

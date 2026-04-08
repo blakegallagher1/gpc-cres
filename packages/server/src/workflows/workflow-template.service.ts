@@ -110,6 +110,19 @@ export async function listWorkflowTemplates(orgId: string) {
   }));
 }
 
+export async function getWorkflowTemplateById(orgId: string, id: string) {
+  const workflowTemplate = await prisma.workflowTemplate.findFirst({
+    where: { id, orgId },
+    include: {
+      stages: {
+        orderBy: { ordinal: "asc" },
+      },
+    },
+  });
+
+  return workflowTemplate ? serializeWorkflowTemplate(workflowTemplate) : null;
+}
+
 export async function createWorkflowTemplate(
   orgId: string,
   rawBody: WorkflowTemplateCreateBody,

@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { WorkflowTemplateDetailResponseSchema } from "@entitlement-os/shared";
-
-import { prisma } from "@entitlement-os/db";
+import { getWorkflowTemplateById } from "@gpc/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
-import { toIsoString } from "@/app/api/_lib/opportunityPhase3";
 import * as Sentry from "@sentry/nextjs";
 
 export async function GET(
@@ -17,14 +15,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    const workflowTemplate = await prisma.workflowTemplate.findFirst({
-      where: { id, orgId: auth.orgId },
-      include: {
-        stages: {
-          orderBy: { ordinal: "asc" },
-        },
-      },
-    });
+    const workflowTemplate = await getWorkflowTemplateById(auth.orgId, id);
 
     if (!workflowTemplate) {
       return NextResponse.json(
@@ -35,27 +26,7 @@ export async function GET(
 
     return NextResponse.json(
       WorkflowTemplateDetailResponseSchema.parse({
-        workflowTemplate: {
-          id: workflowTemplate.id,
-          orgId: workflowTemplate.orgId,
-          key: workflowTemplate.key,
-          name: workflowTemplate.name,
-          description: workflowTemplate.description,
-          isDefault: workflowTemplate.isDefault,
-          createdAt: toIsoString(workflowTemplate.createdAt),
-          updatedAt: toIsoString(workflowTemplate.updatedAt),
-          stages: workflowTemplate.stages.map((stage) => ({
-            id: stage.id,
-            orgId: stage.orgId,
-            templateId: stage.templateId,
-            key: stage.key,
-            name: stage.name,
-            ordinal: stage.ordinal,
-            description: stage.description,
-            requiredGate: stage.requiredGate,
-            createdAt: toIsoString(stage.createdAt),
-          })),
-        },
+        workflowTemplate,
       }),
     );
   } catch (error) {

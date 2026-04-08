@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@entitlement-os/db';
+import { getMemoryEntityView } from '@gpc/server';
 import { authorizeApiRoute } from '@/lib/auth/authorizeApiRoute';
 import * as Sentry from "@sentry/nextjs";
 
@@ -22,59 +22,22 @@ export async function GET(
     }
     const { orgId } = authorization.auth;
     const { entityId } = await params;
+    const detail = await getMemoryEntityView(orgId, entityId);
 
-    // Fetch entity with org check
-    const entity = await prisma.internalEntity.findUnique({
-      where: { id: entityId },
-    });
-
-    if (!entity) {
-      return NextResponse.json(
-        { error: 'Entity not found' },
-        { status: 404 }
-      );
+    if (detail.status === "not_found") {
+      return NextResponse.json({ error: 'Entity not found' }, { status: 404 });
     }
 
-    // Verify entity belongs to user's org
-    if (entity.orgId !== orgId) {
-      return NextResponse.json(
-        { error: 'Forbidden' },
-        { status: 403 }
-      );
+    if (detail.status === "forbidden") {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-
-    // Fetch all memory facts
-    const [drafts, verified, collisionAlerts, eventLogs] = await Promise.all([
-      prisma.memoryDraft.findMany({
-        where: { entityId },
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.memoryVerified.findMany({
-        where: { entityId },
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.entityCollisionAlert.findMany({
-        where: {
-          OR: [
-            { entityIdA: entityId },
-            { entityIdB: entityId },
-          ],
-          status: 'pending',
-        },
-      }),
-      prisma.memoryEventLog.findMany({
-        where: { entityId },
-        orderBy: { timestamp: 'desc' },
-        take: 50,
-      }),
-    ]);
 
     return NextResponse.json({
-      entity,
-      drafts,
-      verified,
-      collisionAlerts,
-      eventLogs,
+      entity: detail.entity,
+      drafts: detail.drafts,
+      verified: detail.verified,
+      collisionAlerts: detail.collisionAlerts,
+      eventLogs: detail.eventLogs,
     });
   } catch (error) {
     Sentry.captureException(error, {
