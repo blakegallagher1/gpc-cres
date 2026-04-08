@@ -5,6 +5,7 @@ export * from "./deals/deal-activity.service";
 export * from "./deals/deal-artifact-delivery.service";
 export * from "./deals/deal-diligence.service";
 export * from "./deals/deal-extraction-route.service";
+export * from "./deals/deal-finance.service";
 export * from "./deals/deal-reader.service";
 export * from "./deals/deal-screen.service";
 export * from "./deals/deal-upload.service";

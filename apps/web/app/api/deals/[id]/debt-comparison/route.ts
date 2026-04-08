@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@entitlement-os/db";
+import {
+  DealAccessError,
+  getDealDebtComparisons,
+  saveDealDebtComparisons,
+} from "@gpc/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import * as Sentry from "@sentry/nextjs";
 
@@ -15,19 +19,12 @@ export async function GET(
     }
 
     const { id } = await params;
-
-    const deal = await prisma.deal.findFirst({
-      where: { id, orgId: auth.orgId },
-      select: { debtComparisons: true },
-    });
-
-    if (!deal) {
-      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
-    }
-
-    const loans = (deal.debtComparisons as Record<string, unknown>[] | null) ?? [];
+    const loans = await getDealDebtComparisons({ dealId: id, orgId: auth.orgId });
     return NextResponse.json({ loans });
   } catch (error) {
+    if (error instanceof DealAccessError) {
+      return NextResponse.json({ error: "Deal not found" }, { status: error.status });
+    }
     Sentry.captureException(error, {
       tags: { route: "api.deals.debt-comparison", method: "GET" },
     });
@@ -61,22 +58,17 @@ export async function PUT(
       );
     }
 
-    const deal = await prisma.deal.findFirst({
-      where: { id, orgId: auth.orgId },
-      select: { id: true },
-    });
-
-    if (!deal) {
-      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
-    }
-
-    await prisma.deal.update({
-      where: { id },
-      data: { debtComparisons: loans },
+    await saveDealDebtComparisons({
+      dealId: id,
+      orgId: auth.orgId,
+      entries: loans,
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof DealAccessError) {
+      return NextResponse.json({ error: "Deal not found" }, { status: error.status });
+    }
     Sentry.captureException(error, {
       tags: { route: "api.deals.debt-comparison", method: "PUT" },
     });

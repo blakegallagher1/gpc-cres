@@ -3,30 +3,44 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   resolveAuthMock,
-  findDealMock,
-  findManyMock,
-  createMock,
+  listDealFinancingsMock,
+  createDealFinancingMock,
+  updateDealFinancingMock,
+  deleteDealFinancingMock,
+  DealAccessErrorMock,
+  DealFinancingNotFoundErrorMock,
 } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
-  findDealMock: vi.fn(),
-  findManyMock: vi.fn(),
-  createMock: vi.fn(),
+  listDealFinancingsMock: vi.fn(),
+  createDealFinancingMock: vi.fn(),
+  updateDealFinancingMock: vi.fn(),
+  deleteDealFinancingMock: vi.fn(),
+  DealAccessErrorMock: class DealAccessError extends Error {
+    constructor(status) {
+      super(status === 403 ? "Forbidden" : "Deal not found");
+      this.name = "DealAccessError";
+      this.status = status;
+    }
+  },
+  DealFinancingNotFoundErrorMock: class DealFinancingNotFoundError extends Error {
+    constructor() {
+      super("Financing not found");
+      this.name = "DealFinancingNotFoundError";
+    }
+  },
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
   resolveAuth: resolveAuthMock,
 }));
 
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    deal: {
-      findUnique: findDealMock,
-    },
-    dealFinancing: {
-      findMany: findManyMock,
-      create: createMock,
-    },
-  },
+vi.mock("@gpc/server", () => ({
+  listDealFinancings: listDealFinancingsMock,
+  createDealFinancing: createDealFinancingMock,
+  updateDealFinancing: updateDealFinancingMock,
+  deleteDealFinancing: deleteDealFinancingMock,
+  DealAccessError: DealAccessErrorMock,
+  DealFinancingNotFoundError: DealFinancingNotFoundErrorMock,
 }));
 
 import { GET, POST } from "./route";
@@ -62,8 +76,7 @@ const FINANCING_RECORD = {
 describe("GET /api/deals/[id]/financings", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
-    findDealMock.mockReset();
-    findManyMock.mockReset();
+    listDealFinancingsMock.mockReset();
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -75,13 +88,12 @@ describe("GET /api/deals/[id]/financings", () => {
 
     expect(res.status).toBe(401);
     expect(body).toEqual({ error: "Unauthorized" });
-    expect(findDealMock).not.toHaveBeenCalled();
-    expect(findManyMock).not.toHaveBeenCalled();
+    expect(listDealFinancingsMock).not.toHaveBeenCalled();
   });
 
   it("returns 403 when requested deal belongs to another org", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    findDealMock.mockResolvedValue({ id: DEAL_ID, orgId: OTHER_ORG_ID });
+    listDealFinancingsMock.mockRejectedValue(new DealAccessErrorMock(403));
 
     const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/financings`);
     const res = await GET(req, { params: Promise.resolve({ id: DEAL_ID }) });
@@ -89,7 +101,6 @@ describe("GET /api/deals/[id]/financings", () => {
 
     expect(res.status).toBe(403);
     expect(body).toEqual({ error: "Forbidden: deal does not belong to your org" });
-    expect(findManyMock).not.toHaveBeenCalled();
   });
 
   it("returns 400 when deal id is invalid", async () => {
@@ -101,13 +112,12 @@ describe("GET /api/deals/[id]/financings", () => {
 
     expect(res.status).toBe(400);
     expect(body.error).toBe("Invalid deal id");
-    expect(findDealMock).not.toHaveBeenCalled();
+    expect(listDealFinancingsMock).not.toHaveBeenCalled();
   });
 
   it("returns financings for a scoped deal", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    findDealMock.mockResolvedValue({ id: DEAL_ID, orgId: ORG_ID });
-    findManyMock.mockResolvedValue([{ ...FINANCING_RECORD }]);
+    listDealFinancingsMock.mockResolvedValue([{ ...FINANCING_RECORD }]);
 
     const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/financings`);
     const res = await GET(req, { params: Promise.resolve({ id: DEAL_ID }) });
@@ -124,9 +134,9 @@ describe("GET /api/deals/[id]/financings", () => {
         originationFeePercent: "1.5",
       },
     ]);
-    expect(findManyMock).toHaveBeenCalledWith({
-      where: { dealId: DEAL_ID },
-      orderBy: { createdAt: "desc" },
+    expect(listDealFinancingsMock).toHaveBeenCalledWith({
+      dealId: DEAL_ID,
+      orgId: ORG_ID,
     });
   });
 });
@@ -134,8 +144,7 @@ describe("GET /api/deals/[id]/financings", () => {
 describe("POST /api/deals/[id]/financings", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
-    findDealMock.mockReset();
-    createMock.mockReset();
+    createDealFinancingMock.mockReset();
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -150,12 +159,11 @@ describe("POST /api/deals/[id]/financings", () => {
 
     expect(res.status).toBe(401);
     expect(body).toEqual({ error: "Unauthorized" });
-    expect(createMock).not.toHaveBeenCalled();
+    expect(createDealFinancingMock).not.toHaveBeenCalled();
   });
 
   it("returns 400 for empty payload", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    findDealMock.mockResolvedValue({ id: DEAL_ID, orgId: ORG_ID });
 
     const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/financings`, {
       method: "POST",
@@ -166,13 +174,12 @@ describe("POST /api/deals/[id]/financings", () => {
 
     expect(res.status).toBe(400);
     expect(body.error).toBe("Invalid financing payload");
-    expect(createMock).not.toHaveBeenCalled();
+    expect(createDealFinancingMock).not.toHaveBeenCalled();
   });
 
   it("creates financing for a scoped deal", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    findDealMock.mockResolvedValue({ id: DEAL_ID, orgId: ORG_ID });
-    createMock.mockResolvedValue({ ...FINANCING_RECORD });
+    createDealFinancingMock.mockResolvedValue({ ...FINANCING_RECORD });
 
     const req = new NextRequest(`http://localhost/api/deals/${DEAL_ID}/financings`, {
       method: "POST",
@@ -183,12 +190,12 @@ describe("POST /api/deals/[id]/financings", () => {
 
     expect(res.status).toBe(200);
     expect(body.financing.lenderName).toBe("First National Bank");
-    expect(createMock).toHaveBeenCalledWith({
-      data: {
+    expect(createDealFinancingMock).toHaveBeenCalledWith({
+      dealId: DEAL_ID,
+      orgId: ORG_ID,
+      input: {
         lenderName: "First National Bank",
         loanAmount: 2500000,
-        orgId: ORG_ID,
-        dealId: DEAL_ID,
       },
     });
   });

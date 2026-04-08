@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@entitlement-os/db";
+import {
+  DealAccessError,
+  getDealFinancialModelScenarios,
+  saveDealFinancialModelScenarios,
+} from "@gpc/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import * as Sentry from "@sentry/nextjs";
 
@@ -22,19 +26,15 @@ export async function GET(
     }
 
     const { id } = await params;
-
-    const deal = await prisma.deal.findFirst({
-      where: { id, orgId: auth.orgId },
-      select: { financialModelScenarios: true },
+    const scenarios = await getDealFinancialModelScenarios({
+      dealId: id,
+      orgId: auth.orgId,
     });
-
-    if (!deal) {
-      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
-    }
-
-    const scenarios = (deal.financialModelScenarios as SavedScenario[] | null) ?? [];
     return NextResponse.json({ scenarios });
   } catch (error) {
+    if (error instanceof DealAccessError) {
+      return NextResponse.json({ error: "Deal not found" }, { status: error.status });
+    }
     Sentry.captureException(error, {
       tags: { route: "api.deals.scenarios", method: "GET" },
     });
@@ -68,23 +68,17 @@ export async function PUT(
       );
     }
 
-    // Verify deal ownership
-    const deal = await prisma.deal.findFirst({
-      where: { id, orgId: auth.orgId },
-      select: { id: true },
-    });
-
-    if (!deal) {
-      return NextResponse.json({ error: "Deal not found" }, { status: 404 });
-    }
-
-    await prisma.deal.update({
-      where: { id },
-      data: { financialModelScenarios: scenarios },
+    await saveDealFinancialModelScenarios({
+      dealId: id,
+      orgId: auth.orgId,
+      entries: scenarios,
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof DealAccessError) {
+      return NextResponse.json({ error: "Deal not found" }, { status: error.status });
+    }
     Sentry.captureException(error, {
       tags: { route: "api.deals.scenarios", method: "PUT" },
     });
