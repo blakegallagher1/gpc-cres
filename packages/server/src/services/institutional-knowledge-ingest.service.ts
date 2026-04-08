@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { prisma, type Prisma } from "@entitlement-os/db";
-import { fetchObjectBytesFromGateway, systemAuth } from "../../../../apps/web/lib/storage/gatewayStorage";
+import { fetchObjectBytesFromGateway, systemAuth } from "./gateway-storage.service";
 import {
   ensureInstitutionalKnowledgeCollectionReady,
   ingestKnowledge,

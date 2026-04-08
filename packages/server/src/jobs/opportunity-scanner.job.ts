@@ -1,7 +1,7 @@
 import { prisma } from "@entitlement-os/db";
 import type { Prisma } from "@entitlement-os/db";
 import { getNotificationService } from "../notifications/notification.service";
-import { getCloudflareAccessHeadersFromEnv } from "../../../../apps/web/lib/server/propertyDbEnv";
+import { getCloudflareAccessHeadersFromEnv } from "../search/property-db-gateway.service";
 
 function getGatewayConfig(): { url: string; key: string } {
   const url = process.env.LOCAL_API_URL?.trim();

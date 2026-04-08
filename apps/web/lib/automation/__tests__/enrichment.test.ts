@@ -14,15 +14,15 @@ const {
   captureAutomationTimeoutMock: vi.fn(),
 }));
 
-vi.mock("@/lib/server/propertyDbRpc", () => ({
+vi.mock("@gpc/server/search/property-db-rpc.service", () => ({
   propertyDbRpc: propertyDbRpcMock,
 }));
 
-vi.mock("../notifications", () => ({
+vi.mock("@gpc/server/automation/notifications", () => ({
   createAutomationTask: createAutomationTaskMock,
 }));
 
-vi.mock("../sentry", () => ({
+vi.mock("@gpc/server/automation/sentry", () => ({
   captureAutomationTimeout: captureAutomationTimeoutMock,
 }));
 

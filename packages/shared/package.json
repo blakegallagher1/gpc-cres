@@ -17,6 +17,10 @@
     "./crypto": {
       "types": "./dist/crypto/index.d.ts",
       "default": "./dist/crypto/index.js"
+    },
+    "./financial-assumptions": {
+      "types": "./dist/financial-assumptions.d.ts",
+      "default": "./dist/financial-assumptions.js"
     }
   },
   "scripts": {

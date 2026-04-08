@@ -1,5 +1,5 @@
 import { prisma } from "@entitlement-os/db";
-import { propertyDbRpc } from "../../../../apps/web/lib/server/propertyDbRpc";
+import { propertyDbRpc } from "../search/property-db-rpc.service";
 import { AUTOMATION_CONFIG } from "./config";
 import { createAutomationTask } from "./notifications";
 import type { AutomationEvent } from "./types";

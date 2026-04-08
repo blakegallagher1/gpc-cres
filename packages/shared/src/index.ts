@@ -11,6 +11,7 @@ export * from "./evidence.js";
 export * from "./openaiModels.js";
 export * from "./telemetry/dataAgent.js";
 export * from "./financialModelCalculations.js";
+export * from "./financial-assumptions.js";
 export * from "./types/memory.js";
 export * from "./types/mapChat.js";
 export * from "./types/mapWorkspace.js";

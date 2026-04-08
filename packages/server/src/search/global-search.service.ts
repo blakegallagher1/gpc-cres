@@ -2,7 +2,7 @@ import { prisma } from "@entitlement-os/db";
 import {
   getCloudflareAccessHeadersFromEnv,
   getPropertyDbConfigOrNull,
-} from "../../../../apps/web/lib/server/propertyDbEnv";
+} from "./property-db-gateway.service";
 import { searchKnowledgeBase } from "./knowledge-base.service";
 
 export type GlobalSearchSource =

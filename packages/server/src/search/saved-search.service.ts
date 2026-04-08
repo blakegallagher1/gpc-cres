@@ -9,7 +9,7 @@ import {
 import { NotFoundError, ValidationError } from "../../../../apps/web/lib/errors";
 import {
   getCloudflareAccessHeadersFromEnv,
-} from "../../../../apps/web/lib/server/propertyDbEnv";
+} from "./property-db-gateway.service";
 
 function getGatewayConfig(): { url: string; key: string } {
   const url = process.env.LOCAL_API_URL?.trim();

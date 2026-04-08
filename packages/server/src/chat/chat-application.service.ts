@@ -12,7 +12,7 @@ import { extractAndMergeConversationPreferences } from "../services/preference-e
 import {
   getPropertyDbScopeHeaders,
   type PropertyDbGatewayScope,
-} from "../../../../apps/web/lib/server/propertyDbRpc";
+} from "../search/property-db-rpc.service";
 
 type CuaModelPreference = "gpt-5.4" | "gpt-5.4-mini";
 

@@ -1,7 +1,7 @@
 import { prisma } from "@entitlement-os/db";
 import type { ArtifactSpec, ArtifactType } from "@entitlement-os/shared";
 import { renderArtifactFromSpec } from "@entitlement-os/artifacts";
-import { uploadArtifactToGateway, systemAuth } from "../../../../apps/web/lib/storage/gatewayStorage";
+import { uploadArtifactToGateway, systemAuth } from "../services/gateway-storage.service";
 import { createAutomationTask } from "./notifications";
 import type { AutomationEvent } from "./types";
 import {

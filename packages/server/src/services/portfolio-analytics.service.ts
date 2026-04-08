@@ -7,7 +7,7 @@ import {
 import {
   DEFAULT_ASSUMPTIONS,
   type FinancialModelAssumptions,
-} from "../../../../apps/web/lib/financial/assumptions";
+} from "@entitlement-os/shared";
 
 // ---------------------------------------------------------------------------
 // Types

@@ -30,7 +30,7 @@ vi.mock("@entitlement-os/db", () => ({
   },
 }));
 
-vi.mock("@/lib/storage/gatewayStorage", () => ({
+vi.mock("@gpc/server/services/gateway-storage.service", () => ({
   fetchObjectBytesFromGateway: fetchObjectBytesFromGatewayMock,
   systemAuth: systemAuthMock,
 }));

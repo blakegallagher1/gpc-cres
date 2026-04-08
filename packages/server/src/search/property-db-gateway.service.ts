@@ -1,8 +1,19 @@
+import { logger } from "../logger";
+
 export type PropertyDbGatewayScope =
   | "parcels.read"
   | "map.read"
   | "map.tiles.read"
   | "places.read";
+
+export interface GatewayConfig {
+  url: string;
+  key: string;
+}
+
+export const PROPERTY_DB_INTERNAL_SCOPE_HEADER = "x-gpc-internal-scope";
+
+const loggedHealthChecks = new Set<string>();
 
 export class PropertyDbGatewayError extends Error {
   status: number;
@@ -30,7 +41,7 @@ function getGatewayTimeoutMs(override?: number): number {
   return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : DEFAULT_GATEWAY_TIMEOUT_MS;
 }
 
-function isMissingOrPlaceholder(value: string | undefined): boolean {
+export function isMissingOrPlaceholder(value: string | undefined): boolean {
   const normalized = (value ?? "").trim().toLowerCase();
   return (
     normalized.length === 0 ||
@@ -61,10 +72,53 @@ export function getPropertyDbConfigOrNull(): { url: string; key: string } | null
   return { url, key };
 }
 
+export function requireGatewayConfig(routeTag: string): GatewayConfig {
+  const config = getPropertyDbConfigOrNull();
+  if (!config) {
+    throw new PropertyDbGatewayError(
+      `[${routeTag}] LOCAL_API_URL and LOCAL_API_KEY must be set for property DB access`,
+      "GATEWAY_UNCONFIGURED",
+    );
+  }
+  return config;
+}
+
 export function getPropertyDbScopeHeaders(
   scope: PropertyDbGatewayScope,
 ): Record<string, string> {
-  return { "x-gpc-internal-scope": scope };
+  return { [PROPERTY_DB_INTERNAL_SCOPE_HEADER]: scope };
+}
+
+function hostFromUrl(rawUrl: string): string {
+  try {
+    return new URL(rawUrl).host;
+  } catch {
+    return "invalid-url";
+  }
+}
+
+export function logPropertyDbRuntimeHealth(routeTag: string): GatewayConfig | null {
+  const config = getPropertyDbConfigOrNull();
+  const key = `${routeTag}:${config ? "ok" : "invalid"}`;
+  if (loggedHealthChecks.has(key)) {
+    return config;
+  }
+  loggedHealthChecks.add(key);
+
+  if (!config) {
+    logger.warn("Property DB runtime health invalid", {
+      routeTag,
+      reason: "missing_or_placeholder_env",
+    });
+    return null;
+  }
+
+  logger.info("Property DB runtime health ok", {
+    routeTag,
+    host: hostFromUrl(config.url),
+    keyPresent: true,
+  });
+  return config;
 }
 
 async function fetchWithTimeout(

@@ -36,22 +36,22 @@ vi.mock("@entitlement-os/artifacts", () => ({
   renderArtifactFromSpec: renderArtifactFromSpecMock,
 }));
 
-vi.mock("@/lib/storage/gatewayStorage", () => ({
+vi.mock("@gpc/server/services/gateway-storage.service", () => ({
   uploadArtifactToGateway: uploadArtifactToGatewayMock,
   systemAuth: systemAuthMock,
 }));
 
-vi.mock("../notifications", () => ({
+vi.mock("@gpc/server/automation/notifications", () => ({
   createAutomationTask: createAutomationTaskMock,
 }));
 
-vi.mock("../context", () => ({
+vi.mock("@gpc/server/automation/context", () => ({
   getAutomationDealContext: getAutomationDealContextMock,
   getCurrentWorkflowStage: getCurrentWorkflowStageMock,
   getWorkflowPipelineStep: getWorkflowPipelineStepMock,
 }));
 
-vi.mock("../sentry", () => ({
+vi.mock("@gpc/server/automation/sentry", () => ({
   captureAutomationTimeout: captureAutomationTimeoutMock,
 }));
 

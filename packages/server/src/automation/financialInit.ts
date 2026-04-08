@@ -4,7 +4,7 @@ import { AUTOMATION_CONFIG } from "./config";
 import {
   DEFAULT_ASSUMPTIONS,
   type FinancialModelAssumptions,
-} from "../../../../apps/web/lib/financial/assumptions";
+} from "@entitlement-os/shared";
 
 type DecimalLike = { toString(): string };
 

@@ -3,16 +3,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const {
   requireGatewayConfigMock,
   getCloudflareAccessHeadersFromEnvMock,
+  getPropertyDbScopeHeadersMock,
   fetchMock,
 } = vi.hoisted(() => ({
   requireGatewayConfigMock: vi.fn(),
   getCloudflareAccessHeadersFromEnvMock: vi.fn(),
+  getPropertyDbScopeHeadersMock: vi.fn((scope: string) => ({
+    "x-gpc-internal-scope": scope,
+  })),
   fetchMock: vi.fn(),
 }));
 
-vi.mock("@/lib/server/propertyDbEnv", () => ({
+vi.mock("@gpc/server/search/property-db-gateway.service", () => ({
   requireGatewayConfig: requireGatewayConfigMock,
   getCloudflareAccessHeadersFromEnv: getCloudflareAccessHeadersFromEnvMock,
+  getPropertyDbScopeHeaders: getPropertyDbScopeHeadersMock,
+  PROPERTY_DB_INTERNAL_SCOPE_HEADER: "x-gpc-internal-scope",
 }));
 
 function makeJsonResponse(data: unknown, status = 200): Response {
@@ -30,6 +36,7 @@ describe("propertyDbRpc", () => {
     vi.resetModules();
     requireGatewayConfigMock.mockReset();
     getCloudflareAccessHeadersFromEnvMock.mockReset();
+    getPropertyDbScopeHeadersMock.mockReset();
     fetchMock.mockReset();
 
     requireGatewayConfigMock.mockReturnValue({
@@ -40,6 +47,9 @@ describe("propertyDbRpc", () => {
       "CF-Access-Client-Id": "cf-id",
       "CF-Access-Client-Secret": "cf-secret",
     });
+    getPropertyDbScopeHeadersMock.mockImplementation((scope: string) => ({
+      "x-gpc-internal-scope": scope,
+    }));
     process.env.PROPERTY_DB_GATEWAY_TIMEOUT_MS = "";
 
     vi.stubGlobal("fetch", fetchMock);

@@ -14,7 +14,7 @@ import * as Sentry from "@sentry/nextjs";
 import { dispatchEvent } from "../../../../apps/web/lib/automation/events";
 import { captureAutomationDispatchError } from "../../../../apps/web/lib/automation/sentry";
 import { logger } from "../../../../apps/web/lib/logger";
-import { uploadArtifactToGateway } from "../../../../apps/web/lib/storage/gatewayStorage";
+import { uploadArtifactToGateway } from "../services/gateway-storage.service";
 import { resolveCurrentStageKey } from "@entitlement-os/db";
 import { getTemporalClient } from "../workflows/temporal-client";
 
