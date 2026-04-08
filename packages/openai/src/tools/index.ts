@@ -32,6 +32,7 @@ import * as parcelSetTools from "./parcelSetTools.js";
 import * as spatialTools from "./spatialTools.js";
 import * as browserTools from "./browserTools.js";
 import * as perplexityTools from "./perplexityTools.js";
+import * as cartographerToolsDefs from "./cartographerTools.js";
 import { TOOL_REGISTRY } from "./toolRegistry.js";
 import { sortToolsByName } from "../utils/toolStability.js";
 
@@ -235,6 +236,15 @@ export {
   perplexity_quick_lookup,
 } from "./perplexityTools.js";
 
+export {
+  spatial_query,
+  fit_score,
+  find_assemblage,
+  draft_site_plan,
+  temporal_query,
+  cartographerTools,
+} from "./cartographerTools.js";
+
 const {
   hostedFileSearchTool,
   hostedWebSearchPreviewTool,
@@ -375,6 +385,13 @@ const {
   perplexity_deep_research,
   perplexity_quick_lookup,
 } = perplexityTools;
+const {
+  spatial_query,
+  fit_score,
+  find_assemblage,
+  draft_site_plan,
+  temporal_query,
+} = cartographerToolsDefs;
 const { allPluginTools: registeredPluginTools } = TOOL_REGISTRY;
 
 // --- Agent-specific tool collections ---
@@ -893,6 +910,12 @@ export const entitlementOsTools = (() => {
     capital_disposition_analysis,
     capital_refinance_scenarios,
     capital_stack_optimization,
+    // Cartographer / Map intelligence tools
+    spatial_query,
+    fit_score,
+    find_assemblage,
+    draft_site_plan,
+    temporal_query,
   ].forEach((tool) => {
     toolMap.set((tool as any).function?.name || (tool as any).name || 'unknown', tool);
   });
