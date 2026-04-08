@@ -21,6 +21,26 @@
     "./financial-assumptions": {
       "types": "./dist/financial-assumptions.d.ts",
       "default": "./dist/financial-assumptions.js"
+    },
+    "./errors": {
+      "types": "./dist/errors.d.ts",
+      "default": "./dist/errors.js"
+    },
+    "./extraction-schemas": {
+      "types": "./dist/extraction-schemas.d.ts",
+      "default": "./dist/extraction-schemas.js"
+    },
+    "./intent-classification": {
+      "types": "./dist/intent-classification.d.ts",
+      "default": "./dist/intent-classification.js"
+    },
+    "./memory-write": {
+      "types": "./dist/memory-write.d.ts",
+      "default": "./dist/memory-write.js"
+    },
+    "./opportunity-phase3": {
+      "types": "./dist/opportunity-phase3.d.ts",
+      "default": "./dist/opportunity-phase3.js"
     }
   },
   "scripts": {

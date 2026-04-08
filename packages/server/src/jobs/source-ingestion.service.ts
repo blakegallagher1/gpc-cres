@@ -11,7 +11,7 @@ import {
   getNotificationService,
 } from "../notifications/notification.service";
 import * as Sentry from "@sentry/nextjs";
-import { logger } from "../../../../apps/web/lib/logger";
+import { logger } from "../logger";
 
 // ---------------------------------------------------------------------------
 // Constants

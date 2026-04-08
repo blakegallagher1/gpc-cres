@@ -2,7 +2,7 @@ import "server-only";
 
 import { prisma } from "@entitlement-os/db";
 import type { Prisma } from "@entitlement-os/db";
-import { generateRequestId } from "../../../../apps/web/lib/server/requestContext";
+import { generateRequestId } from "../request-context";
 import { resolveEntityId } from "./entity-resolution.service";
 
 interface RecordEventParams {

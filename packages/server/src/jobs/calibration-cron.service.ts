@@ -1,7 +1,7 @@
 import { prisma } from "@entitlement-os/db";
 import * as Sentry from "@sentry/nextjs";
 import { recomputeAllSegments } from "../../../../apps/web/lib/jobs/calibrationRecompute";
-import { logger, serializeErrorForLogs } from "../../../../apps/web/lib/logger";
+import { logger, serializeErrorForLogs } from "../logger";
 
 export interface CalibrationCronResult {
   success: boolean;

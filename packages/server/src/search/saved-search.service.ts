@@ -6,7 +6,7 @@ import {
   type OpportunityMatchForThesis,
   type OpportunityParcelData,
 } from "../../../../apps/web/lib/opportunities/thesisEngine";
-import { NotFoundError, ValidationError } from "../../../../apps/web/lib/errors";
+import { NotFoundError, ValidationError } from "../errors";
 import {
   getCloudflareAccessHeadersFromEnv,
 } from "./property-db-gateway.service";

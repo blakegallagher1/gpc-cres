@@ -9,7 +9,7 @@ import {
   getFallbackWorkflowStages,
   resolveGeneralizedFieldsFromLegacySku,
   resolveStageKeyFromLegacyStatus,
-} from "../../../../apps/web/app/api/_lib/opportunityPhase3";
+} from "@entitlement-os/shared/opportunity-phase3";
 
 export type AutomationDealContext = {
   dealId: string;

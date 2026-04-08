@@ -2,7 +2,7 @@ import "server-only";
 
 import { prisma } from "@entitlement-os/db";
 import type { Prisma, MemoryVerified } from "@entitlement-os/db";
-import type { CorrectionPayload } from "../../../../apps/web/lib/schemas/memoryWrite";
+import type { CorrectionPayload } from "@entitlement-os/shared/memory-write";
 
 export async function applyCorrection(
   entityId: string,

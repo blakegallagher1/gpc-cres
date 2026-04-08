@@ -1,5 +1,7 @@
 export * from "./chat/run-agent-workflow.service";
 export * from "./chat/run-state";
+export * from "./errors";
+export * from "./request-context";
 export * from "./workflows/temporal-client";
 export * from "./deals/deal-activity.service";
 export * from "./deals/deal-artifact-route.service";

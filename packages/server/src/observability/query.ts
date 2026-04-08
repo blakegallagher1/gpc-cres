@@ -6,7 +6,7 @@ import {
   cloneHeadersWithRequestId,
   getOrCreateRequestId,
   readRequestId,
-} from "../../../../apps/web/lib/server/requestContext";
+} from "../request-context";
 import {
   queryObservabilityStore,
   recordObservabilityEvent,

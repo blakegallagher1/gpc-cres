@@ -17,7 +17,9 @@
     "./monitoring/*": "./src/monitoring/*.ts",
     "./notifications/*": "./src/notifications/*.ts",
     "./jobs/*": "./src/jobs/*.ts",
-    "./logger": "./src/logger.ts"
+    "./logger": "./src/logger.ts",
+    "./errors": "./src/errors.ts",
+    "./request-context": "./src/request-context.ts"
   },
   "dependencies": {
     "@entitlement-os/artifacts": "workspace:*",

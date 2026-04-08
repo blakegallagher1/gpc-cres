@@ -1,15 +1,15 @@
 import { prisma } from "@entitlement-os/db";
 import type { Prisma } from "@entitlement-os/db";
 import { getNotificationService } from "../notifications/notification.service";
-import { AppError } from "../../../../apps/web/lib/errors";
+import { AppError } from "../errors";
 import {
   DocTypeSchema,
   type DocType,
   DOC_TYPE_LABELS,
   serializeExtractionPayload,
   validateExtractionPayload,
-} from "../../../../apps/web/lib/validation/extractionSchemas";
-import { logger, serializeErrorForLogs } from "../../../../apps/web/lib/logger";
+} from "@entitlement-os/shared/extraction-schemas";
+import { logger, serializeErrorForLogs } from "../logger";
 
 type ExtractionWithOptionalUpload = {
   id: string;

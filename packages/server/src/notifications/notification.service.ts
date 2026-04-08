@@ -1,6 +1,6 @@
 import { prisma } from "@entitlement-os/db";
 import type { Prisma } from "@entitlement-os/db";
-import { AppError } from "../../../../apps/web/lib/errors";
+import { AppError } from "../errors";
 
 export type NotificationType =
   | "ALERT"

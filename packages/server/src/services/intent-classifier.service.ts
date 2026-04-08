@@ -5,7 +5,7 @@ import {
   IntentClassificationSchema,
   type IntentClassification,
   DEFAULT_INTENT_CLASSIFICATION,
-} from "../../../../apps/web/lib/schemas/intentClassification";
+} from "@entitlement-os/shared/intent-classification";
 
 const INTENT_CLASSIFICATION_MODEL = "gpt-5.4-mini";
 

@@ -17,7 +17,7 @@ import type { CaptureEvidenceResult } from "@entitlement-os/evidence";
 import { withRetry, withTimeout } from "@entitlement-os/evidence";
 import { hashJsonSha256 } from "@entitlement-os/shared/crypto";
 import * as Sentry from "@sentry/nextjs";
-import { logger } from "../../../../apps/web/lib/logger";
+import { logger } from "../logger";
 
 // ---------------------------------------------------------------------------
 // Constants

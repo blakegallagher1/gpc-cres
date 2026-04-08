@@ -6,7 +6,7 @@ import { logger } from "../logger";
 import {
   projectLegacyDealCompatibility,
   resolveCanonicalDealWorkflowState,
-} from "../../../../apps/web/app/api/_lib/opportunityPhase3";
+} from "@entitlement-os/shared/opportunity-phase3";
 
 /**
  * #1 Deal Intake: Process incoming property inquiries and auto-create deals.

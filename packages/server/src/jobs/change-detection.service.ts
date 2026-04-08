@@ -8,7 +8,7 @@ import {
   withTimeout,
 } from "@entitlement-os/evidence";
 import * as Sentry from "@sentry/nextjs";
-import { logger } from "../../../../apps/web/lib/logger";
+import { logger } from "../logger";
 
 const MAX_TIMEOUT_MS = 60_000;
 const MAX_RETRIES = 3;

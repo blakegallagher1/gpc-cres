@@ -1,6 +1,6 @@
 import * as Sentry from "@sentry/nextjs";
 import { prisma } from "@entitlement-os/db";
-import { logger } from "../../../../apps/web/lib/logger";
+import { logger } from "../logger";
 
 // ---------------------------------------------------------------------------
 // Types

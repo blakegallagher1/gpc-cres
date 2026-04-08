@@ -7,9 +7,9 @@ import {
   indexDocumentInQdrant,
 } from "@entitlement-os/evidence";
 
-import { AppError } from "../../../../apps/web/lib/errors";
-import { logger } from "../../../../apps/web/lib/logger";
-import type { DocType } from "../../../../apps/web/lib/validation/extractionSchemas";
+import { AppError } from "../errors";
+import { logger } from "../logger";
+import type { DocType } from "@entitlement-os/shared/extraction-schemas";
 import {
   autoFillDealFields,
   createDocumentExtraction,

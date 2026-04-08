@@ -23,7 +23,7 @@ vi.mock("@gpc/server/services/entity-resolution.service", () => ({
   resolveEntityId: resolveEntityIdMock,
 }));
 
-vi.mock("@/lib/server/requestContext", () => ({
+vi.mock("@gpc/server/request-context", () => ({
   generateRequestId: () => "test-request-id",
 }));
 

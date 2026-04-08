@@ -9,7 +9,7 @@ import {
   type MemoryWrite,
   type CorrectionPayload,
   type CompPayload,
-} from "../../../../apps/web/lib/schemas/memoryWrite";
+} from "@entitlement-os/shared/memory-write";
 import { detectConflicts } from "./conflict-detection.service";
 import { applyCorrection } from "./correction.service";
 import { getMemoryEventService } from "./memory-event.service";

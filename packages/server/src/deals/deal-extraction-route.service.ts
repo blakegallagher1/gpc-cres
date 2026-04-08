@@ -3,7 +3,7 @@ import {
   DocTypeSchema,
   type DocType,
   validateExtractionPayload,
-} from "../../../../apps/web/lib/validation/extractionSchemas";
+} from "@entitlement-os/shared/extraction-schemas";
 
 import { getDocumentProcessingService } from "../services/document-processing.service";
 import { DealAccessError } from "./deal-workspace.service";

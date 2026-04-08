@@ -2,7 +2,7 @@ import { prisma } from "@entitlement-os/db";
 import { AUTOMATION_CONFIG } from "./config";
 import { createAutomationTask } from "./notifications";
 import type { AutomationEvent } from "./types";
-import { resolveCanonicalDealWorkflowState } from "../../../../apps/web/app/api/_lib/opportunityPhase3";
+import { resolveCanonicalDealWorkflowState } from "@entitlement-os/shared/opportunity-phase3";
 
 /**
  * #3 Auto-Triage: Detect when a deal is ready for triage and create a notification.
