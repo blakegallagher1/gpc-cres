@@ -3,26 +3,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   resolveAuthMock,
-  ensureSavedGeofencesTableMock,
-  executeRawMock,
+  deleteGeofenceMock,
+  GeofenceNotFoundErrorMock,
 } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
-  ensureSavedGeofencesTableMock: vi.fn(),
-  executeRawMock: vi.fn(),
+  deleteGeofenceMock: vi.fn(),
+  GeofenceNotFoundErrorMock: class GeofenceNotFoundError extends Error {},
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
   resolveAuth: resolveAuthMock,
 }));
 
-vi.mock("@/lib/server/geofenceTable", () => ({
-  ensureSavedGeofencesTable: ensureSavedGeofencesTableMock,
-}));
-
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    $executeRaw: executeRawMock,
-  },
+vi.mock("@gpc/server", () => ({
+  deleteGeofence: deleteGeofenceMock,
+  GeofenceNotFoundError: GeofenceNotFoundErrorMock,
 }));
 
 import { DELETE } from "./route";
@@ -34,8 +29,7 @@ const GEOFENCE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 describe("DELETE /api/geofences/[id]", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
-    ensureSavedGeofencesTableMock.mockReset();
-    executeRawMock.mockReset();
+    deleteGeofenceMock.mockReset();
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -48,13 +42,12 @@ describe("DELETE /api/geofences/[id]", () => {
 
     expect(res.status).toBe(401);
     expect(body).toEqual({ error: "Unauthorized" });
-    expect(ensureSavedGeofencesTableMock).not.toHaveBeenCalled();
+    expect(deleteGeofenceMock).not.toHaveBeenCalled();
   });
 
   it("returns 404 when the geofence is not found for org", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    ensureSavedGeofencesTableMock.mockResolvedValue(undefined);
-    executeRawMock.mockResolvedValue(0);
+    deleteGeofenceMock.mockRejectedValue(new GeofenceNotFoundErrorMock("Geofence not found"));
 
     const req = new NextRequest(`http://localhost/api/geofences/${GEOFENCE_ID}`, {
       method: "DELETE",
@@ -64,14 +57,12 @@ describe("DELETE /api/geofences/[id]", () => {
 
     expect(res.status).toBe(404);
     expect(body).toEqual({ error: "Not found" });
-    expect(ensureSavedGeofencesTableMock).toHaveBeenCalledTimes(1);
-    expect(executeRawMock).toHaveBeenCalledTimes(1);
+    expect(deleteGeofenceMock).toHaveBeenCalledTimes(1);
   });
 
   it("returns ok when geofence is deleted", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    ensureSavedGeofencesTableMock.mockResolvedValue(undefined);
-    executeRawMock.mockResolvedValue(1);
+    deleteGeofenceMock.mockResolvedValue(undefined);
 
     const req = new NextRequest(`http://localhost/api/geofences/${GEOFENCE_ID}`, {
       method: "DELETE",
@@ -81,7 +72,6 @@ describe("DELETE /api/geofences/[id]", () => {
 
     expect(res.status).toBe(200);
     expect(body).toEqual({ ok: true });
-    expect(ensureSavedGeofencesTableMock).toHaveBeenCalledTimes(1);
-    expect(executeRawMock).toHaveBeenCalledTimes(1);
+    expect(deleteGeofenceMock).toHaveBeenCalledTimes(1);
   });
 });

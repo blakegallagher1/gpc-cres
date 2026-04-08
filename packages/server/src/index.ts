@@ -35,6 +35,7 @@ export * from "./services/dynamic-threshold.service";
 export * from "./services/entity-collision-detector.service";
 export * from "./services/entity-management.service";
 export * from "./services/entity-lookup.service";
+export * from "./services/geofence-management.service";
 export {
   backfillEntitlementOutcomePrecedents,
   type BackfillEntitlementPrecedentsInput,
@@ -127,4 +128,6 @@ export * from "./deals/triage.service";
 export * from "./jobs/deadline-monitor.job";
 export * from "./jobs/deadline-monitor-cron.service";
 export * from "./observability/tool-health.service";
+export * from "./search/parcel-search.service";
+export * from "./search/prospect-search.service";
 export * from "./workflows/workflow-template.service";

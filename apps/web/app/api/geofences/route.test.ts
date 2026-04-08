@@ -3,26 +3,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   resolveAuthMock,
-  ensureSavedGeofencesTableMock,
-  queryRawMock,
+  listGeofencesMock,
+  createGeofenceMock,
 } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
-  ensureSavedGeofencesTableMock: vi.fn(),
-  queryRawMock: vi.fn(),
+  listGeofencesMock: vi.fn(),
+  createGeofenceMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
   resolveAuth: resolveAuthMock,
 }));
 
-vi.mock("@/lib/server/geofenceTable", () => ({
-  ensureSavedGeofencesTable: ensureSavedGeofencesTableMock,
-}));
-
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    $queryRaw: queryRawMock,
-  },
+vi.mock("@gpc/server", () => ({
+  listGeofences: listGeofencesMock,
+  createGeofence: createGeofenceMock,
 }));
 
 import { GET, POST } from "./route";
@@ -33,8 +28,8 @@ const USER_ID = "99999999-9999-4999-8999-999999999999";
 describe("/api/geofences route", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
-    ensureSavedGeofencesTableMock.mockReset();
-    queryRawMock.mockReset();
+    listGeofencesMock.mockReset();
+    createGeofenceMock.mockReset();
   });
 
   it("GET returns 401 when unauthenticated", async () => {
@@ -45,19 +40,18 @@ describe("/api/geofences route", () => {
 
     expect(res.status).toBe(401);
     expect(body).toEqual({ error: "Unauthorized" });
-    expect(ensureSavedGeofencesTableMock).not.toHaveBeenCalled();
+    expect(listGeofencesMock).not.toHaveBeenCalled();
   });
 
   it("GET returns geofences for the org", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    ensureSavedGeofencesTableMock.mockResolvedValue(undefined);
     const createdAt = new Date("2026-03-01T00:00:00.000Z");
-    queryRawMock.mockResolvedValue([
+    listGeofencesMock.mockResolvedValue([
       {
         id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         name: "Baton Rouge Core",
         coordinates: [[[[-91.2, 30.4]]]],
-        created_at: createdAt,
+        createdAt: createdAt.toISOString(),
       },
     ]);
 
@@ -74,13 +68,11 @@ describe("/api/geofences route", () => {
         createdAt: createdAt.toISOString(),
       },
     ]);
-    expect(ensureSavedGeofencesTableMock).toHaveBeenCalledTimes(1);
-    expect(queryRawMock).toHaveBeenCalledTimes(1);
+    expect(listGeofencesMock).toHaveBeenCalledTimes(1);
   });
 
   it("POST returns 400 for invalid payload", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    ensureSavedGeofencesTableMock.mockResolvedValue(undefined);
 
     const req = new NextRequest("http://localhost/api/geofences", {
       method: "POST",
@@ -91,21 +83,20 @@ describe("/api/geofences route", () => {
 
     expect(res.status).toBe(400);
     expect(body.error).toBe("Validation failed");
-    expect(queryRawMock).not.toHaveBeenCalled();
+    expect(createGeofenceMock).not.toHaveBeenCalled();
   });
 
   it("POST returns 201 and created geofence", async () => {
     resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
-    ensureSavedGeofencesTableMock.mockResolvedValue(undefined);
     const createdAt = new Date("2026-03-01T00:00:00.000Z");
-    queryRawMock.mockResolvedValue([
+    createGeofenceMock.mockResolvedValue(
       {
         id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
         name: "Ascension Edge",
         coordinates: [[[-91.1, 30.3]]],
-        created_at: createdAt,
+        createdAt: createdAt.toISOString(),
       },
-    ]);
+    );
 
     const req = new NextRequest("http://localhost/api/geofences", {
       method: "POST",
@@ -124,7 +115,6 @@ describe("/api/geofences route", () => {
       coordinates: [[[-91.1, 30.3]]],
       createdAt: createdAt.toISOString(),
     });
-    expect(ensureSavedGeofencesTableMock).toHaveBeenCalledTimes(1);
-    expect(queryRawMock).toHaveBeenCalledTimes(1);
+    expect(createGeofenceMock).toHaveBeenCalledTimes(1);
   });
 });

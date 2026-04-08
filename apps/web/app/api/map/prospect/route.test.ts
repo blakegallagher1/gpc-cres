@@ -3,36 +3,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   resolveAuthMock,
-  jurisdictionFindFirstMock,
-  dealCreateMock,
-  parcelCreateMock,
+  updateProspectsForRouteMock,
 } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
-  jurisdictionFindFirstMock: vi.fn(),
-  dealCreateMock: vi.fn(),
-  parcelCreateMock: vi.fn(),
+  updateProspectsForRouteMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
   resolveAuth: resolveAuthMock,
 }));
 
-vi.mock("@/lib/gateway-proxy", () => ({
-  getGatewayConfig: vi.fn().mockReturnValue(null),
-}));
-
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    jurisdiction: {
-      findFirst: jurisdictionFindFirstMock,
-    },
-    deal: {
-      create: dealCreateMock,
-    },
-    parcel: {
-      create: parcelCreateMock,
-    },
-  },
+vi.mock("@gpc/server", () => ({
+  searchProspectsForRoute: vi.fn(),
+  updateProspectsForRoute: updateProspectsForRouteMock,
 }));
 
 describe("PUT /api/map/prospect", () => {
@@ -41,9 +24,7 @@ describe("PUT /api/map/prospect", () => {
   beforeEach(async () => {
     vi.resetModules();
     resolveAuthMock.mockReset();
-    jurisdictionFindFirstMock.mockReset();
-    dealCreateMock.mockReset();
-    parcelCreateMock.mockReset();
+    updateProspectsForRouteMock.mockReset();
     // Supabase env vars no longer needed after gateway reroute, but keep
     // for any code paths that may still reference them indirectly.
     ({ PUT } = await import("./route"));
@@ -51,11 +32,13 @@ describe("PUT /api/map/prospect", () => {
 
   it("creates deals on the happy path using org-scoped jurisdictions", async () => {
     resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
-    jurisdictionFindFirstMock
-      .mockResolvedValueOnce({ id: "jur-default" })
-      .mockResolvedValueOnce({ id: "jur-ebr" });
-    dealCreateMock.mockResolvedValue({ id: "deal-1" });
-    parcelCreateMock.mockResolvedValue({ id: "parcel-1" });
+    updateProspectsForRouteMock.mockResolvedValue({
+      status: 200,
+      body: { created: ["deal-1"], count: 1 },
+      upstream: "org",
+      resultCount: 1,
+      details: { action: "create-deals", parcelCount: 1, parcelIdCount: 0 },
+    });
 
     const req = new NextRequest("http://localhost/api/map/prospect", {
       method: "PUT",
@@ -82,28 +65,18 @@ describe("PUT /api/map/prospect", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("x-request-id")).toBeTruthy();
     expect(body).toEqual({ created: ["deal-1"], count: 1 });
-    expect(jurisdictionFindFirstMock).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({
-        where: { orgId: "org-1" },
-        orderBy: { createdAt: "asc" },
-      }),
-    );
-    expect(jurisdictionFindFirstMock).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        where: {
-          orgId: "org-1",
-          name: { contains: "East Baton Rouge", mode: "insensitive" },
-        },
-        orderBy: { createdAt: "asc" },
-      }),
-    );
+    expect(updateProspectsForRouteMock).toHaveBeenCalledTimes(1);
   });
 
   it("rejects create-deals when no org-scoped default jurisdiction is available", async () => {
     resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
-    jurisdictionFindFirstMock.mockResolvedValue(null);
+    updateProspectsForRouteMock.mockResolvedValue({
+      status: 400,
+      body: { error: "No jurisdiction configured" },
+      upstream: "org",
+      resultCount: 0,
+      details: { validationError: "missing_jurisdiction" },
+    });
 
     const req = new NextRequest("http://localhost/api/map/prospect", {
       method: "PUT",
@@ -130,21 +103,18 @@ describe("PUT /api/map/prospect", () => {
     expect(res.status).toBe(400);
     expect(res.headers.get("x-request-id")).toBeTruthy();
     expect(body).toEqual({ error: "No jurisdiction configured" });
-    expect(jurisdictionFindFirstMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { orgId: "org-1" },
-      }),
-    );
-    expect(dealCreateMock).not.toHaveBeenCalled();
+    expect(updateProspectsForRouteMock).toHaveBeenCalledTimes(1);
   });
 
   it("falls back to the org default jurisdiction when parish-specific lookup misses", async () => {
     resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: "org-1" });
-    jurisdictionFindFirstMock
-      .mockResolvedValueOnce({ id: "jur-default" })
-      .mockResolvedValueOnce(null);
-    dealCreateMock.mockResolvedValue({ id: "deal-1" });
-    parcelCreateMock.mockResolvedValue({ id: "parcel-1" });
+    updateProspectsForRouteMock.mockResolvedValue({
+      status: 200,
+      body: { created: ["deal-1"], count: 1 },
+      upstream: "org",
+      resultCount: 1,
+      details: { action: "create-deals", parcelCount: 1, parcelIdCount: 0 },
+    });
 
     const req = new NextRequest("http://localhost/api/map/prospect", {
       method: "PUT",
@@ -170,19 +140,6 @@ describe("PUT /api/map/prospect", () => {
 
     expect(res.status).toBe(200);
     expect(body).toEqual({ created: ["deal-1"], count: 1 });
-    expect(dealCreateMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          orgId: "org-1",
-          jurisdictionId: "jur-default",
-        }),
-      }),
-    );
-    expect(jurisdictionFindFirstMock).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        where: expect.objectContaining({ orgId: "org-1" }),
-      }),
-    );
+    expect(updateProspectsForRouteMock).toHaveBeenCalledTimes(1);
   });
 });

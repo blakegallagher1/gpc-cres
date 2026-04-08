@@ -289,9 +289,14 @@ module.exports = [
       "app/api/workflows/route.ts",
       "app/api/workflows/[id]/route.ts",
       "app/api/buyers/route.ts",
+      "app/api/geofences/route.ts",
+      "app/api/geofences/[id]/route.ts",
       "app/api/jurisdictions/route.ts",
+      "app/api/map/prospect/route.ts",
       "app/api/evidence/sources/[sourceId]/package/route.ts",
       "app/api/evidence/snapshots/[snapshotId]/download/route.ts",
+      "app/api/parcels/route.ts",
+      "app/api/parcels/suggest/route.ts",
       "app/api/runs/route.ts",
       "app/api/runs/[runId]/route.ts",
       "app/api/runs/[runId]/reward/route.ts",
@@ -352,9 +357,14 @@ module.exports = [
       "app/api/assets/route.ts",
       "app/api/assets/[id]/route.ts",
       "app/api/buyers/route.ts",
+      "app/api/geofences/route.ts",
+      "app/api/geofences/[id]/route.ts",
       "app/api/jurisdictions/route.ts",
+      "app/api/map/prospect/route.ts",
       "app/api/memory/ingest/route.ts",
       "app/api/memory/entities/[entityId]/route.ts",
+      "app/api/parcels/route.ts",
+      "app/api/parcels/suggest/route.ts",
       "app/api/portfolio/route.ts",
       "app/api/runs/route.ts",
       "app/api/runs/[runId]/route.ts",
@@ -401,6 +411,11 @@ module.exports = [
                 "This migrated route must import buyer services via the stable @gpc/server barrel.",
             },
             {
+              name: "@gpc/server/services/geofence-management.service",
+              message:
+                "This migrated route must import geofence services via the stable @gpc/server barrel.",
+            },
+            {
               name: "@gpc/server/services/evidence-delivery.service",
               message:
                 "This migrated route must import evidence delivery services via the stable @gpc/server barrel.",
@@ -419,6 +434,16 @@ module.exports = [
               name: "@gpc/server/services/portfolio-summary.service",
               message:
                 "This migrated route must import portfolio services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/search/parcel-search.service",
+              message:
+                "This migrated route must import parcel search services via the stable @gpc/server barrel.",
+            },
+            {
+              name: "@gpc/server/search/prospect-search.service",
+              message:
+                "This migrated route must import prospect search services via the stable @gpc/server barrel.",
             },
             {
               name: "@gpc/server/services/run-route.service",
