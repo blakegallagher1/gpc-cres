@@ -265,6 +265,7 @@ module.exports = [
       "lib/jobs/deadline-monitor.job.ts",
       "lib/jobs/opportunity-scanner.job.ts",
       "lib/jobs/calibrationRecompute.ts",
+      "lib/agent/dataAgentAutoFeed.service.ts",
       "lib/agent/agentRunner.ts",
       "lib/server/observability.ts",
       "lib/workflowClient.ts",

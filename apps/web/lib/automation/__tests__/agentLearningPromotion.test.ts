@@ -15,7 +15,7 @@ const { captureAutomationTimeoutMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("@entitlement-os/db", () => dbMock);
-vi.mock("@/lib/services/agentLearning.service", () => ({
+vi.mock("@gpc/server/services/agent-learning.service", () => ({
   promoteRunToLongTermMemory: promoteRunToLongTermMemoryMock,
 }));
 vi.mock("../sentry", () => ({

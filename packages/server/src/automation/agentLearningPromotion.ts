@@ -1,6 +1,6 @@
 import { prisma } from "@entitlement-os/db";
 
-import { promoteRunToLongTermMemory } from "../../../../apps/web/lib/services/agentLearning.service";
+import { promoteRunToLongTermMemory } from "../services/agent-learning.service";
 
 import { AUTOMATION_CONFIG } from "../../../../apps/web/lib/automation/config";
 import type { AutomationEvent } from "../../../../apps/web/lib/automation/types";

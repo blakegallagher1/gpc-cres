@@ -1,32 +1,25 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const { mockQueryRawUnsafe, mockGetDataAgentSchemaCapabilities } = vi.hoisted(() => ({
-  mockQueryRawUnsafe: vi.fn(),
-  mockGetDataAgentSchemaCapabilities: vi.fn(),
-}));
-
 const {
-  mockLoggerWarn,
-  mockLoggerInfo,
+  autoFeedRunInPackageMock,
+  mockLogger,
   mockRecordDataAgentAutoFeed,
 } = vi.hoisted(() => ({
-  mockLoggerWarn: vi.fn(),
-  mockLoggerInfo: vi.fn(),
+  autoFeedRunInPackageMock: vi.fn(),
+  mockLogger: {
+    warn: vi.fn(),
+    info: vi.fn(),
+    error: vi.fn(),
+  },
   mockRecordDataAgentAutoFeed: vi.fn(),
 }));
 
-vi.mock("@entitlement-os/db", () => ({
-  prisma: {
-    $queryRawUnsafe: mockQueryRawUnsafe,
-  },
-  getDataAgentSchemaCapabilities: mockGetDataAgentSchemaCapabilities,
+vi.mock("@gpc/server", () => ({
+  autoFeedRun: autoFeedRunInPackageMock,
 }));
 
 vi.mock("../loggerAdapter", () => ({
-  logger: {
-    warn: mockLoggerWarn,
-    info: mockLoggerInfo,
-  },
+  logger: mockLogger,
   recordDataAgentAutoFeed: mockRecordDataAgentAutoFeed,
 }));
 
@@ -54,115 +47,46 @@ const BASE_INPUT = {
 
 describe("apps/web dataAgentAutoFeed", () => {
   beforeEach(() => {
-    mockQueryRawUnsafe.mockReset();
-    mockLoggerWarn.mockReset();
-    mockLoggerInfo.mockReset();
+    autoFeedRunInPackageMock.mockReset();
+    mockLogger.warn.mockReset();
+    mockLogger.info.mockReset();
+    mockLogger.error.mockReset();
     mockRecordDataAgentAutoFeed.mockReset();
-    mockGetDataAgentSchemaCapabilities.mockReset();
-    mockGetDataAgentSchemaCapabilities.mockResolvedValue({
-      episode: true,
-      kgEvent: true,
-      temporalEdge: true,
-      rewardSignal: true,
-      knowledgeEmbedding: true,
+    autoFeedRunInPackageMock.mockResolvedValue({
+      summary: "ok",
+      reflectionSuccess: true,
+      rewardWriteSuccess: true,
+      episodeCreated: true,
+      episodeId: "episode-1",
+      errors: [],
     });
-    process.env.DATA_AGENT_AUTOFED = "true";
-    process.env.NODE_ENV = "production";
   });
 
-  it("rejects malformed auto-feed payloads as validation errors", async () => {
-    const result = await autoFeedRun({
-      ...BASE_INPUT,
-      runId: "",
-      evidenceHash: "",
-      toolsInvoked: [] as never,
-    });
-
-    expect(result.summary).toBe("Auto-feed payload validation failed");
-    expect(result.errors).toContain("runId is required");
-    expect(mockQueryRawUnsafe).not.toHaveBeenCalled();
-  });
-
-  it("creates episode and writes reward/graph rows for a valid payload", async () => {
-    mockQueryRawUnsafe
-      .mockResolvedValueOnce([]) // episode lookup
-      .mockResolvedValueOnce([{ id: "ep-valid" }]) // episode insert
-      .mockResolvedValueOnce({ count: 1 }) // embedding insert
-      .mockResolvedValueOnce([{ id: "kg-1" }]) // citation event 1
-      .mockResolvedValueOnce([{ id: "kg-2" }]) // citation event 2
-      .mockResolvedValueOnce({ count: 1 }) // episode update
-      .mockResolvedValueOnce({}) ; // reward insert
-
-    const result = await autoFeedRun({
-      ...BASE_INPUT,
-      finalOutputText: "completed review",
-      evidenceCitations: [
-        {
-          tool: "agent",
-          sourceId: "src-1",
-          contentHash: "hash-c1",
-        },
-        {
-          tool: "worker",
-          sourceId: "src-2",
-          contentHash: "hash-c2",
-        },
-      ],
-      confidence: 0.81,
-      autoScore: 0.84,
-    });
-
-    expect(result.episodeCreated).toBe(true);
-    expect(result.episodeId).toBe("ep-valid");
-    expect(result.summary).toBe("completed review\n{\"summary\":\"ok\"}");
-    expect(result.reflectionSuccess).toBe(true);
-    expect(result.rewardWriteSuccess).toBe(true);
-    expect(mockQueryRawUnsafe).toHaveBeenCalledTimes(8);
-  });
-
-  it("returns a disabled result and skips DB writes when auto-feed is turned off", async () => {
-    process.env.DATA_AGENT_AUTOFED = "false";
-
+  it("delegates auto-feed execution to the package service with app runtime deps", async () => {
     const result = await autoFeedRun(BASE_INPUT);
 
-    expect(result.summary).toBe("Auto-feed disabled");
-    expect(result.episodeCreated).toBe(false);
-    expect(result.reflectionSuccess).toBe(false);
-    expect(result.rewardWriteSuccess).toBe(false);
-    expect(mockQueryRawUnsafe).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      summary: "ok",
+      reflectionSuccess: true,
+      rewardWriteSuccess: true,
+      episodeCreated: true,
+      episodeId: "episode-1",
+      errors: [],
+    });
+    expect(autoFeedRunInPackageMock).toHaveBeenCalledWith(
+      BASE_INPUT,
+      expect.objectContaining({
+        isSchemaDriftError: expect.any(Function),
+        isLocalAppRuntime: expect.any(Function),
+        logger: mockLogger,
+        recordDataAgentAutoFeed: mockRecordDataAgentAutoFeed,
+      }),
+    );
   });
 
-  it("suppresses local schema-drift failures as degraded skips", async () => {
-    process.env.NODE_ENV = "development";
-    mockGetDataAgentSchemaCapabilities.mockResolvedValue({
-      episode: false,
-      kgEvent: false,
-      temporalEdge: false,
-      rewardSignal: false,
-      knowledgeEmbedding: true,
-    });
+  it("surfaces package-level failures without mutating the wrapper contract", async () => {
+    autoFeedRunInPackageMock.mockRejectedValueOnce(new Error("boom"));
 
-    const result = await autoFeedRun(BASE_INPUT);
-
-    expect(result.summary).toBe("analysis complete\n{\"summary\":\"ok\"}");
-    expect(result.errors).toEqual(["AUTO_FEED_SCHEMA_UNAVAILABLE"]);
-    expect(result.episodeCreated).toBe(false);
-    expect(result.reflectionSuccess).toBe(false);
-    expect(result.rewardWriteSuccess).toBe(false);
-    expect(mockQueryRawUnsafe).not.toHaveBeenCalled();
-    expect(mockLoggerWarn).not.toHaveBeenCalled();
-    expect(mockLoggerInfo).toHaveBeenCalledWith(
-      "Data Agent auto-feed skipped due to local schema drift",
-      expect.objectContaining({
-        runId: BASE_INPUT.runId,
-      }),
-    );
-    expect(mockRecordDataAgentAutoFeed).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        runId: BASE_INPUT.runId,
-        status: "schema_unavailable",
-        hasWarnings: false,
-      }),
-    );
+    await expect(autoFeedRun(BASE_INPUT)).rejects.toThrow("boom");
   });
 });

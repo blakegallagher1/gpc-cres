@@ -34,6 +34,7 @@ export * from "./services/agent-graders.service";
 export * from "./services/confidence-scoring.service";
 export * from "./services/conflict-detection.service";
 export * from "./services/correction.service";
+export * from "./services/data-agent-auto-feed.service";
 export * from "./services/anomaly-detector.service";
 export * from "./services/building-permits.service";
 export * from "./services/business-memory.service";
