@@ -5,10 +5,10 @@ const { captureAutomationTimeoutMock } = vi.hoisted(() => ({
   captureAutomationTimeoutMock: vi.fn(),
 }));
 
-vi.mock("@/lib/services/entitlementStrategyAutopilot.service", () => ({
+vi.mock("@gpc/server/monitoring/entitlement-strategy-autopilot.service", () => ({
   runEntitlementStrategyAutopilot: runEntitlementStrategyAutopilotMock,
 }));
-vi.mock("../sentry", () => ({
+vi.mock("@gpc/server/automation/sentry", () => ({
   captureAutomationTimeout: captureAutomationTimeoutMock,
 }));
 
@@ -20,7 +20,7 @@ const {
   isEntitlementStrategyMock: vi.fn(),
 }));
 
-vi.mock("../context", () => ({
+vi.mock("@gpc/server/automation/context", () => ({
   getAutomationDealContext: getAutomationDealContextMock,
   isEntitlementStrategy: isEntitlementStrategyMock,
 }));

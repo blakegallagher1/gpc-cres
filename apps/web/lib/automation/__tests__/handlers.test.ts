@@ -42,67 +42,67 @@ const {
   handleAgentLearningOutcomeReinforcementMock: vi.fn(),
 }));
 
-vi.mock("../types", () => ({
+vi.mock("@gpc/server/automation/types", () => ({
   registerHandler: registerHandlerMock,
 }));
 
-vi.mock("../enrichment", () => ({
+vi.mock("@gpc/server/automation/enrichment", () => ({
   handleParcelCreated: handleParcelCreatedMock,
 }));
 
-vi.mock("../triage", () => ({
+vi.mock("@gpc/server/automation/triage", () => ({
   handleTriageReadiness: handleTriageReadinessMock,
 }));
 
-vi.mock("../taskExecution", () => ({
+vi.mock("@gpc/server/automation/taskExecution", () => ({
   handleTaskCreated: handleTaskCreatedMock,
   handleTaskCompleted: handleTaskCompletedMock,
 }));
 
-vi.mock("../documents", () => ({
+vi.mock("@gpc/server/automation/documents", () => ({
   handleUploadCreated: handleUploadCreatedMock,
 }));
 
-vi.mock("../advancement", () => ({
+vi.mock("@gpc/server/automation/advancement.service", () => ({
   handleAdvancement: handleAdvancementMock,
   handleStatusChangeReminder: handleStatusChangeReminderMock,
 }));
 
-vi.mock("../buyerOutreach", () => ({
+vi.mock("@gpc/server/automation/buyerOutreach", () => ({
   handleBuyerOutreach: handleBuyerOutreachMock,
   handleTriageBuyerMatch: handleTriageBuyerMatchMock,
 }));
 
-vi.mock("../intake", () => ({
+vi.mock("@gpc/server/automation/intake", () => ({
   handleIntakeReceived: handleIntakeReceivedMock,
 }));
 
-vi.mock("../artifactAutomation", () => ({
+vi.mock("@gpc/server/automation/artifactAutomation", () => ({
   handleArtifactOnStatusChange: handleArtifactOnStatusChangeMock,
   handleTriageArtifactNotification: handleTriageArtifactNotificationMock,
 }));
 
-vi.mock("../entitlementStrategy", () => ({
+vi.mock("@gpc/server/automation/entitlementStrategy", () => ({
   handleEntitlementStrategyAutopilot: handleEntitlementStrategyAutopilotMock,
 }));
 
-vi.mock("../knowledgeCapture", () => ({
+vi.mock("@gpc/server/automation/knowledgeCapture", () => ({
   handleKnowledgeCapture: handleKnowledgeCaptureMock,
 }));
 
-vi.mock("../financialInit", () => ({
+vi.mock("@gpc/server/automation/financialInit", () => ({
   handleFinancialInit: handleFinancialInitMock,
 }));
 
-vi.mock("../outcomeCapture", () => ({
+vi.mock("@gpc/server/automation/outcomeCapture", () => ({
   handleOutcomeCapture: handleOutcomeCaptureMock,
 }));
 
-vi.mock("../agentLearningPromotion", () => ({
+vi.mock("@gpc/server/automation/agentLearningPromotion", () => ({
   handleAgentLearningPromotion: handleAgentLearningPromotionMock,
 }));
 
-vi.mock("../agentLearningOutcomeReinforcement", () => ({
+vi.mock("@gpc/server/automation/agentLearningOutcomeReinforcement", () => ({
   handleAgentLearningOutcomeReinforcement:
     handleAgentLearningOutcomeReinforcementMock,
 }));
