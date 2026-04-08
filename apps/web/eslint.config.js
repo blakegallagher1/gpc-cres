@@ -269,6 +269,7 @@ module.exports = [
       "lib/agent/dataAgentAutoFeed.service.ts",
       "lib/agent/agentRunner.ts",
       "lib/errors.ts",
+      "lib/financial/proforma.ts",
       "lib/services/calibrationDecay.ts",
       "lib/financial/assumptions.ts",
       "lib/gateway-proxy.ts",

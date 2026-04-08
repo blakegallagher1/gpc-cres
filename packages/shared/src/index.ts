@@ -14,6 +14,7 @@ export * from "./errors.js";
 export * from "./extraction-schemas.js";
 export * from "./financialModelCalculations.js";
 export * from "./financial-assumptions.js";
+export * from "./financial-proforma.js";
 export * from "./intent-classification.js";
 export * from "./memory-write.js";
 export * from "./opportunity-phase3.js";

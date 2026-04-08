@@ -3,7 +3,7 @@ import { calculate1031Deadlines } from "@entitlement-os/shared";
 import {
   computeProForma,
   type ProFormaResults,
-} from "../../../../apps/web/lib/financial/proforma";
+} from "@entitlement-os/shared/financial-proforma";
 import {
   DEFAULT_ASSUMPTIONS,
   type FinancialModelAssumptions,

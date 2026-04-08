@@ -22,6 +22,10 @@
       "types": "./dist/financial-assumptions.d.ts",
       "default": "./dist/financial-assumptions.js"
     },
+    "./financial-proforma": {
+      "types": "./dist/financial-proforma.d.ts",
+      "default": "./dist/financial-proforma.js"
+    },
     "./errors": {
       "types": "./dist/errors.d.ts",
       "default": "./dist/errors.js"
