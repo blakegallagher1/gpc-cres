@@ -770,6 +770,28 @@ export const taxTools = [
  */
 export const entitlementOsTools = (() => {
   const toolMap = new Map<string, unknown>();
+  const getToolName = (tool: unknown): string => {
+    if (typeof tool !== "object" || tool === null) {
+      return "unknown";
+    }
+
+    const candidate = tool as {
+      name?: unknown;
+      function?: {
+        name?: unknown;
+      };
+    };
+
+    if (typeof candidate.function?.name === "string") {
+      return candidate.function.name;
+    }
+
+    if (typeof candidate.name === "string") {
+      return candidate.name;
+    }
+
+    return "unknown";
+  };
 
   // Base coordinator tools (comprehensive set)
   [
@@ -917,7 +939,7 @@ export const entitlementOsTools = (() => {
     draft_site_plan,
     temporal_query,
   ].forEach((tool) => {
-    toolMap.set((tool as any).function?.name || (tool as any).name || 'unknown', tool);
+    toolMap.set(getToolName(tool), tool);
   });
 
   return sortToolsByName(Array.from(toolMap.values()) as Parameters<typeof sortToolsByName>[0]);
