@@ -11,6 +11,11 @@ This is the single source of truth for planned implementation work.
 - Implementation work should only be started from items in `Planned`/`In Progress`.
 - Each row includes measurable outcome, validation, and acceptance criteria.
 - Historical progress snapshots such as `docs/IMPLEMENTATION_PROGRESS_BOARD.md` are archival only and must not be treated as active work queues.
+- Backend boundary extraction is complete as of 2026-04-09: `apps/web` is now the thin delivery layer over package-owned backend services.
+- The remaining app-owned seams are intentional and should not be reopened as migration backlog:
+  - auth/session resolution in `apps/web`
+  - the web-hosted agent runtime coordinator in `apps/web/lib/agent/executeAgent.ts`
+  - tool execution dispatch ownership in `apps/web/app/api/agent/tools/execute/route.ts`
 
 ## Pre-Add Analysis Rule (applies to every proposed item)
 

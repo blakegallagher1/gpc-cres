@@ -6,6 +6,7 @@ Last reviewed: 2026-02-19
 > This progress board is retained for historical audit context and may not match current production status.
 > Use `ROADMAP.md` for current implementation status.
 > Archived follow-ups below are historical notes only; unchecked or in-progress markers from the original snapshot were intentionally retired.
+> Backend boundary extraction is complete as of 2026-04-09. Remaining app-owned seams in `apps/web` are intentional runtime/auth surfaces, not unfinished migration backlog.
 
 
 Date generated: 2026-02-19

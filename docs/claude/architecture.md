@@ -28,9 +28,9 @@
 ```
 entitlement-os/
 ├── apps/
-│   ├── web/                 # Next.js frontend + API routes
-│   │   ├── lib/automation/  # 12 event-driven automation handlers + 14 test suites
-│   │   └── lib/server/      # Server-only modules (propertyDbEnv, rateLimiter)
+│   ├── web/                 # Next.js frontend + thin API delivery layer
+│   │   ├── lib/automation/  # Thin compatibility wrappers over package-owned automation services
+│   │   └── lib/server/      # Server-only runtime seams (propertyDbEnv, rateLimiter, request adapters)
 │   └── worker/              # Temporal worker (parked for v2)
 ├── packages/
 │   ├── db/                  # Prisma schema, client, migrations, seed
@@ -48,6 +48,21 @@ entitlement-os/
 ├── docs/                    # INDEX.md, SPEC.md, ROADMAP pointers, archived snapshots
 └── .github/workflows/       # CI (ci.yml)
 ```
+
+## Boundary State (2026-04-09)
+
+Backend boundary extraction is complete.
+
+- `apps/web` is the leaf delivery layer for UI, auth/session resolution, request validation, transport wiring, and response formatting.
+- Persistence, orchestration, document intelligence, monitoring, memory, automation, and workflow services now live in package-owned modules under `packages/server`, `packages/openai`, `packages/evidence`, `packages/artifacts`, `packages/db`, and `packages/shared`.
+- New reverse imports from `packages/*` into `apps/web` are blocked by CI boundary locks.
+
+The remaining app-owned seams are intentional and should not be treated as migration debt:
+
+- `apps/web/auth.ts` and `apps/web/lib/auth/*` for web auth/session resolution
+- `apps/web/lib/agent/executeAgent.ts` as the web-hosted runtime coordinator
+- `apps/web/lib/agent/toolRegistry.ts` as the server-only tool dispatch adapter for the web runtime
+- `apps/web/app/api/agent/tools/execute/route.ts` as the explicit tool-execution route owned by the Next.js app
 
 ## Agent Architecture
 
