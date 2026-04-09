@@ -1,4 +1,5 @@
 export * from "./chat/run-agent-workflow.service";
+export * from "./chat/agent-post-run-effects.service";
 export * from "./chat/run-state";
 export * from "./errors";
 export * from "./request-context";
