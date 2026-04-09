@@ -529,7 +529,17 @@ export async function GET(request: NextRequest) {
       relayConnections.set(connectionId, connection);
 
       try {
-        connectUpstream(connectionId);
+        void connectUpstream(connectionId).catch((error) => {
+          Sentry.captureException(error, {
+            tags: { route: "api.admin.codex", method: "GET" },
+          });
+          const message = error instanceof Error ? error.message : "Relay failed";
+          enqueueConnectionState(connection, "error", message);
+          cleanupRelay(connectionId, {
+            expectedRelay: connection,
+            reason: "connect_upstream_failed",
+          });
+        });
         enqueueConnectionState(connection, "connected");
         connection.heartbeatTimer = setInterval(() => {
           if (!connection.controller) {
