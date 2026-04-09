@@ -220,6 +220,12 @@ export function MapOperatorConsole({
         ? "Update workspace parcel"
         : "Save to workspace"
       : `Save ${selectedParcels.length} parcels to workspace`;
+  const cartographerActions = [
+    "Run spatial query",
+    "Score site fit",
+    "Find assemblage",
+    "Draft site plan",
+  ] as const;
 
   return (
     <section
@@ -231,15 +237,24 @@ export function MapOperatorConsole({
       <div className="border-b border-map-border px-4 py-4">
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-map-text-muted">
-              Operator console
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-map-text-muted">
+                Operator console
+              </p>
+              <Badge
+                variant="outline"
+                className="border-sky-500/35 bg-sky-500/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.16em] text-sky-100"
+              >
+                Cartographer live
+              </Badge>
+            </div>
             <h3 className="text-sm font-semibold text-map-text-primary">
-              Save the geography, assign the next move, and keep the parcel brief live.
+              Spatial intelligence stays visible while you save geography, assign work, and test an assemblage thesis.
             </h3>
             <p className="text-[11px] leading-5 text-map-text-secondary">
-              Move from selection to a shared workspace, comparison, prospecting, or copilot without
-              leaving the active map state.
+              The map copilot is not just chat. It can run parcel geometry queries, fit scoring,
+              assemblage analysis, and site-plan drafting from the active selection without leaving
+              the workbench.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 border-y border-map-border/80 py-3 text-[10px] sm:grid-cols-4">
@@ -258,6 +273,35 @@ export function MapOperatorConsole({
             <div>
               <div className="map-stat-label">Analyses</div>
               <div className="map-stat-value">{resultCount}</div>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-map-border/80 bg-map-panel/70 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <SectionLabel>Cartographer workflow</SectionLabel>
+                <p className="text-[11px] font-medium leading-5 text-map-text-primary">
+                  Use the active parcel set as a live spatial brief.
+                </p>
+                <p className="max-w-xl text-[10px] leading-5 text-map-text-secondary">
+                  Query the surrounding fabric, rank parcels against fit criteria, test adjacency,
+                  and sketch a program before you commit the next move to the workspace.
+                </p>
+              </div>
+              <div className="hidden rounded-full border border-map-border/70 bg-map-surface px-2.5 py-1 text-[9px] font-mono uppercase tracking-[0.16em] text-map-text-muted sm:inline-flex sm:items-center sm:gap-1.5">
+                <Radar className="h-3.5 w-3.5 text-sky-300" />
+                spatial mode
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {cartographerActions.map((action) => (
+                <Badge
+                  key={action}
+                  variant="outline"
+                  className="border-map-border bg-map-surface px-2.5 py-1 text-[10px] text-map-text-secondary"
+                >
+                  {action}
+                </Badge>
+              ))}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-[10px] text-map-text-muted">

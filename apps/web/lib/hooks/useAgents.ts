@@ -190,6 +190,46 @@ const UNIFIED_AGENT_TOOLS: Agent["tools"] = [
       requiredInputs: ["parcel_id", "radius_m"],
     },
   },
+  {
+    name: "run_spatial_query",
+    description:
+      "Query parcel geometry, adjacency, and map overlays for spatial intelligence.",
+    parameters: {
+      requiredInputs: ["query", "viewport"],
+    },
+  },
+  {
+    name: "score_site_fit",
+    description:
+      "Score parcels against frontage, zoning, flood, and acreage fit criteria.",
+    parameters: {
+      requiredInputs: ["parcel_ids", "criteria"],
+    },
+  },
+  {
+    name: "find_assemblage_candidates",
+    description:
+      "Evaluate contiguous parcels for assemblage potential and holdout risk.",
+    parameters: {
+      requiredInputs: ["parcel_ids", "min_acres"],
+    },
+  },
+  {
+    name: "draft_site_plan",
+    description:
+      "Sketch a hypothetical site program from parcel geometry and unit mix assumptions.",
+    parameters: {
+      requiredInputs: ["parcel_ids", "program"],
+    },
+  },
+  {
+    name: "run_temporal_zoning_query",
+    description:
+      "Compare historical parcel, zoning, and overlay changes across time windows.",
+    parameters: {
+      requiredInputs: ["query", "start_date", "end_date"],
+    },
+  },
   // Operations and construction
   {
     name: "create_milestone_schedule",
@@ -225,9 +265,10 @@ const UNIFIED_AGENT_TOOLS: Agent["tools"] = [
 const STATIC_AGENTS: Agent[] = [
   {
     id: "coordinator",
-    name: "EntitlementOS",
+    name: "EntitlementOS Cartographer",
     model: "gpt-5.2",
-    description: "Unified AI agent with comprehensive domain expertise across finance, legal, entitlements, risk, and operations for complete deal analysis and decision support.",
+    description:
+      "Unified operator for entitlements, underwriting, and cartographer-grade spatial analysis across parcels, assemblage, and site planning.",
     handoffs: [],
   },
 ].map((agent) => ({
