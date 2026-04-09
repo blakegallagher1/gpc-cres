@@ -36,7 +36,10 @@ jobs:
         run: pnpm --filter @entitlement-os/db generate
 
       - name: Build packages
-        run: pnpm --filter @entitlement-os/shared build && pnpm --filter @entitlement-os/db build && pnpm --filter @entitlement-os/evidence build && pnpm --filter @entitlement-os/artifacts build && pnpm --filter @entitlement-os/openai build
+        run: pnpm --filter @entitlement-os/shared build && pnpm --filter @entitlement-os/db build && pnpm --filter @entitlement-os/artifacts build && pnpm --filter @entitlement-os/openai build && pnpm --filter @entitlement-os/evidence build
+
+      - name: Boundary locks
+        run: pnpm test:boundaries
 
       - name: Lint
         run: pnpm --filter gpc-agent-dashboard lint
@@ -78,7 +81,10 @@ jobs:
         run: pnpm --filter @entitlement-os/db generate
 
       - name: Build packages
-        run: pnpm --filter @entitlement-os/shared build && pnpm --filter @entitlement-os/db build && pnpm --filter @entitlement-os/evidence build && pnpm --filter @entitlement-os/artifacts build && pnpm --filter @entitlement-os/openai build
+        run: pnpm --filter @entitlement-os/shared build && pnpm --filter @entitlement-os/db build && pnpm --filter @entitlement-os/artifacts build && pnpm --filter @entitlement-os/openai build && pnpm --filter @entitlement-os/evidence build
+
+      - name: Boundary locks
+        run: pnpm test:boundaries
 
       - name: Install Chromium for Playwright
         run: pnpm -C apps/web exec playwright install --with-deps chromium
@@ -173,7 +179,11 @@ jobs:
 
       - name: Build packages
         if: steps.required-secrets.outputs.available == 'true'
-        run: pnpm --filter @entitlement-os/shared build && pnpm --filter @entitlement-os/db build && pnpm --filter @entitlement-os/evidence build && pnpm --filter @entitlement-os/artifacts build && pnpm --filter @entitlement-os/openai build
+        run: pnpm --filter @entitlement-os/shared build && pnpm --filter @entitlement-os/db build && pnpm --filter @entitlement-os/artifacts build && pnpm --filter @entitlement-os/openai build && pnpm --filter @entitlement-os/evidence build
+
+      - name: Boundary locks
+        if: steps.required-secrets.outputs.available == 'true'
+        run: pnpm test:boundaries
 
       - name: Migrate database
         if: steps.required-secrets.outputs.available == 'true'

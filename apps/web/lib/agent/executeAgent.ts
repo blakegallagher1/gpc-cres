@@ -159,6 +159,42 @@ type AgentRunAttemptState = {
   } | null;
 };
 
+function summarizeToolEventState(state: ToolEventState) {
+  return {
+    toolCount: state.toolsInvoked.size,
+    toolFailureCount: state.toolErrorMessages.length,
+    missingEvidenceCount: state.missingEvidence.size,
+    memoryConflictCount: state.memoryConflictSummaries.length,
+    addressMismatchCount: state.parcelAddressMismatchSummaries.length,
+    browserTaskServiceUnavailableCount: state.browserTaskServiceUnavailableCount,
+    parishTieredQueryObserved: state.parishTieredQueryObserved,
+    parishVerifiedParcelRowsMax: state.parishVerifiedParcelRowsMax,
+  };
+}
+
+function buildAgentRuntimeLogContext(
+  params: AgentExecutionParams,
+  runId: string,
+  queryIntent: QueryIntent,
+) {
+  return {
+    runId,
+    orgId: params.orgId,
+    userId: params.userId,
+    dealId: params.dealId ?? null,
+    conversationId: params.conversationId ?? null,
+    correlationId: params.correlationId ?? null,
+    queryIntent,
+    researchLane: params.researchLaneOverride ?? "auto",
+    retryMode: params.retryMode ?? "local",
+    retryAttempts: params.retryAttempts ?? 1,
+    retryMaxAttempts: params.retryMaxAttempts ?? (params.retryAttempts ?? 1),
+    resumed: Boolean(params.resumedRunState),
+    hasToolApprovalDecision: Boolean(params.toolApprovalDecision),
+    preferredCuaModel: params.preferredCuaModel ?? null,
+  };
+}
+
 type AgentRunInput =
   | ReturnType<typeof buildAgentInputItems>
   | RunState<unknown, ReturnType<typeof createConfiguredCoordinator>>;
@@ -1506,11 +1542,18 @@ export async function executeAgentWorkflow(
         toolCount: preFilterTools.length,
       });
     }
-    logger.debug("Agent run starting", {
-      runId: dbRun.id,
+    const runtimeLogContext = buildAgentRuntimeLogContext(
+      params,
+      dbRun.id,
       queryIntent,
+    );
+
+    logger.debug("Agent run starting", {
+      ...runtimeLogContext,
       tools: configuredToolNames,
       memoryTools: memoryToolsPresent,
+      previousResponseId: params.previousResponseId ?? null,
+      maxTurns: params.maxTurns ?? null,
     });
     emitAgentSwitch(emit, "Coordinator");
 
@@ -2065,6 +2108,14 @@ export async function executeAgentWorkflow(
       path: "apps/web/lib/agent/executeAgent.ts",
     });
     errorMessage = error instanceof Error ? error.message : "Agent execution failed";
+    logger.error("Agent run failed", {
+      ...buildAgentRuntimeLogContext(params, dbRun.id, queryIntent),
+      ...summarizeToolEventState(state),
+      lastAgentName: lastAgentName || "Coordinator",
+      openaiResponseId: openaiResponseId ?? null,
+      hadPendingApproval: Boolean(pendingApprovalState),
+      error: errorMessage,
+    });
     state.toolErrorMessages.push(errorMessage);
     state.missingEvidence.add(`Execution failure: ${errorMessage}`);
     emitError(emit, errorMessage);
@@ -2388,11 +2439,14 @@ export async function executeAgentWorkflow(
       (t) => t === "store_memory" || t === "get_entity_truth" || t === "get_entity_memory" || t === "record_memory_event",
     );
     logger.info("Agent run completed", {
-      runId: dbRun.id,
+      ...buildAgentRuntimeLogContext(params, dbRun.id, queryIntent),
+      ...summarizeToolEventState(state),
       status,
-      queryIntent,
       tools: sortedToolsInvoked,
       memoryTools: memoryToolsUsed,
+      proofChecks,
+      openaiResponseId: openaiResponseId ?? null,
+      confidence,
     });
 
     const trust = buildFinalTrust({

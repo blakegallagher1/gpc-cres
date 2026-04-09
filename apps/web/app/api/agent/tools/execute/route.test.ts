@@ -36,6 +36,14 @@ vi.mock("@/lib/agent/toolRegistry", () => ({
     search_parcels: gatewayToolMock,
     run_underwriting_workflow: shellWorkflowStubMock,
   },
+  TOOL_EXECUTION_TIMEOUT_MS: 45_000,
+  isToolExecutionFailure: (error: unknown) =>
+    Boolean(
+      error &&
+        typeof error === "object" &&
+        "name" in error &&
+        (error as { name?: unknown }).name === "ToolExecutionFailure",
+    ),
 }));
 
 vi.mock("@entitlement-os/openai", () => ({
@@ -198,12 +206,14 @@ describe("POST /api/agent/tools/execute", () => {
     expect(res.status).toBe(200);
     expect(localToolMock).toHaveBeenCalledWith(
       { include: true },
-      {
+      expect.objectContaining({
         orgId: ORG_ID,
         userId: USER_ID,
         conversationId: CONVERSATION_ID,
         dealId: undefined,
-      },
+        runId: RUN_ID,
+        requestId: expect.any(String),
+      }),
     );
     expect(body).toMatchObject({
       result: { ok: true, value: "legacy-ok" },
@@ -234,12 +244,13 @@ describe("POST /api/agent/tools/execute", () => {
     expect(res.status).toBe(200);
     expect(localToolMock).toHaveBeenCalledWith(
       { include: true },
-      {
+      expect.objectContaining({
         orgId: ORG_ID,
         userId: USER_ID,
         conversationId: CONVERSATION_ID,
         dealId: "deal-42",
-      },
+        requestId: expect.any(String),
+      }),
     );
     expect(body.metadata.conversationId).toBe(CONVERSATION_ID);
   });
@@ -543,5 +554,43 @@ describe("POST /api/agent/tools/execute", () => {
     expect(res.status).toBe(500);
     expect(body.error).toBe("Database connection failed");
     expect(body.metadata.toolName).toBe("local_tool");
+    expect(body.diagnostics.requestId).toBe(body.metadata.requestId);
+  });
+
+  it("returns 504 with retry diagnostics when tool execution times out", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+    const timeoutError = Object.assign(
+      new Error("Tool 'local_tool' exceeded 45000ms and was canceled"),
+      {
+        name: "ToolExecutionFailure",
+        code: "tool_timeout",
+        httpStatus: 504,
+        retryable: true,
+      },
+    );
+    localToolMock.mockRejectedValue(timeoutError);
+
+    const res = await POST(
+      reqWithBody({
+        toolName: "local_tool",
+        arguments: {},
+        context: { conversationId: CONVERSATION_ID, runId: RUN_ID },
+      }),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(504);
+    expect(res.headers.get("x-gpc-tool-request-id")).toBeTruthy();
+    expect(body.error).toContain("exceeded 45000ms");
+    expect(body.metadata.toolName).toBe("local_tool");
+    expect(body.metadata.requestId).toBe(body.diagnostics.requestId);
+    expect(body.diagnostics).toMatchObject({
+      requestId: expect.any(String),
+      conversationId: CONVERSATION_ID,
+      runId: RUN_ID,
+      retryable: true,
+      failureCode: "tool_timeout",
+      timeoutMs: 45_000,
+    });
   });
 });

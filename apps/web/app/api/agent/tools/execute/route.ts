@@ -3,7 +3,12 @@ import "server-only";
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError, z } from "zod";
 import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
-import { toolRegistry } from "@/lib/agent/toolRegistry";
+import {
+  isToolExecutionFailure,
+  TOOL_EXECUTION_TIMEOUT_MS,
+  toolRegistry,
+} from "@/lib/agent/toolRegistry";
+import { logger } from "@/lib/agent/loggerAdapter";
 import * as Sentry from "@sentry/nextjs";
 import {
   type ToolDestination,
@@ -57,6 +62,15 @@ type ToolMetadata = {
   risk: ToolRiskLevel;
   quotaClass: ToolQuotaClass;
   transport: "direct" | "mcp";
+};
+
+type ToolExecutionDiagnostics = {
+  requestId: string;
+  conversationId: string;
+  runId?: string;
+  retryable?: boolean;
+  failureCode?: string;
+  timeoutMs?: number;
 };
 
 type RawToolExecutionPayload = z.infer<typeof RawToolExecutionRequestSchema>;
@@ -156,7 +170,30 @@ function getToolMetadata(
   };
 }
 
+function getRequestId(req: NextRequest): string {
+  const forwardedRequestId = req.headers.get("x-request-id")?.trim();
+  if (forwardedRequestId && forwardedRequestId.length > 0) {
+    return forwardedRequestId;
+  }
+  return crypto.randomUUID();
+}
+
+function jsonWithRequestId(
+  requestId: string,
+  body: Record<string, unknown>,
+  status: number,
+) {
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      "x-gpc-tool-request-id": requestId,
+      "cache-control": "no-store",
+    },
+  });
+}
+
 export async function POST(req: NextRequest) {
+  const requestId = getRequestId(req);
   let auth;
   try {
     const authorization = await authorizeApiRoute(req, req.nextUrl.pathname);
@@ -165,15 +202,21 @@ export async function POST(req: NextRequest) {
     Sentry.captureException(err, {
       tags: { route: "api.agent.tools.execute", method: "POST" },
     });
-    console.error("[tools/execute] resolveAuth error:", err);
-    return NextResponse.json(
+    logger.error("Tool execution auth resolution failed", {
+      route: "api.agent.tools.execute",
+      method: "POST",
+      requestId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return jsonWithRequestId(
+      requestId,
       { error: err instanceof Error ? err.message : "Auth resolution failed" },
-      { status: 500 },
+      500,
     );
   }
 
   if (!auth) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return jsonWithRequestId(requestId, { error: "Unauthorized" }, 401);
   }
 
   let requestBody: ToolExecutionRequest;
@@ -191,7 +234,7 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    return jsonWithRequestId(requestId, { error: "Invalid JSON body" }, 400);
   }
 
   const requestedToolName = requestBody.toolName;
@@ -200,14 +243,16 @@ export async function POST(req: NextRequest) {
   const tool = toolRegistry[canonicalToolName];
 
   if (!catalogEntry && !tool) {
-    return NextResponse.json(
+    return jsonWithRequestId(
+      requestId,
       { error: `Unknown tool: ${requestedToolName}` },
-      { status: 400 },
+      400,
     );
   }
 
   if (!catalogEntry) {
-    return NextResponse.json(
+    return jsonWithRequestId(
+      requestId,
       {
         error: `Tool catalog entry missing for registered tool: ${canonicalToolName}`,
         metadata: {
@@ -219,7 +264,7 @@ export async function POST(req: NextRequest) {
           transport: "direct",
         },
       },
-      { status: 400 },
+      400,
     );
   }
 
@@ -230,7 +275,8 @@ export async function POST(req: NextRequest) {
     Sentry.captureException(err, {
       tags: { route: "api.agent.tools.execute", method: "POST" },
     });
-    return NextResponse.json(
+    return jsonWithRequestId(
+      requestId,
       {
         error: err instanceof Error ? err.message : "Tool transport policy unavailable",
         metadata: {
@@ -242,13 +288,14 @@ export async function POST(req: NextRequest) {
           transport: "direct",
         },
       },
-      { status: 400 },
+      400,
     );
   }
 
   if (!tool) {
     if (metadata.destination === "hosted" || metadata.destination === "mcp") {
-      return NextResponse.json(
+      return jsonWithRequestId(
+        requestId,
         {
           error:
             metadata.destination === "mcp"
@@ -256,19 +303,21 @@ export async function POST(req: NextRequest) {
               : `Hosted tool '${canonicalToolName}' is executed by OpenAI and should not be dispatched via /api/agent/tools/execute`,
           metadata,
         },
-        { status: 400 },
+        400,
       );
     }
-    return NextResponse.json(
+    return jsonWithRequestId(
+      requestId,
       { error: `Unknown tool: ${requestedToolName}` },
-      { status: 400 },
+      400,
     );
   }
 
   const conversationId = requestBody.context?.conversationId?.trim() ?? "";
 
   if (metadata.destination === "hosted" && !conversationId) {
-    return NextResponse.json(
+    return jsonWithRequestId(
+      requestId,
       {
         error: "Hosted tools require context.conversationId",
         metadata: {
@@ -276,7 +325,7 @@ export async function POST(req: NextRequest) {
           conversationId,
         },
       },
-      { status: 400 },
+      400,
     );
   }
 
@@ -286,7 +335,8 @@ export async function POST(req: NextRequest) {
       canonicalToolName,
     );
     if (!quotaCheck.allowed) {
-      return NextResponse.json(
+      return jsonWithRequestId(
+        requestId,
         {
           error: quotaCheck.reason,
           metadata: {
@@ -301,7 +351,7 @@ export async function POST(req: NextRequest) {
             },
           },
         },
-        { status: 429 },
+        429,
       );
     }
   }
@@ -311,6 +361,8 @@ export async function POST(req: NextRequest) {
     userId: auth.userId,
     conversationId,
     dealId: requestBody.context?.dealId,
+    runId: requestBody.context?.runId,
+    requestId,
   };
 
   try {
@@ -320,27 +372,58 @@ export async function POST(req: NextRequest) {
       recordHostedToolUsage(conversationId, canonicalToolName);
     }
 
-    return NextResponse.json({
-      result,
-      metadata: {
-        ...metadata,
-        conversationId,
-        runId: requestBody.context?.runId,
-        usage:
-          metadata.destination === "hosted"
-            ? {
-                conversationId,
-                current: getHostedToolUsage(
+    return jsonWithRequestId(
+      requestId,
+      {
+        result,
+        metadata: {
+          ...metadata,
+          requestId,
+          conversationId,
+          runId: requestBody.context?.runId,
+          usage:
+            metadata.destination === "hosted"
+              ? {
                   conversationId,
-                  canonicalToolName,
-                ),
-              }
-            : undefined,
+                  current: getHostedToolUsage(
+                    conversationId,
+                    canonicalToolName,
+                  ),
+                }
+              : undefined,
+        },
       },
-    });
+      200,
+    );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Tool execution failed";
-    return NextResponse.json(
+    const failure = isToolExecutionFailure(err) ? err : null;
+    const message = failure?.message ?? (err instanceof Error ? err.message : "Tool execution failed");
+    const status = failure?.httpStatus ?? 500;
+    const diagnostics: ToolExecutionDiagnostics = {
+      requestId,
+      conversationId,
+      runId: requestBody.context?.runId,
+      retryable: failure?.retryable,
+      failureCode: failure?.code,
+      timeoutMs: failure?.code === "tool_timeout" ? TOOL_EXECUTION_TIMEOUT_MS : undefined,
+    };
+
+    logger.error("Tool execution route failed", {
+      route: "api.agent.tools.execute",
+      method: "POST",
+      requestId,
+      requestedToolName,
+      canonicalToolName,
+      destination: metadata.destination,
+      conversationId,
+      runId: requestBody.context?.runId,
+      retryable: diagnostics.retryable ?? false,
+      failureCode: diagnostics.failureCode ?? "unknown",
+      error: message,
+    });
+
+    return jsonWithRequestId(
+      requestId,
       {
         error: message,
         metadata: {
@@ -350,12 +433,14 @@ export async function POST(req: NextRequest) {
           risk: metadata.risk,
           quotaClass: metadata.quotaClass,
           transport: metadata.transport,
+          requestId,
           ...(metadata.destination === "hosted"
             ? { usage: { conversationId } }
             : {}),
         },
+        diagnostics,
       },
-      { status: 500 },
+      status,
     );
   }
 }

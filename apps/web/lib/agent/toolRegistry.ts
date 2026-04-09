@@ -22,8 +22,54 @@ import { logger } from "./loggerAdapter";
 
 type ToolExecuteFn = (
   args: Record<string, unknown>,
-  context: { orgId: string; userId: string; conversationId: string; dealId?: string },
+  context: {
+    orgId: string;
+    userId: string;
+    conversationId: string;
+    dealId?: string;
+    runId?: string;
+    requestId?: string;
+  },
 ) => Promise<unknown>;
+
+type ToolExecutionStatus = "success" | "tool_error" | "error" | "timeout";
+
+type ToolExecutionFailureCode = "tool_timeout" | "tool_execution_failed";
+
+export const TOOL_EXECUTION_TIMEOUT_MS = 45_000;
+
+export class ToolExecutionFailure extends Error {
+  readonly code: ToolExecutionFailureCode;
+  readonly httpStatus: number;
+  readonly retryable: boolean;
+  readonly toolName: string;
+  readonly requestId?: string;
+  readonly durationMs?: number;
+
+  constructor(params: {
+    message: string;
+    code: ToolExecutionFailureCode;
+    httpStatus: number;
+    retryable: boolean;
+    toolName: string;
+    requestId?: string;
+    durationMs?: number;
+    cause?: unknown;
+  }) {
+    super(params.message, params.cause ? { cause: params.cause } : undefined);
+    this.name = "ToolExecutionFailure";
+    this.code = params.code;
+    this.httpStatus = params.httpStatus;
+    this.retryable = params.retryable;
+    this.toolName = params.toolName;
+    this.requestId = params.requestId;
+    this.durationMs = params.durationMs;
+  }
+}
+
+export function isToolExecutionFailure(error: unknown): error is ToolExecutionFailure {
+  return error instanceof ToolExecutionFailure;
+}
 
 type AgentToolLike = {
   name: string;
@@ -40,6 +86,37 @@ function isAgentTool(value: unknown): value is AgentToolLike {
   return typeof candidate.name === "string" && typeof candidate.invoke === "function";
 }
 
+async function runWithTimeout<T>(
+  operation: Promise<T>,
+  context: { toolName: string; requestId?: string },
+): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<T>((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          reject(
+            new ToolExecutionFailure({
+              message: `Tool '${context.toolName}' exceeded ${TOOL_EXECUTION_TIMEOUT_MS}ms and was canceled`,
+              code: "tool_timeout",
+              httpStatus: 504,
+              retryable: true,
+              toolName: context.toolName,
+              requestId: context.requestId,
+              durationMs: TOOL_EXECUTION_TIMEOUT_MS,
+            }),
+          );
+        }, TOOL_EXECUTION_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
+}
+
 /**
  * Wraps an @openai/agents tool() object into a simple execute function.
  *
@@ -53,7 +130,7 @@ function wrapTool(agentTool: AgentToolLike): ToolExecuteFn {
       throw new Error(`Tool has no invoke function`);
     }
     const startMs = Date.now();
-    let status: "success" | "tool_error" | "error" = "success";
+    let status: ToolExecutionStatus = "success";
     let errorMessage: string | undefined;
 
     try {
@@ -65,7 +142,10 @@ function wrapTool(agentTool: AgentToolLike): ToolExecuteFn {
       // Pass auth context as RunContext so memory tools can extract orgId/userId
       // for their internal HTTP calls (buildMemoryToolHeaders expects { context: { orgId, userId } })
       const runContext = { context: { orgId: context.orgId, userId: context.userId } };
-      const result = await agentTool.invoke(runContext, JSON.stringify(enrichedArgs), {});
+      const result = await runWithTimeout(
+        agentTool.invoke(runContext, JSON.stringify(enrichedArgs), {}),
+        { toolName: agentTool.name, requestId: context.requestId },
+      );
 
       if (typeof result === "string") {
         try {
@@ -81,9 +161,21 @@ function wrapTool(agentTool: AgentToolLike): ToolExecuteFn {
 
       return result;
     } catch (error) {
-      status = "error";
+      status = isToolExecutionFailure(error) && error.code === "tool_timeout" ? "timeout" : "error";
       errorMessage = error instanceof Error ? error.message : String(error);
-      throw error;
+      if (isToolExecutionFailure(error)) {
+        throw error;
+      }
+      throw new ToolExecutionFailure({
+        message: errorMessage,
+        code: "tool_execution_failed",
+        httpStatus: 500,
+        retryable: false,
+        toolName: agentTool.name,
+        requestId: context.requestId,
+        durationMs: Date.now() - startMs,
+        cause: error,
+      });
     } finally {
       const durationMs = Date.now() - startMs;
       const logContext = {
@@ -92,12 +184,14 @@ function wrapTool(agentTool: AgentToolLike): ToolExecuteFn {
         userId: context.userId,
         conversationId: context.conversationId,
         ...(context.dealId ? { dealId: context.dealId } : {}),
+        ...(context.runId ? { runId: context.runId } : {}),
+        ...(context.requestId ? { requestId: context.requestId } : {}),
         durationMs,
         status,
         ...(errorMessage ? { error: errorMessage } : {}),
       };
 
-      if (status === "error") {
+      if (status === "error" || status === "timeout") {
         logger.warn("Tool execution failed", logContext);
       } else {
         logger.info("Tool execution completed", logContext);
