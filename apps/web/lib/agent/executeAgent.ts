@@ -1323,8 +1323,8 @@ export async function executeAgentWorkflow(
   );
 
   if (!skipRunPersistence && params.runId) {
-    const existingRun = (await prisma.run.findUnique({
-      where: { id: runId },
+    const existingRun = (await prisma.run.findFirst({
+      where: { id: runId, orgId: params.orgId },
       select: {
         id: true,
         status: true,
@@ -1487,7 +1487,11 @@ export async function executeAgentWorkflow(
 
     const updateResult = params.executionLeaseToken
       ? await prisma.run.updateMany({
-          where: { id: dbRun.id, openaiResponseId: params.executionLeaseToken },
+          where: {
+            id: dbRun.id,
+            orgId: params.orgId,
+            openaiResponseId: params.executionLeaseToken,
+          },
           data: {
             serializedState,
           },
@@ -1496,8 +1500,8 @@ export async function executeAgentWorkflow(
 
     if (!params.executionLeaseToken || updateResult.count === 1) {
       if (!params.executionLeaseToken) {
-        await prisma.run.update({
-          where: { id: dbRun.id },
+        await prisma.run.updateMany({
+          where: { id: dbRun.id, orgId: params.orgId },
           data: {
             serializedState,
           },
@@ -2699,12 +2703,12 @@ export async function resumeAgentToolApproval(params: {
     },
   ];
 
-  await prisma.run.update({
-    where: { id: runRecord.id },
-    data: {
-      outputJson: {
-        ...output,
-        approvalAudit: nextApprovalAudit,
+      await prisma.run.updateMany({
+        where: { id: runRecord.id, orgId: params.orgId },
+        data: {
+          outputJson: {
+            ...output,
+            approvalAudit: nextApprovalAudit,
       } as Prisma.InputJsonValue,
     },
   });
