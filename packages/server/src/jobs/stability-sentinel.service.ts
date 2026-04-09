@@ -1,6 +1,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { prisma } from "@entitlement-os/db";
 import { logger } from "../logger";
+import { getCloudflareAccessHeadersFromEnv } from "../search/property-db-gateway.service";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -187,6 +188,58 @@ export async function runProbe(
       clearTimeout(timeout);
     }
   }
+  return runs;
+}
+
+export async function runDbProbe(): Promise<ProbeRun[]> {
+  const THRESHOLDS = getThresholds();
+  const baseUrl = process.env.LOCAL_API_URL?.trim();
+  const apiKey = process.env.LOCAL_API_KEY?.trim();
+
+  if (!baseUrl || !apiKey) {
+    return Array.from({ length: THRESHOLDS.probeRuns }, () => ({
+      status: 0,
+      totalMs: 0,
+      error: "LOCAL_API_URL or LOCAL_API_KEY not configured",
+    }));
+  }
+
+  const runs: ProbeRun[] = [];
+  const url = `${baseUrl.replace(/\/$/, "")}/db`;
+  const headers = {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+    ...getCloudflareAccessHeadersFromEnv(),
+  };
+  const body = JSON.stringify({ sql: "SELECT 1", args: [] });
+
+  for (let i = 0; i < THRESHOLDS.probeRuns; i++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), THRESHOLDS.probeTimeoutMs);
+    const start = performance.now();
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers,
+        body,
+        signal: controller.signal,
+      });
+      await res.text().catch(() => "");
+      runs.push({ status: res.status, totalMs: Math.round(performance.now() - start) });
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { route: "api.cron.stability-sentinel", method: "UNKNOWN" },
+      });
+      runs.push({
+        status: 0,
+        totalMs: Math.round(performance.now() - start),
+        error: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   return runs;
 }
 
@@ -510,7 +563,7 @@ export async function runStabilitySentinel(): Promise<SentinelResult> {
     runProbe("/api/parcels?hasCoords=true", "GET"),
     runProbe("/api/parcels/suggest?q=airline+hwy", "GET"),
     runProbe(`/api/parcels/${encodeURIComponent(GEOMETRY_PARCEL_ID)}/geometry?detail_level=low`, "GET"),
-    runProbe("/db", "GET"),
+    runDbProbe(),
     queryWorkflowStats(),
   ]);
 
