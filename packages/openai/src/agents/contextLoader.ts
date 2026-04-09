@@ -3,7 +3,7 @@ import type { RunContext } from "@openai/agents";
 
 type LazyContextArgs<TContext = unknown> = {
   runContext?: RunContext<TContext>;
-  agent?: Agent<TContext, any>;
+  agent?: Agent<TContext, Record<string, unknown>>;
 };
 
 type LazyContextLoader<TContext = unknown> = (
