@@ -39,8 +39,8 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 | Strong audit trail on each reasoning step | ✅ | `apps/web/lib/agent/agentRunner.ts`, `apps/web/lib/services/automationEvent.service.ts` | Add dashboard-level trace context and evidence hashes in a follow-up. |
 | Real-time event streaming | ✅ | `apps/web/lib/agent/agentRunner.ts`, `apps/web/lib/chat/useChat.ts` | Maintain full `agent_progress` contract with `runState`, `toolsInvoked`, and latest agent name. |
 | Correlation IDs across Temporal and local fallback | ✅ | `apps/web/lib/agent/agentRunner.ts` | Add guaranteed correlation in all async handoff points and external callbacks. |
-| Duplicate suppression and replay protection | ✅ | `apps/web/lib/agent/agentRunner.ts` | Add reconciliation summary metrics and stale lease alerting. |
-| Correlation propagation in Temporal/local run persistence | ✅ | `apps/worker/src/activities/openai.ts`, `apps/web/lib/agent/executeAgent.ts`, `apps/web/lib/agent/agentRunner.ts` | Add metrics for cross-instance duplicate avoidance and stale-lease diagnostics. |
+| Duplicate suppression and replay protection | ✅ | `apps/web/lib/agent/agentRunner.ts`, `packages/server/src/observability/run-dashboard.service.ts` | Run dashboard payload now exposes local-lease counts and stale-lease diagnostics for operator triage. |
+| Correlation propagation in Temporal/local run persistence | ✅ | `apps/worker/src/activities/openai.ts`, `apps/web/lib/agent/executeAgent.ts`, `apps/web/lib/agent/agentRunner.ts`, `packages/server/src/observability/run-dashboard.service.ts` | Cross-instance duplicate avoidance and stale-lease diagnostics now surface through run-dashboard recent-run telemetry. |
 
 ## 2) Data Understanding & Discovery
 
@@ -57,7 +57,7 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 |---|---|---|---|
 | Stable evidence hash + hash continuity checks | ✅ | `apps/web/lib/agent/executeAgent.ts`, `apps/web/lib/agent/agentRunner.ts` | Extend hashes to persisted artifacts and run outputs. |
 | Unified citations across triage/packs/runs | ✅ | `packages/shared/src/temporal/types.ts`, `apps/web/lib/agent/executeAgent.ts`, `apps/web/app/api/cron/source-ingestion/route.ts`, `apps/worker/src/activities/openai.ts`, `apps/web/app/api/cron/parish-pack-refresh/route.ts` | Citation records and evidence hashes are now persisted for agent runs, triage runs, parish-pack refresh runs, and source-ingestion runs. |
-| Schema-validated final reports | ✅ | `apps/web/lib/agent/executeAgent.ts` + `packages/shared/src/schemas/agentReport.ts` | Add report-level regression suite for malformed/partial JSON fallback behavior. |
+| Schema-validated final reports | ✅ | `apps/web/lib/agent/executeAgent.ts`, `apps/web/lib/agent/executeAgent.finalReportParsing.test.ts`, `packages/shared/src/schemas/agentReport.ts` | Malformed, partial, and schema-invalid final report payloads now have focused regression coverage. |
 | Evidence completeness enforcement before success | ✅ | `apps/web/lib/agent/executeAgent.ts`, `apps/worker/src/activities/openai.ts` | Added proof-group enforcement and failure summary injection in final trust/run state. |
 
 ## 4) Intelligence Reliability & Safety

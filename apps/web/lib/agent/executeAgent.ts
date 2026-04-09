@@ -236,7 +236,7 @@ function safeParseJson(value: unknown): unknown | null {
   }
 }
 
-function parseFinalOutputJsonObject(value: string): Record<string, unknown> | null {
+export function parseFinalOutputJsonObject(value: string): Record<string, unknown> | null {
   const parseCandidate = (candidate: string): Record<string, unknown> | null => {
     const parsed = safeParseJson(candidate.trim());
     return isRecord(parsed) ? parsed : null;
