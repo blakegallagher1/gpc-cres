@@ -46,6 +46,9 @@ export interface RunDashboardTotals {
   evidenceWarningAlertSources: number;
   evidenceSnapshotsCited: number;
   evidenceAverageFreshnessScore: number | null;
+  runsWithLocalLease: number;
+  runningRunsWithLocalLease: number;
+  staleLocalLeaseRuns: number;
 }
 
 export interface RunDashboardRetryProfile {
@@ -132,6 +135,8 @@ export interface RunDashboardRecentRun {
   retryPolicyAttempts: number | null;
   retryPolicyMaxAttempts: number | null;
   retryPolicyShouldRetry: boolean | null;
+  localLeaseState: "none" | "active" | "stale" | "released";
+  localLeaseAgeMs: number | null;
 }
 
 export interface RunDashboardPayload {

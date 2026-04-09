@@ -199,6 +199,33 @@ describe("GET /api/runs/dashboard", () => {
         },
       },
       {
+        id: "run-local-stale",
+        runType: "ENRICHMENT",
+        status: "running",
+        startedAt: new Date("2026-02-14T11:30:00.000Z"),
+        finishedAt: null,
+        openaiResponseId: "local-run-stale-lease-token",
+        outputJson: {
+          correlationId: "corr-local-stale",
+          runState: {
+            [AGENT_RUN_STATE_KEYS.runId]: "run-local-stale",
+            [AGENT_RUN_STATE_KEYS.status]: "running",
+            [AGENT_RUN_STATE_KEYS.partialOutput]: "{}",
+            [AGENT_RUN_STATE_KEYS.lastAgentName]: "coordinator",
+            [AGENT_RUN_STATE_KEYS.toolsInvoked]: ["coordinator"],
+            [AGENT_RUN_STATE_KEYS.confidence]: 0.61,
+            [AGENT_RUN_STATE_KEYS.missingEvidence]: [],
+            [AGENT_RUN_STATE_KEYS.toolFailures]: [],
+            [AGENT_RUN_STATE_KEYS.proofChecks]: [],
+            [AGENT_RUN_STATE_KEYS.retryAttempts]: 0,
+            [AGENT_RUN_STATE_KEYS.retryMaxAttempts]: 1,
+            [AGENT_RUN_STATE_KEYS.retryMode]: "local",
+            [AGENT_RUN_STATE_KEYS.fallbackLineage]: [],
+            [AGENT_RUN_STATE_KEYS.fallbackReason]: null,
+          },
+        },
+      },
+      {
         id: "run-fail",
         runType: "SCREENING",
         status: "failed",
@@ -253,13 +280,17 @@ describe("GET /api/runs/dashboard", () => {
       const payload = await res.json();
 
       expect(res.status).toBe(200);
-      expect(payload.totals.totalRuns).toBe(4);
+      expect(payload.totals.totalRuns).toBe(5);
       expect(payload.totals.succeededRuns).toBe(3);
       expect(payload.totals.failedRuns).toBe(1);
+      expect(payload.totals.runningRuns).toBe(1);
       expect(payload.totals.runsWithRetry).toBe(1);
       expect(payload.totals.runsWithFallback).toBe(2);
       expect(payload.totals.runsWithToolFailures).toBe(2);
       expect(payload.totals.runsWithMissingEvidence).toBe(1);
+      expect(payload.totals.runsWithLocalLease).toBe(1);
+      expect(payload.totals.runningRunsWithLocalLease).toBe(1);
+      expect(payload.totals.staleLocalLeaseRuns).toBe(1);
       expect(payload.totals.runsWithRetryPolicy).toBe(2);
       expect(payload.totals.runsWithRetryPolicyTriggers).toBe(1);
       expect(payload.totals.retryPolicyAttempts).toBe(2);
@@ -317,15 +348,24 @@ describe("GET /api/runs/dashboard", () => {
         currentHash: "manifest-b",
       });
       expect(Array.isArray(payload.confidenceTimeline)).toBe(true);
-      expect(payload.runTypeDistribution[0].key).toBe("SOURCE_INGEST");
-      expect(payload.recentRuns.length).toBe(4);
-      expect(payload.recentRuns[0].id).toBe("run-fail");
-      expect(payload.recentRuns[1].id).toBe("run-success");
-      expect(payload.recentRuns[0].correlationId).toBe("corr-fail");
-      expect(payload.recentRuns[0].openaiResponseId).toBe("resp-fail");
-      expect(payload.recentRuns[0].retryPolicyReason).toBe("insufficient-evidence");
-      expect(payload.recentRuns[0].retryPolicyAttempts).toBe(1);
-      expect(payload.recentRuns[0].retryPolicyShouldRetry).toBe(true);
+      expect(payload.runTypeDistribution).toEqual(
+        expect.arrayContaining([
+          { key: "SOURCE_INGEST", count: 2 },
+          { key: "ENRICHMENT", count: 2 },
+        ]),
+      );
+      expect(payload.recentRuns.length).toBe(5);
+      expect(payload.recentRuns[0].id).toBe("run-local-stale");
+      expect(payload.recentRuns[0].correlationId).toBe("corr-local-stale");
+      expect(payload.recentRuns[0].openaiResponseId).toBe("local-run-stale-lease-token");
+      expect(payload.recentRuns[0].localLeaseState).toBe("stale");
+      expect(payload.recentRuns[0].localLeaseAgeMs).toBe(30 * 60 * 1000);
+      expect(payload.recentRuns[1].id).toBe("run-fail");
+      expect(payload.recentRuns[1].correlationId).toBe("corr-fail");
+      expect(payload.recentRuns[1].openaiResponseId).toBe("resp-fail");
+      expect(payload.recentRuns[1].retryPolicyReason).toBe("insufficient-evidence");
+      expect(payload.recentRuns[1].retryPolicyAttempts).toBe(1);
+      expect(payload.recentRuns[1].retryPolicyShouldRetry).toBe(true);
       expect(payload.sourceIngestionProfile.topStaleOffenders).toHaveLength(2);
       expect(payload.sourceIngestionProfile.topStaleOffenders[0]).toMatchObject({
         url: "https://parish-a.example.gov/records",

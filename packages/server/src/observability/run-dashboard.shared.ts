@@ -179,6 +179,8 @@ export type RunDashboardRecentRun = {
   retryPolicyAttempts: number | null;
   retryPolicyMaxAttempts: number | null;
   retryPolicyShouldRetry: boolean | null;
+  localLeaseState: "none" | "active" | "stale" | "released";
+  localLeaseAgeMs: number | null;
 };
 
 export type RunDashboardResponse = {

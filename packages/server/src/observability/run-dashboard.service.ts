@@ -33,6 +33,31 @@ type RunRow = {
   outputJson: unknown;
 };
 
+const LOCAL_LEASE_PREFIX = "local-run-";
+const LOCAL_LEASE_GRACE_MS = 15 * 60 * 1000;
+
+function deriveLocalLeaseState(run: RunRow): {
+  localLeaseState: "none" | "active" | "stale" | "released";
+  localLeaseAgeMs: number | null;
+} {
+  if (
+    typeof run.openaiResponseId !== "string"
+    || !run.openaiResponseId.startsWith(LOCAL_LEASE_PREFIX)
+  ) {
+    return { localLeaseState: "none", localLeaseAgeMs: null };
+  }
+
+  const leaseAgeMs = Math.max(0, Date.now() - run.startedAt.getTime());
+  if (run.status !== "running") {
+    return { localLeaseState: "released", localLeaseAgeMs: leaseAgeMs };
+  }
+
+  return {
+    localLeaseState: leaseAgeMs > LOCAL_LEASE_GRACE_MS ? "stale" : "active",
+    localLeaseAgeMs: leaseAgeMs,
+  };
+}
+
 export async function buildRunDashboard(
   orgId: string,
 ): Promise<RunDashboardResponse> {
@@ -95,6 +120,9 @@ export async function buildRunDashboard(
     evidenceWarningAlertSources: 0,
     evidenceSnapshotsCited: 0,
     evidenceAverageFreshnessScore: null,
+    runsWithLocalLease: 0,
+    runningRunsWithLocalLease: 0,
+    staleLocalLeaseRuns: 0,
   };
 
   const confidenceBuckets = new Map<
@@ -157,6 +185,7 @@ export async function buildRunDashboard(
     }
 
     parsed.openaiResponseId = run.openaiResponseId;
+    const { localLeaseState, localLeaseAgeMs } = deriveLocalLeaseState(run);
     const confidence = parsed.confidence;
     const isDecisionRun =
       run.runType === "TRIAGE" ||
@@ -236,6 +265,15 @@ export async function buildRunDashboard(
           (missingEvidenceCounts.get(item) ?? 0) + 1,
         ),
       );
+    }
+    if (localLeaseState !== "none") {
+      totals.runsWithLocalLease += 1;
+      if (localLeaseState === "active" || localLeaseState === "stale") {
+        totals.runningRunsWithLocalLease += 1;
+      }
+      if (localLeaseState === "stale") {
+        totals.staleLocalLeaseRuns += 1;
+      }
     }
     if (parsed.continuityHash) {
       const continuityKey =
@@ -329,6 +367,8 @@ export async function buildRunDashboard(
       retryPolicyAttempts: parsed.evidenceRetryPolicy?.attempts ?? null,
       retryPolicyMaxAttempts: parsed.evidenceRetryPolicy?.maxAttempts ?? null,
       retryPolicyShouldRetry: parsed.evidenceRetryPolicy?.shouldRetry ?? null,
+      localLeaseState,
+      localLeaseAgeMs,
     });
   }
 
@@ -550,6 +590,9 @@ export async function buildRunDashboard(
       evidenceWarningAlertSources: totals.evidenceWarningAlertSources,
       evidenceSnapshotsCited: totals.evidenceSnapshotsCited,
       evidenceAverageFreshnessScore: totals.evidenceAverageFreshnessScore,
+      runsWithLocalLease: totals.runsWithLocalLease,
+      runningRunsWithLocalLease: totals.runningRunsWithLocalLease,
+      staleLocalLeaseRuns: totals.staleLocalLeaseRuns,
     },
     evidenceProfile: {
       freshnessStateDistribution: evidenceFreshnessStateDistribution,
