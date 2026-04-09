@@ -36,6 +36,7 @@ This is the canonical entrypoint for repository documentation.
 ## Domain References
 
 - **Windows PC backend + env names (machine-readable):** `docs/server-manifest.json`
+- Control-plane extraction plan (property data + KB stay on Windows): `docs/plans/2026-04-09-control-plane-extraction.md`
 - Cloudflare + networking: `docs/CLOUDFLARE.md`
 - Server management: `docs/SERVER_MANAGEMENT.md`
 - Chat runtime contract: `docs/chat-runtime.md`

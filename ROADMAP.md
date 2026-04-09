@@ -42,6 +42,30 @@ Only items meeting all checks are added below as `Planned`.
 
 ## Active Roadmap (Prioritized)
 
+### INFRA-CP-001 — Control Plane Extraction (P0)
+
+- **Priority:** P0
+- **Status:** In Progress
+- **Scope:** Move the public control plane off the Windows PC while explicitly keeping property data and the knowledge base on the Windows PC.
+- **Problem:** Public runtime responsibilities still depend too heavily on the Windows Docker Desktop host. That shared failure domain impacts auth, gateway access, admin operations, browser automation, screening, and incident response. We can reduce the highest-value outage surface without moving the property DB or KB.
+- **Expected Outcome (measurable):**
+  - Public gateway runtime no longer depends on Windows Docker Desktop process uptime.
+  - Public CUA runtime no longer depends on Windows Docker Desktop process uptime.
+  - Windows remains the data plane for property data and KB.
+  - Health checks explicitly separate process health from dependency health.
+- **Evidence of need:** Current architecture and incident history show the Windows host is still the largest shared SPOF. Recent gap-closure work also confirmed that route drift and public-path outages are amplified by this topology.
+- **Alignment:** Preserves the current requirement that property data and KB remain on the Windows PC. Keeps the MacBook out of the production hosting path. Uses roadmap-first phased migration rather than ad hoc infra changes.
+- **Risk/rollback:** Medium-to-high because public origins will move, but the rollout is phased and fully rollbackable. Data-plane migration is intentionally excluded from this phase.
+- **Acceptance Criteria / Tests:**
+  - Add implementation-grade plan: `docs/plans/2026-04-09-control-plane-extraction.md`
+  - Add Linux control-plane deployment assets under `infra/linux-control-plane/`
+  - Shadow-deploy Linux gateway and Linux CUA before any public cutover
+  - Add dependency-aware health checks so `/health` cannot hide `/db` failures
+  - Verify public gateway, admin, screening, auth, and CUA paths after cutover
+  - Document cutover and rollback steps in runbooks
+- **Plan:** `docs/plans/2026-04-09-control-plane-extraction.md`
+- **Current blocker:** Linux host `root@5.161.99.123` is provisioned and staged, but `tailscale up` cannot complete in this environment because no Tailscale auth key is available. Property data and KB remain on Windows by design.
+
 ### OPS-RISK-001 — Production Gap Registry And Runbook Closure (P0)
 
 - **Priority:** P0
