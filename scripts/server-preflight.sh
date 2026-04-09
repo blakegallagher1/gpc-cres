@@ -65,6 +65,33 @@ else
     warn "CUA Worker: Not responding (may be expected)"
 fi
 
+# 6b. Container health state (Docker-native, catches false-green endpoint cases)
+echo "--- Container Health ---"
+container_health_output=$(ssh -o ConnectTimeout=3 -o BatchMode=yes "cres_admin@$TS_IP" \
+  "powershell -NoProfile -Command \"docker inspect --format='{{.Name}} {{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' fastapi-gateway gpc-cua-worker martin-tile-server entitlement-os-postgres qdrant\"" \
+  2>/dev/null | tr -d '\r' || true)
+
+if [ -n "$container_health_output" ]; then
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    name=$(echo "$line" | awk '{print $1}')
+    state=$(echo "$line" | awk '{print $2}')
+    case "$state" in
+      healthy|no-healthcheck)
+        pass "Container health: $name -> $state"
+        ;;
+      unhealthy)
+        fail "Container health: $name -> unhealthy"
+        ;;
+      *)
+        warn "Container health: $name -> $state"
+        ;;
+    esac
+  done <<< "$container_health_output"
+else
+  warn "Container health: Could not inspect Docker health state"
+fi
+
 # 7. Qdrant
 if curl -sf --max-time 5 "http://$TS_IP:6333" &>/dev/null; then
     pass "Qdrant: Healthy"

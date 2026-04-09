@@ -5,15 +5,6 @@ Authority: Record of documentation contract changes
 Owner: Platform engineering
 Last reviewed: 2026-03-20
 
-## 2026-04-09
-
-- Added implementation-grade control-plane extraction plan that explicitly keeps property data and the knowledge base on the Windows PC:
-  - `docs/plans/2026-04-09-control-plane-extraction.md`
-- Registered the plan in active planning/navigation surfaces:
-  - `ROADMAP.md`
-  - `docs/plans/INDEX.md`
-  - `docs/INDEX.md`
-
 ## 2026-03-20
 
 - Added canonical machine-readable summary for the Windows PC backend + tunnel + Vercel env **names**: `docs/server-manifest.json`

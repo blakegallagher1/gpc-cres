@@ -52,7 +52,6 @@ It exists because the repo has accumulated many plan/design/implementation docum
 | `2026-04-01-cua-self-teaching-design.md` | Untracked historical | Design reference only until promoted into roadmap |
 | `2026-04-04-parcel-tile-speed-visual-upgrade.md` | Untracked historical | Needs explicit roadmap status |
 | `2026-04-05-map-parcel-truth-overlay.md` | In Progress | Indexed in `ROADMAP.md` as `MAP-INTEL-001` |
-| `2026-04-09-control-plane-extraction.md` | In Progress | Indexed in `ROADMAP.md` as `INFRA-CP-001`; repo assets are landed and host `root@5.161.99.123` is staged, pending Tailscale join |
 
 ## Required Follow-Up
 
