@@ -12,6 +12,7 @@ export * from "./sentry.js";
 export * from "./queryRouter.js";
 export * from "./embeddings.js";
 export * from "./dataAgent/retrieval.js";
+export * from "./agents/webRuntimeContracts.js";
 export * from "./utils/retry.js";
 export * from "./utils/runStateSerde.js";
 export { collapseRepeatedTextArtifacts } from "./utils/collapseRepeatedText.js";
