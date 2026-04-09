@@ -149,7 +149,7 @@ export async function proxy(request: NextRequest) {
       );
     }
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("error", "auth_unavailable");
+    loginUrl.searchParams.set("error", "auth_db_unreachable");
     return finalizeResponse(NextResponse.redirect(loginUrl), requestId);
   }
 }

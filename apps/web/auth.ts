@@ -13,6 +13,11 @@ const ENABLE_BREAK_GLASS_FALLBACK =
 
 let hasWarnedAboutFallback = false;
 
+export const AUTH_NO_ORG_ERROR = "auth_no_org";
+export const AUTH_DB_UNREACHABLE_ERROR = "auth_db_unreachable";
+
+type OAuthProvisionResult = true | `/login?error=${typeof AUTH_NO_ORG_ERROR | typeof AUTH_DB_UNREACHABLE_ERROR}`;
+
 function equalsConstantTime(a: string, b: string): boolean {
   const aBuf = Buffer.from(a);
   const bBuf = Buffer.from(b);
@@ -41,6 +46,66 @@ async function isValidPassword(password: string, passwordHash?: string | null): 
   }
 
   return equalsConstantTime(password, fallback);
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function ensureOAuthUserProvisioned(
+  email: string,
+  waitForRetry: (ms: number) => Promise<void> = sleep,
+): Promise<OAuthProvisionResult> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const existing = await prisma.user.findFirst({
+        where: { email },
+        select: { id: true },
+      });
+      if (!existing) {
+        const userId = randomUUID();
+        const defaultOrg = await prisma.org.findFirst({
+          orderBy: { createdAt: "asc" },
+          select: { id: true },
+        });
+        if (!defaultOrg) {
+          logger.error("Auth OAuth auto-provisioning failed", {
+            email,
+            reason: "missing_default_org",
+          });
+          return `/login?error=${AUTH_NO_ORG_ERROR}`;
+        }
+        await prisma.user.create({
+          data: { id: userId, email },
+        });
+        await prisma.orgMembership.create({
+          data: { userId, orgId: defaultOrg.id, role: "member" },
+        });
+        logger.info("Auth OAuth user auto-provisioned", {
+          email,
+          orgId: defaultOrg.id,
+        });
+      }
+      return true;
+    } catch (error) {
+      if (attempt === 0) {
+        logger.warn("Auth OAuth provisioning failed, retrying", {
+          email,
+          attempt,
+          ...serializeErrorForLogs(error),
+        });
+        await waitForRetry(500);
+        continue;
+      }
+      logger.error("Auth OAuth user provisioning failed after retry", {
+        email,
+        ...serializeErrorForLogs(error),
+      });
+      return `/login?error=${AUTH_DB_UNREACHABLE_ERROR}`;
+    }
+  }
+
+  return `/login?error=${AUTH_DB_UNREACHABLE_ERROR}`;
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -142,64 +207,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return "/login?error=unauthorized";
       }
 
-      // Auto-provision user + org membership on first OAuth sign-in.
-      // Retry once on transient DB errors to avoid auth_unavailable flakes.
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          const existing = await prisma.user.findFirst({
-            where: { email },
-            select: { id: true },
-          });
-          if (!existing) {
-            const userId = randomUUID();
-            const defaultOrg = await prisma.org.findFirst({
-              orderBy: { createdAt: "asc" },
-              select: { id: true },
-            });
-            if (!defaultOrg) {
-              logger.error("Auth OAuth auto-provisioning failed", {
-                email,
-                reason: "missing_default_org",
-              });
-              // TODO: Split error codes — this should be `auth_no_org` (org not found),
-              // distinct from DB-unreachable. Update LoginForm.tsx loginErrorMessages
-              // and proxy.ts line 148 to handle both `auth_no_org` and `auth_db_unreachable`.
-              return "/login?error=auth_unavailable";
-            }
-            await prisma.user.create({
-              data: { id: userId, email },
-            });
-            await prisma.orgMembership.create({
-              data: { userId, orgId: defaultOrg.id, role: "member" },
-            });
-            logger.info("Auth OAuth user auto-provisioned", {
-              email,
-              orgId: defaultOrg.id,
-            });
-          }
-          break; // success — exit retry loop
-        } catch (error) {
-          if (attempt === 0) {
-            logger.warn("Auth OAuth provisioning failed, retrying", {
-              email,
-              attempt,
-              ...serializeErrorForLogs(error),
-            });
-            await new Promise((r) => setTimeout(r, 500));
-            continue;
-          }
-          logger.error("Auth OAuth user provisioning failed after retry", {
-            email,
-            ...serializeErrorForLogs(error),
-          });
-          // TODO: This should be `auth_db_unreachable` (DB unreachable after retry),
-          // distinct from the `auth_no_org` case above. Update LoginForm.tsx
-          // loginErrorMessages and proxy.ts line 148 to handle both codes.
-          return "/login?error=auth_unavailable";
-        }
-      }
-
-      return true;
+      return ensureOAuthUserProvisioned(email);
     },
     async jwt({ token, user, account }) {
       // Credentials provider sets orgId directly on the user object.

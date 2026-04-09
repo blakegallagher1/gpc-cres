@@ -95,4 +95,15 @@ describe("proxy", () => {
     expect(response.headers.get("location")).toBe("http://localhost/login?next=%2Fmap");
     expect(getTokenMock).toHaveBeenCalledTimes(1);
   });
+
+  it("redirects login failures to auth_db_unreachable when middleware token lookup throws", async () => {
+    getTokenMock.mockRejectedValue(new Error("db down"));
+
+    const response = await proxy(new NextRequest("http://localhost/map"));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "http://localhost/login?error=auth_db_unreachable",
+    );
+  });
 });

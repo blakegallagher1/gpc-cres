@@ -12,9 +12,11 @@ import { Label } from "@/components/ui/label";
 
 const HERO_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
-const loginErrorMessages: Record<string, string> = {
+export const loginErrorMessages: Record<string, string> = {
   unauthorized: "This account is not approved for access.",
   auth_unavailable: "Auth service unavailable. Please try again.",
+  auth_no_org: "No default organization is configured for this workspace. Contact support.",
+  auth_db_unreachable: "Auth database unavailable. Please try again.",
   CredentialsSignin: "Invalid email or password. Please try again.",
 };
 
