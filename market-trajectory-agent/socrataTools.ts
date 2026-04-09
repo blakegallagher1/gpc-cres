@@ -8,12 +8,16 @@ import { z } from "zod";
  * varies by municipality — set SOCRATA_BASE_URL to the target portal.
  *
  * Environment:
- *   SOCRATA_BASE_URL  – e.g. "https://data.brla.gov/resource"
- *   SOCRATA_APP_TOKEN – optional but raises rate-limit ceiling
+ *   SOCRATA_BASE_URL   – e.g. "https://data.brla.gov/resource"
+ *   SOCRATA_DATASET_ID – dataset resource id, defaults to Baton Rouge/East Baton Rouge permits
+ *   SOCRATA_APP_TOKEN  – optional but raises rate-limit ceiling
  */
 
 const SOCRATA_BASE_URL =
   process.env.SOCRATA_BASE_URL || "https://data.brla.gov/resource";
+const DEFAULT_SOCRATA_DATASET_ID = "7fq7-8j7r";
+const SOCRATA_DATASET_ID =
+  process.env.SOCRATA_DATASET_ID || DEFAULT_SOCRATA_DATASET_ID;
 const APP_TOKEN = process.env.SOCRATA_APP_TOKEN;
 
 // ---------------------------------------------------------------------------
@@ -56,8 +60,8 @@ export const queryBuildingPermits = {
     sinceDate.setMonth(sinceDate.getMonth() - months);
     const sinceISO = sinceDate.toISOString().slice(0, 10);
 
-    // Build SoQL query — resource ID is portal-specific; callers should
-    // configure SOCRATA_BASE_URL to point at the correct dataset.
+    // Build SoQL query — callers can override both portal base URL and
+    // dataset ID for a different municipality.
     const typeFilter = types.map((t) => `'${t}'`).join(",");
     const soql =
       `$where=zipcode='${zipCode}' ` +
@@ -71,9 +75,7 @@ export const queryBuildingPermits = {
     if (APP_TOKEN) headers["X-App-Token"] = APP_TOKEN;
 
     try {
-      // TODO: replace placeholder resource ID with the real dataset ID
-      // once the target parish portal is confirmed.
-      const url = `${SOCRATA_BASE_URL}/PLACEHOLDER_DATASET_ID.json?${soql}`;
+      const url = `${SOCRATA_BASE_URL}/${SOCRATA_DATASET_ID}.json?${soql}`;
 
       const res = await fetch(url, { headers, signal: AbortSignal.timeout(15_000) });
 
