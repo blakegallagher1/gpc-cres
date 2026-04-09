@@ -5,7 +5,6 @@ import { toolRegistry } from "@/lib/agent/toolRegistry";
 describe("toolRegistry", () => {
   test("lists at least a stable number of executable tools", () => {
     const total = Object.keys(toolRegistry).length;
-    console.log(`toolRegistry size = ${total}`);
     expect(total).toBeGreaterThan(0);
   });
 
@@ -25,13 +24,7 @@ describe("toolRegistry", () => {
     const missing = requiredTools.filter(
       (toolName) => !Object.prototype.hasOwnProperty.call(toolRegistry, toolName),
     );
-    if (missing.length > 0) {
-      console.log(
-        "missing from registry:",
-        missing.join(", "),
-      );
-      console.log("sample keys:", Object.keys(toolRegistry).slice(0, 25).join(", "));
-    }
+    expect(missing).toEqual([]);
 
     for (const toolName of requiredTools) {
       expect(Object.prototype.hasOwnProperty.call(toolRegistry, toolName)).toBe(true);

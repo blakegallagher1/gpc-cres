@@ -5,6 +5,7 @@ Last reviewed: 2026-02-19
 > **Status: Archived snapshot (non-authoritative).**
 > This progress board is retained for historical audit context and may not match current production status.
 > Use `ROADMAP.md` for current implementation status.
+> Archived follow-ups below are historical notes only; unchecked or in-progress markers from the original snapshot were intentionally retired.
 
 
 Date generated: 2026-02-19
@@ -37,7 +38,7 @@ Primary goal for this pass: track historical security/tenant-isolation hardening
   - log drains provisioning
   - custom domain DNS/TLS cutover
 
-## Execution status
+## Historical execution snapshot
 
 - [x] Create implementation tracking file with full backlog scope.
 - [x] Start phase gating and high-priority implementation.
@@ -48,8 +49,8 @@ Primary goal for this pass: track historical security/tenant-isolation hardening
 - [x] Expand shared config usage to primary deal-room and collaboration integrations.
 - [x] Add reusable onboarding component for empty states.
 - [x] Implement improved empty states for Buyers, Deal Rooms, Workflows, and Saved Searches.
-- [ ] Expand shared config usage to remaining peripheral callers.
-- [ ] Implement all additional roadmap items.
+- Archived follow-up at time of snapshot: expand shared config usage to remaining peripheral callers.
+- Archived follow-up at time of snapshot: implement remaining roadmap items tracked elsewhere.
 - [x] Track ongoing roadmap progress in `docs/IMPLEMENTATION_ROADMAP_CUSTOM.md`.
 
 ### 2026-02-16 - SDK-010 / SDK-011 Runtime Reliability Completed
@@ -104,7 +105,7 @@ Primary goal for this pass: track historical security/tenant-isolation hardening
 ### Priority: High
 
 3. Data Visualizations
-- Status: [~] In progress
+- Historical snapshot status: partially delivered in this pass; not an active tracker
 - Locations:
   - Portfolio analytics, command center timelines, market intel trend graphs, run dashboard.
 - Implemented in this pass:
@@ -114,7 +115,7 @@ Primary goal for this pass: track historical security/tenant-isolation hardening
   - `apps/web/app/runs/dashboard/page.tsx` (run duration and reliability trend cards)
 
 4. Empty States + Onboarding
-- Status: [x] In progress
+- Historical snapshot status: completed for the listed surfaces in this pass
 - Locations:
   - Buyers, Deal Rooms, Workflows, Saved Searches.
 - Implementation completed this pass:
@@ -146,7 +147,7 @@ Primary goal for this pass: track historical security/tenant-isolation hardening
 ### Priority: Medium
 
 6. Improve Loading States
-- Status: [~] In progress
+- Historical snapshot status: partially delivered in this pass; not an active tracker
 - Started this pass in:
   - `apps/web/app/portfolio/page.tsx` (skeletons for main dashboard and chart-heavy panels during load)
   - `apps/web/app/market/page.tsx` (skeletons for parish dashboard stats/trends and feed)
@@ -162,30 +163,30 @@ Primary goal for this pass: track historical security/tenant-isolation hardening
   - Remaining: evidence/export package downloads.
 
 8. Enhanced Search
-- Status: [ ] Planned
+- Historical snapshot note: planned at archive time; superseded by `ROADMAP.md`
 
 9. Bulk Operations
-- Status: [ ] Planned
+- Historical snapshot note: planned at archive time; superseded by `ROADMAP.md`
 
 10. Mobile Responsiveness
-- Status: [ ] Planned
+- Historical snapshot note: planned at archive time; superseded by `ROADMAP.md`
 
 ### Priority: Nice-to-Have
 
 11. Dark Mode Validation
-- Status: [ ] Planned
+- Historical snapshot note: planned at archive time; superseded by `ROADMAP.md`
 
 12. Keyboard Navigation Enhancements
-- Status: [ ] Planned
+- Historical snapshot note: planned at archive time; superseded by `ROADMAP.md`
 
 13. Activity Feed
-- Status: [ ] Planned
+- Historical snapshot note: planned at archive time; superseded by `ROADMAP.md`
 
 14. Notification System
-- Status: [ ] Planned
+- Historical snapshot note: planned at archive time; superseded by `ROADMAP.md`
 
 15. Collaboration Features
-- Status: [ ] Planned
+- Historical snapshot note: planned at archive time; superseded by `ROADMAP.md`
 
 ## Scope note
 

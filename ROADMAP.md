@@ -10,6 +10,7 @@ This is the single source of truth for planned implementation work.
 - Every planning item in this file is expected to pass a value-first pre-add analysis.
 - Implementation work should only be started from items in `Planned`/`In Progress`.
 - Each row includes measurable outcome, validation, and acceptance criteria.
+- Historical progress snapshots such as `docs/IMPLEMENTATION_PROGRESS_BOARD.md` are archival only and must not be treated as active work queues.
 
 ## Pre-Add Analysis Rule (applies to every proposed item)
 
