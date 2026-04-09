@@ -81,6 +81,9 @@ export type RunDashboardTotals = {
   evidenceWarningAlertSources: number;
   evidenceSnapshotsCited: number;
   evidenceAverageFreshnessScore: number | null;
+  runsWithLocalLease: number;
+  runningRunsWithLocalLease: number;
+  staleLocalLeaseRuns: number;
 };
 
 export type RunDashboardRetryProfile = {

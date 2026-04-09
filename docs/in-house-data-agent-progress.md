@@ -35,8 +35,8 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 | Capability | Status | Implementation location | Next action |
 |---|---|---|---|
 | Durable orchestration for agent workflows | ✅ | `apps/worker/src/activities/openai.ts`, `apps/web/lib/agent/agentRunner.ts` | Implemented in run dashboard as explicit retry trace + correlation context with policy signal distribution. |
-| Unified structured schemas for all agent outputs | ✅ | `packages/shared/src/temporal/types.ts`, `apps/web/lib/agent/executeAgent.ts` | Expand dashboard-safe decoding in API surfaces (next phase). |
-| Strong audit trail on each reasoning step | ✅ | `apps/web/lib/agent/agentRunner.ts`, `apps/web/lib/services/automationEvent.service.ts` | Add dashboard-level trace context and evidence hashes in a follow-up. |
+| Unified structured schemas for all agent outputs | ✅ | `packages/shared/src/temporal/types.ts`, `apps/web/lib/agent/executeAgent.ts`, `packages/server/src/observability/run-dashboard.shared.ts` | Run dashboard parsing now safely decodes persisted run-state, retry-envelope, manifest, and evidence metadata. |
+| Strong audit trail on each reasoning step | ✅ | `apps/web/lib/agent/agentRunner.ts`, `apps/web/lib/services/automationEvent.service.ts`, `packages/server/src/observability/run-dashboard.service.ts` | Run dashboard now surfaces correlation IDs, OpenAI response IDs, retry traces, and evidence-hash continuity for recent runs. |
 | Real-time event streaming | ✅ | `apps/web/lib/agent/agentRunner.ts`, `apps/web/lib/chat/useChat.ts` | Maintain full `agent_progress` contract with `runState`, `toolsInvoked`, and latest agent name. |
 | Correlation IDs across Temporal and local fallback | ✅ | `apps/web/lib/agent/agentRunner.ts` | Add guaranteed correlation in all async handoff points and external callbacks. |
 | Duplicate suppression and replay protection | ✅ | `apps/web/lib/agent/agentRunner.ts`, `packages/server/src/observability/run-dashboard.service.ts` | Run dashboard payload now exposes local-lease counts and stale-lease diagnostics for operator triage. |
@@ -47,15 +47,15 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 | Capability | Status | Implementation location | Next action |
 |---|---|---|---|
 | Context-aware planner/router | ✅ | `apps/web/lib/agent/agentRunner.ts`, `apps/web/lib/agent/executeAgent.ts`, `apps/worker/src/activities/openai.ts` | Added mandatory proof-path enforcement and fail-closed downgrade when required evidence groups are missing for inferred intent. |
-| Multi-source retrieval with source ranking | ✅ | `apps/web/app/api/cron/source-ingestion/route.ts` | Add stale-source prioritization across jurisdictions and manifest-based manifest replay checks. |
+| Multi-source retrieval with source ranking | ✅ | `apps/web/app/api/cron/source-ingestion/route.ts`, `packages/server/src/jobs/source-ingestion.service.ts` | Stale-source prioritization and manifest-backed replay continuity now drive offender ranking and alert payloads. |
 | Scheduler + retry-aware ingestion pipeline | ✅ | `apps/web/app/api/cron/source-ingestion/route.ts`, `apps/web/vercel.json` | Added scheduled cron execution plus rank-based capture retries and retry-aware metric output in persisted run payloads. |
-| Source quality and freshness metadata | ✅ | `apps/web/app/api/cron/source-ingestion/route.ts` | Add confidence decay/quality buckets + stale-ratio trend fields to all persisted outputs. |
+| Source quality and freshness metadata | ✅ | `apps/web/app/api/cron/source-ingestion/route.ts`, `packages/server/src/jobs/source-ingestion.service.ts` | Persisted source-ingestion outputs now include confidence buckets, stale ratios, manifest hashes, and stale-offender telemetry. |
 
 ## 3) Evidence, Citation, and Verification
 
 | Capability | Status | Implementation location | Next action |
 |---|---|---|---|
-| Stable evidence hash + hash continuity checks | ✅ | `apps/web/lib/agent/executeAgent.ts`, `apps/web/lib/agent/agentRunner.ts` | Extend hashes to persisted artifacts and run outputs. |
+| Stable evidence hash + hash continuity checks | ✅ | `apps/web/lib/agent/executeAgent.ts`, `apps/web/lib/agent/agentRunner.ts`, `packages/server/src/jobs/parish-pack-refresh.service.ts`, `packages/server/src/jobs/source-ingestion.service.ts` | Evidence and manifest hashes are persisted across run outputs and artifact-producing ingestion jobs. |
 | Unified citations across triage/packs/runs | ✅ | `packages/shared/src/temporal/types.ts`, `apps/web/lib/agent/executeAgent.ts`, `apps/web/app/api/cron/source-ingestion/route.ts`, `apps/worker/src/activities/openai.ts`, `apps/web/app/api/cron/parish-pack-refresh/route.ts` | Citation records and evidence hashes are now persisted for agent runs, triage runs, parish-pack refresh runs, and source-ingestion runs. |
 | Schema-validated final reports | ✅ | `apps/web/lib/agent/executeAgent.ts`, `apps/web/lib/agent/executeAgent.finalReportParsing.test.ts`, `packages/shared/src/schemas/agentReport.ts` | Malformed, partial, and schema-invalid final report payloads now have focused regression coverage. |
 | Evidence completeness enforcement before success | ✅ | `apps/web/lib/agent/executeAgent.ts`, `apps/worker/src/activities/openai.ts` | Added proof-group enforcement and failure summary injection in final trust/run state. |
@@ -64,18 +64,18 @@ This document maps the capabilities described in OpenAI’s in-house data agent 
 
 | Capability | Status | Implementation location | Next action |
 |---|---|---|---|
-| Agent state + confidence instrumentation | ✅ | `packages/shared/src/temporal/types.ts`, `apps/web/lib/agent/executeAgent.ts` | Add UI dashboard visualizing confidence over time per run/agent. |
+| Agent state + confidence instrumentation | ✅ | `packages/shared/src/temporal/types.ts`, `apps/web/lib/agent/executeAgent.ts`, `apps/web/components/runs/RunIntelligenceTab.tsx` | Run dashboard now visualizes confidence over time and related performance/reliability trends. |
 | Duplicate-safe failover policy | ✅ | `apps/web/lib/agent/agentRunner.ts` | Chaos-recovery coverage added for partial DB writes and Temporal startup failures. |
-| Missing-evidence escalation and retry policy | ✅ | `apps/web/lib/agent/executeAgent.ts`, `apps/worker/src/activities/openai.ts`, `apps/web/lib/agent/__tests__/executeAgent.runState-contract.test.ts` | Add policy threshold telemetry and persisted retry envelope in run-state and output JSON. |
-| Optional fallback with preserved lineage | ✅ | `apps/web/lib/agent/agentRunner.ts` | Add policy-level retry limits and dedupe across duplicate local fallbacks (next: dashboarding). |
+| Missing-evidence escalation and retry policy | ✅ | `apps/web/lib/agent/executeAgent.ts`, `apps/worker/src/activities/openai.ts`, `packages/server/src/observability/run-dashboard.shared.ts` | Retry envelope telemetry now persists threshold, attempts, next-mode, and operator-visible policy reasons in run-state/output JSON. |
+| Optional fallback with preserved lineage | ✅ | `apps/web/lib/agent/agentRunner.ts`, `packages/server/src/observability/run-dashboard.service.ts` | Dashboard telemetry now exposes fallback lineage, retry modes, and duplicate-safe local lease diagnostics. |
 
 ## 5) Operationalization & Productization
 
 | Capability | Status | Implementation location | Next action |
 |---|---|---|---|
-| Agent-state dashboards (plan, confidence, retries) | ✅ | `apps/web/app/runs/*`, `apps/web/app/api/runs/*` | Add confidence-over-time visualizations and persisted trace events (tool calls, proof checks, retries). |
-| Evidence and run audit explorer | ✅ | `apps/web/app/evidence/page.tsx`, `apps/web/app/api/evidence/route.ts`, `apps/web/app/runs/[runId]/page.tsx` | Add evidence freshness signal rollups on run dashboard and stale-source alert cards. |
-| Source ingestion staleness alerts | ✅ | `apps/web/app/api/cron/source-ingestion/route.ts` | Add stale-ratio thresholding + manifest-backed stale-offender prioritization and alert payload context. |
+| Agent-state dashboards (plan, confidence, retries) | ✅ | `apps/web/app/runs/*`, `apps/web/app/api/runs/*`, `apps/web/components/runs/RunIntelligenceTab.tsx` | Confidence timeline, proof-check/retry traces, and recent-run diagnostics are live in the dashboard. |
+| Evidence and run audit explorer | ✅ | `apps/web/app/evidence/page.tsx`, `apps/web/app/api/evidence/route.ts`, `apps/web/app/runs/[runId]/page.tsx`, `apps/web/components/runs/RunIntelligenceTab.tsx` | Evidence freshness rollups and stale-source alert cards now surface directly in the run dashboard. |
+| Source ingestion staleness alerts | ✅ | `apps/web/app/api/cron/source-ingestion/route.ts`, `packages/server/src/jobs/source-ingestion.service.ts` | Stale-ratio thresholds, prioritized offenders, and alert payload context are now persisted and operator-visible. |
 | End-to-end reproducibility checks | ✅ | `packages/shared/src/evidence.ts`, `packages/shared/test/source-manifest-hash.test.ts`, `apps/web/lib/agent/__tests__/executeAgent.runState-contract.test.ts` | Added periodic reproducibility smoke workflow (`.github/workflows/reproducibility-smoke.yml`). |
 
 ## 6) Done List (Committed so far)
