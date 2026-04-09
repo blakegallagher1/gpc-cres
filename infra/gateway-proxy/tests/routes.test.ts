@@ -57,18 +57,29 @@ describe("matchRoute", () => {
     it("matches flood screening", () => {
       const route = matchRoute("/screening/flood/ABC-123", "GET");
       expect(route).not.toBeNull();
-      expect(route!.upstreamPath).toBe("/tools/screen.flood");
+      expect(route!.upstreamPath).toBe("/api/screening/flood");
     });
 
     it("matches soils screening", () => {
       const route = matchRoute("/screening/soils/ABC-123", "GET");
-      expect(route!.upstreamPath).toBe("/tools/screen.soils");
+      expect(route!.upstreamPath).toBe("/api/screening/soils");
     });
 
-    it("passes parcel_id in body", () => {
+    it("passes parcelId in body", () => {
       const route = matchRoute("/screening/flood/P-123", "GET");
       const body = route!.buildBody!(new URLSearchParams());
-      expect(body).toEqual({ parcel_id: "P-123" });
+      expect(body).toEqual({ parcelId: "P-123" });
+    });
+
+    it("passes radiusMiles through when present", () => {
+      const route = matchRoute(
+        "/screening/traffic/P-123",
+        "GET",
+        new URLSearchParams({ radiusMiles: "0.5" }),
+      );
+      const body = route!.buildBody!(new URLSearchParams({ radiusMiles: "0.5" }));
+      expect(route!.upstreamPath).toBe("/api/screening/traffic");
+      expect(body).toEqual({ parcelId: "P-123", radiusMiles: 0.5 });
     });
 
     it("does not match GET /screening/full/:id (separate route)", () => {

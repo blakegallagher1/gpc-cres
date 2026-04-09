@@ -12,6 +12,7 @@ This is the single source of truth for planned implementation work.
 - Each row includes measurable outcome, validation, and acceptance criteria.
 - Historical progress snapshots such as `docs/IMPLEMENTATION_PROGRESS_BOARD.md` are archival only and must not be treated as active work queues.
 - Backend boundary extraction is complete as of 2026-04-09: `apps/web` is now the thin delivery layer over package-owned backend services.
+- `docs/plans/INDEX.md` is the canonical registry for plan/design documents under `docs/plans/`; any untracked historical plan there must not be treated as active roadmap work until reconciled here.
 - The remaining app-owned seams are intentional and should not be reopened as migration backlog:
   - auth/session resolution in `apps/web`
   - the web-hosted agent runtime coordinator in `apps/web/lib/agent/executeAgent.ts`
@@ -40,6 +41,27 @@ Only items meeting all checks are added below as `Planned`.
 **Archive rule:** When an item reaches `Done`, move it from Active Roadmap into the [Completed](#completed) section at the bottom. Active Roadmap stays short and focused on work-in-progress only.
 
 ## Active Roadmap (Prioritized)
+
+### OPS-RISK-001 — Production Gap Registry And Runbook Closure (P0)
+
+- **Priority:** P0
+- **Status:** In Progress
+- **Scope:** Close the repo-side test/observability/documentation gaps around admin-route deployment, screening failures, CUA worker recovery, D1 sync diagnosis, and auth-chain diagnostics while preserving the current Windows PC database topology.
+- **Problem:** Production dependencies and known failure modes were documented across `CLAUDE.md`, deployment notes, and historical plans, but lacked a single current runbook set and a current plan index. Some gap reports were also stale, causing audit noise and making it harder to distinguish real open risks from already-closed repo work.
+- **Expected Outcome (measurable):**
+  - Tool execution route emits Sentry evidence for tool-catalog/transport-policy misconfiguration branches.
+  - CUA worker has direct unit coverage for the server contract and browser-session lifecycle, not only the responses loop.
+  - Operators have current runbooks for screening incidents, CUA recovery, admin-route deployment, D1 sync failure, and auth-chain diagnostics.
+  - `docs/plans/INDEX.md` explicitly tracks which plan docs are done, in progress, or untracked historical references.
+- **Evidence of need:** Current audit found real production gaps (admin routes not deployed, screening endpoints failing in production, Docker Desktop SPOF, Hyperdrive dependency) mixed with stale claims (`browser_task` wiring missing, no CUA tests, no roadmap file). This required explicit repo-side reconciliation.
+- **Alignment:** Does not change the current Windows-server database usage model. Focus is on visibility, test coverage, and documented operator response.
+- **Risk/rollback:** Low. Code changes are narrow (Sentry/reporting and testability only). Docs are additive and can be reverted independently.
+- **Acceptance Criteria / Tests:**
+  - `apps/web/app/api/agent/tools/execute/route.ts` reports catalog/transport config failures to Sentry.
+  - `infra/cua-worker/tests/server.test.ts` and `infra/cua-worker/tests/browser-session.test.ts` exist and pass.
+  - New runbooks exist under `docs/runbooks/` for the five named operational areas.
+  - `docs/plans/INDEX.md` exists and explicitly flags untracked historical plans.
+  - Verification: `pnpm typecheck` plus focused tests for the touched route and CUA worker tests.
 
 ### MAP-INTEL-001 — Map Parcel Truth Overlay (P1)
 

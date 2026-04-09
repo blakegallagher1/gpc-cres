@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   resolveAuthMock,
   localToolMock,
+  orphanToolMock,
   hostedToolMock,
   gatewayToolMock,
   mcpToolMock,
@@ -15,6 +16,7 @@ const {
 } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
   localToolMock: vi.fn(),
+  orphanToolMock: vi.fn(),
   hostedToolMock: vi.fn(),
   gatewayToolMock: vi.fn(),
   mcpToolMock: vi.fn(),
@@ -25,6 +27,14 @@ const {
   getHostedToolUsageMock: vi.fn(),
 }));
 
+const {
+  captureExceptionMock,
+  captureMessageMock,
+} = vi.hoisted(() => ({
+  captureExceptionMock: vi.fn(),
+  captureMessageMock: vi.fn(),
+}));
+
 vi.mock("@/lib/auth/resolveAuth", () => ({
   resolveAuth: resolveAuthMock,
 }));
@@ -32,6 +42,7 @@ vi.mock("@/lib/auth/resolveAuth", () => ({
 vi.mock("@/lib/agent/toolRegistry", () => ({
   toolRegistry: {
     local_tool: localToolMock,
+    orphan_tool: orphanToolMock,
     web_search_preview: hostedToolMock,
     search_parcels: gatewayToolMock,
     run_underwriting_workflow: shellWorkflowStubMock,
@@ -44,6 +55,11 @@ vi.mock("@/lib/agent/toolRegistry", () => ({
         "name" in error &&
         (error as { name?: unknown }).name === "ToolExecutionFailure",
     ),
+}));
+
+vi.mock("@sentry/nextjs", () => ({
+  captureException: captureExceptionMock,
+  captureMessage: captureMessageMock,
 }));
 
 vi.mock("@entitlement-os/openai", () => ({
@@ -151,6 +167,7 @@ describe("POST /api/agent/tools/execute", () => {
   beforeEach(() => {
     resolveAuthMock.mockReset();
     localToolMock.mockReset();
+    orphanToolMock.mockReset();
     hostedToolMock.mockReset();
     gatewayToolMock.mockReset();
     mcpToolMock.mockReset();
@@ -159,6 +176,8 @@ describe("POST /api/agent/tools/execute", () => {
     checkHostedToolQuotaMock.mockReset();
     recordHostedToolUsageMock.mockReset();
     getHostedToolUsageMock.mockReset();
+    captureExceptionMock.mockReset();
+    captureMessageMock.mockReset();
   });
 
   it("returns 401 when user is not authenticated", async () => {
@@ -287,6 +306,35 @@ describe("POST /api/agent/tools/execute", () => {
 
     expect(res.status).toBe(400);
     expect(body).toEqual({ error: "Unknown tool: does_not_exist" });
+  });
+
+  it("reports a registered tool with no catalog entry to Sentry", async () => {
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+
+    const res = await POST(reqWithBody({ toolName: "orphan_tool", arguments: {} }));
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body).toMatchObject({
+      error: "Tool catalog entry missing for registered tool: orphan_tool",
+      metadata: {
+        requestedToolName: "orphan_tool",
+        toolName: "orphan_tool",
+      },
+    });
+    expect(captureMessageMock).toHaveBeenCalledWith(
+      "Tool execution config issue: missing_catalog_entry",
+      expect.objectContaining({
+        level: "error",
+        tags: expect.objectContaining({
+          reason: "missing_catalog_entry",
+        }),
+        extra: expect.objectContaining({
+          requestedToolName: "orphan_tool",
+          canonicalToolName: "orphan_tool",
+        }),
+      }),
+    );
   });
 
   it("enforces hosted tool context by requiring conversationId", async () => {
@@ -469,6 +517,18 @@ describe("POST /api/agent/tools/execute", () => {
       error: expect.stringMatching(/transport/i),
     });
     expect(gatewayToolMock).not.toHaveBeenCalled();
+    expect(captureExceptionMock).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({
+        tags: expect.objectContaining({
+          reason: "transport_policy_unavailable",
+        }),
+        extra: expect.objectContaining({
+          requestedToolName: "searchParcels",
+          canonicalToolName: "search_parcels",
+        }),
+      }),
+    );
   });
 
   it("returns 400 for MCP tools because they execute via OpenAI, not the Vercel executor", async () => {
