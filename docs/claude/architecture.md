@@ -151,9 +151,23 @@ Native browser automation for agents via OpenAI Responses API `{ type: "computer
 - `infra/cua-worker/src/server.ts` — Fastify HTTP server + task management
 - `infra/cua-worker/src/responses-loop.ts` — OpenAI Responses API computer_call loop
 - `infra/cua-worker/src/browser-session.ts` — Playwright browser wrapper
+- `infra/cua-worker/tests/server.test.ts` — Fastify route/task lifecycle coverage
+- `infra/cua-worker/tests/browser-session.test.ts` — Playwright launch/screenshot lifecycle coverage
 - `packages/openai/src/tools/browserTools.ts` — agent tool for browser tasks
 - `apps/web/components/chat/CuaModelToggle.tsx` — model selector
 - `apps/web/components/chat/BrowserSessionCard.tsx` — screenshot display
+
+**Operational runbooks:**
+- `docs/runbooks/CUA_WORKER_RECOVERY.md`
+- `docs/runbooks/AUTH_CHAIN_DIAGNOSTICS.md`
+- `docs/runbooks/ADMIN_ROUTE_DEPLOYMENT.md`
+- `docs/runbooks/D1_SYNC_FAILURE_RUNBOOK.md`
+- `docs/runbooks/SCREENING_INCIDENT_RUNBOOK.md`
+
+**Known open production risks (not solved by repo code alone):**
+- Admin routes are mounted in repo source but still require production gateway deployment.
+- Screening routes are wired through the proxy, but the currently deployed upstream screening implementation remains broken.
+- Docker Desktop on the Windows host is still a production SPOF for auth, gateway access, and CUA reachability.
 
 ## Data Model (Prisma — 18 models)
 

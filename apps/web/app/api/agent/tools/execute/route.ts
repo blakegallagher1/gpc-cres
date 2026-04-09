@@ -192,6 +192,43 @@ function jsonWithRequestId(
   });
 }
 
+function captureToolExecutionConfigIssue(options: {
+  requestId: string;
+  reason:
+    | "missing_catalog_entry"
+    | "missing_tool_implementation"
+    | "transport_policy_unavailable";
+  requestedToolName: string;
+  canonicalToolName: string;
+  error?: Error;
+}) {
+  const { requestId, reason, requestedToolName, canonicalToolName, error } = options;
+  const tags = {
+    route: "api.agent.tools.execute",
+    method: "POST",
+    reason,
+  };
+  const extra = {
+    requestId,
+    requestedToolName,
+    canonicalToolName,
+  };
+
+  if (error) {
+    Sentry.captureException(error, {
+      tags,
+      extra,
+    });
+    return;
+  }
+
+  Sentry.captureMessage(`Tool execution config issue: ${reason}`, {
+    level: "error",
+    tags,
+    extra,
+  });
+}
+
 export async function POST(req: NextRequest) {
   const requestId = getRequestId(req);
   let auth;
@@ -251,6 +288,12 @@ export async function POST(req: NextRequest) {
   }
 
   if (!catalogEntry) {
+    captureToolExecutionConfigIssue({
+      requestId,
+      reason: "missing_catalog_entry",
+      requestedToolName,
+      canonicalToolName,
+    });
     return jsonWithRequestId(
       requestId,
       {
@@ -272,8 +315,12 @@ export async function POST(req: NextRequest) {
   try {
     metadata = getToolMetadata(requestedToolName, canonicalToolName, catalogEntry);
   } catch (err) {
-    Sentry.captureException(err, {
-      tags: { route: "api.agent.tools.execute", method: "POST" },
+    captureToolExecutionConfigIssue({
+      requestId,
+      reason: "transport_policy_unavailable",
+      requestedToolName,
+      canonicalToolName,
+      error: err instanceof Error ? err : new Error(String(err)),
     });
     return jsonWithRequestId(
       requestId,
@@ -306,6 +353,12 @@ export async function POST(req: NextRequest) {
         400,
       );
     }
+    captureToolExecutionConfigIssue({
+      requestId,
+      reason: "missing_tool_implementation",
+      requestedToolName,
+      canonicalToolName,
+    });
     return jsonWithRequestId(
       requestId,
       { error: `Unknown tool: ${requestedToolName}` },

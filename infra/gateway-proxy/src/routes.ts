@@ -38,10 +38,14 @@ export function matchRoute(pathname: string, method: string, searchParams?: URLS
     const type = screenMatch[1];
     const parcelId = decodeURIComponent(screenMatch[2]);
     if (type === "full") return null;
+    const radiusMiles = searchParams?.get("radiusMiles");
     return {
       upstreamMethod: "POST",
-      upstreamPath: `/tools/screen.${type}`,
-      buildBody: () => ({ parcel_id: parcelId }),
+      upstreamPath: `/api/screening/${type}`,
+      buildBody: () => ({
+        parcelId,
+        ...(radiusMiles ? { radiusMiles: Number(radiusMiles) } : {}),
+      }),
     };
   }
 

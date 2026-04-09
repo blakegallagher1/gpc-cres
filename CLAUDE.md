@@ -41,7 +41,7 @@ Last reviewed: 2026-03-25
 
 **Remote SSH:** `ssh bg` via Tailscale (see Infrastructure Access above). The old CF Access path (`ssh.gallagherpropco.com`) is DEPRECATED and unreliable — do not use it.
 
-**Admin API:** `https://api.gallagherpropco.com/admin` with `Authorization: Bearer $ADMIN_API_KEY` (in `~/.zshrc`). **NOTE:** Admin routes exist in repo code (`infra/local-api/admin_router.py`) but are NOT deployed on the production gateway yet. Deploy requires SSH.
+**Admin API:** `https://api.gallagherpropco.com/admin` with `Authorization: Bearer $ADMIN_API_KEY` (in `~/.zshrc`). Admin routes are mounted on the live Windows gateway container; unauthenticated public probes can still hit a Cloudflare challenge before origin auth. Canonical health route is `/admin/health`.
 
 ## Database Topology (CRITICAL — verified 2026-03-21)
 
@@ -57,7 +57,7 @@ The Windows PC runs **two separate Docker networks** with **two Postgres contain
 - Gateway at `api.gallagherpropco.com` → connects to **Property DB** (172.18.x). This is the ONLY remote path to property data.
 - To query property data: use `/tools/parcels.sql` endpoint (SELECT only, table allowlist: `ebr_parcels, epa_facilities, fema_flood, ldeq_permits, soils, traffic_counts, wetlands`)
 - To run DDL on property DB: requires SSH → `docker exec` into the property DB container. No other path exists.
-- The deployed gateway code differs from the repo — deployed has `/tools/screen.*` routes, repo has `/api/screening/*`. Screen endpoints on prod return 500 (broken).
+- The live Windows gateway exposes `/api/screening/*` handlers. As of 2026-04-09 the Cloudflare gateway worker was updated to call those routes instead of the dead legacy `/tools/screen.*` contract. If screening fails now, debug auth/challenge or upstream handler runtime issues rather than route-shape drift.
 - Windows Firewall blocks ALL LAN ports (22, 5432, 54323, 8000, 8765, 445). Remote access is via Tailscale (`ssh bg`) or Cloudflare Tunnel services (for Vercel/Workers only, not for agent SSH).
 
 ## Gateway Proxy (gateway.gallagherpropco.com)

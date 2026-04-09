@@ -264,7 +264,7 @@ async function executeTask(taskId: string, request: TaskRequest): Promise<void> 
 // Server Setup
 // ============================================================================
 
-async function createServer() {
+export async function createServer() {
   const app = Fastify({
     logger: {
       level: process.env.LOG_LEVEL ?? "info",
@@ -513,7 +513,7 @@ async function createServer() {
 // Main
 // ============================================================================
 
-async function main() {
+export async function main() {
   try {
     const app = await createServer();
 
@@ -529,4 +529,6 @@ async function main() {
   }
 }
 
-main();
+if (process.env.CUA_WORKER_DISABLE_AUTOSTART !== "true") {
+  void main();
+}
