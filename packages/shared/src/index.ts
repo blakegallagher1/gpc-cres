@@ -11,6 +11,7 @@ export * from "./evidence.js";
 export * from "./openaiModels.js";
 export * from "./telemetry/dataAgent.js";
 export * from "./agent-runtime.js";
+export * from "./agent-runtime-heuristics.js";
 export * from "./errors.js";
 export * from "./extraction-schemas.js";
 export * from "./financialModelCalculations.js";
