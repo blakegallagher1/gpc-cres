@@ -10,6 +10,7 @@ type BackfillRunRecord = {
   orgId: string;
   dealId: string | null;
   jurisdictionId: string | null;
+  finishedAt: Date;
   runType: string;
   status: string;
   outputJson: Prisma.JsonValue | null;
@@ -166,21 +167,38 @@ async function main(): Promise<void> {
   let totalDispatched = 0;
   let totalSkipped = 0;
   let totalFailed = 0;
+  let cursor: Pick<BackfillRunRecord, "finishedAt" | "id"> | null = null;
 
   while (true) {
+    const paginationWhere = cursor
+      ? {
+          OR: [
+            { finishedAt: { gt: cursor.finishedAt } },
+            {
+              AND: [
+                { finishedAt: cursor.finishedAt },
+                { id: { gt: cursor.id } },
+              ],
+            },
+          ],
+        }
+      : {};
+
     const runs = await prisma.run.findMany({
       where: {
         finishedAt: { not: null },
         status: { in: ["succeeded", "failed", "canceled"] },
         memoryPromotionStatus: null,
+        ...paginationWhere,
       },
-      orderBy: { finishedAt: "asc" },
+      orderBy: [{ finishedAt: "asc" }, { id: "asc" }],
       take: BATCH_SIZE,
       select: {
         id: true,
         orgId: true,
         dealId: true,
         jurisdictionId: true,
+        finishedAt: true,
         runType: true,
         status: true,
         outputJson: true,
@@ -190,6 +208,9 @@ async function main(): Promise<void> {
     if (runs.length === 0) {
       break;
     }
+
+    const lastRun = runs[runs.length - 1];
+    cursor = { finishedAt: lastRun.finishedAt, id: lastRun.id };
 
     for (const run of runs) {
       totalProcessed += 1;
