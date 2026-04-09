@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { DealStatus } from "@entitlement-os/shared";
 
 const {
   ensureHandlersRegisteredMock,
@@ -433,11 +434,13 @@ describe("computeIdempotencyKey", () => {
 
   it("includes status transition for deal.statusChanged", async () => {
     const { _computeIdempotencyKey } = await loadModule();
+    const from: DealStatus = "INTAKE";
+    const to: DealStatus = "TRIAGE_DONE";
     const key = _computeIdempotencyKey({
       type: "deal.statusChanged",
       dealId: "d1",
-      from: "INTAKE" as any,
-      to: "TRIAGE_DONE" as any,
+      from,
+      to,
       orgId: "o1",
     });
     expect(key).toContain("TRIAGE_DONE");

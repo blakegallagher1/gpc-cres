@@ -66,7 +66,7 @@ export const ParcelFieldCatalog: Record<string, FieldMetadata> = {
 };
 
 /**
- * Build a reverse lookup map: any input (alias, snake_case, camelCase, canonical) → canonical name
+ * Build a reverse lookup map: arbitrary input (alias, snake_case, camelCase, canonical) → canonical name
  * This is computed once at module load time for O(1) lookups
  */
 function buildAliasMap(): Map<string, string> {
