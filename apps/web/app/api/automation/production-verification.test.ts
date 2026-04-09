@@ -116,8 +116,8 @@ const VALID_PARCEL_IDS = [
       }
 
       // All should succeed
-      const successCount = Object.values(response.results as Record<string, any>).filter(
-        (r: any) => r.status === "ok"
+      const successCount = Object.values(response.results as Record<string, ScreeningResult>).filter(
+        (result) => result.status === "ok"
       ).length;
       console.log(`  Success rate: ${successCount}/${VALID_PARCEL_IDS.length}`);
       expect(successCount).toBe(VALID_PARCEL_IDS.length);
@@ -132,7 +132,7 @@ const VALID_PARCEL_IDS = [
       console.log(`\n[TEST 3] Testing operational event streaming...`);
 
       const operationId = `batch-${Date.now()}`;
-      const events: any[] = [];
+      const events: Array<Record<string, unknown>> = [];
 
       // Simulate batch operation progress events
       const progressIntervals = [0, 20, 40, 60, 80, 100];
@@ -206,7 +206,7 @@ const VALID_PARCEL_IDS = [
       expect(searchResponse.results).toBeDefined();
 
       // Should find the stored parcel
-      const found = searchResponse.results?.some((r: any) => r.parcel_id === parcelId);
+      const found = searchResponse.results?.some((r) => isRecallResult(r, parcelId));
       expect(found).toBe(true);
       console.log(`  ✅ TEST 4 PASSED: Semantic search is working correctly\n`);
     });
@@ -286,14 +286,27 @@ type ScreenBatchResult = Record<
   { status: "ok" | "error"; data?: unknown; error?: string }
 >;
 
+type ScreeningResult = { status: "ok" | "error"; data?: unknown; error?: string };
+
 type RecallPropertyResult = {
-  results: Array<{
-    parcelId: string;
-    address: string;
-    parish?: string;
-    score?: number;
-    screening_summary?: string;
-  }>;
+  results: Array<
+    (
+      | {
+          parcel_id: string;
+          address: string;
+          parish?: string;
+          score?: number;
+          screening_summary?: string;
+        }
+      | {
+          parcelId: string;
+          address: string;
+          parish?: string;
+          score?: number;
+          screening_summary?: string;
+        }
+    )
+  >;
   query: string;
   count: number;
 };
@@ -366,13 +379,19 @@ function normalizeToolResponse<T>(payload: unknown): NormalizedToolResponse<T> {
   };
 }
 
+function isRecallResult(value: unknown, parcelId: string): value is { parcel_id: string } | { parcelId: string } {
+  if (!isRecord(value)) return false;
+  if (typeof value.parcel_id === "string") return value.parcel_id === parcelId;
+  return typeof value.parcelId === "string" && value.parcelId === parcelId;
+}
+
 function unwrapScreenBatchResult(raw: ScreenBatchResult | { results: ScreenBatchResult }) {
   return isRecord(raw) && "results" in raw ? raw.results : raw;
 }
 
 function buildToolExecutionPayload(
   toolName: string,
-  args: Record<string, any>,
+  args: Record<string, unknown>,
   context: AgentToolContext,
 ) {
   return {
@@ -387,17 +406,17 @@ function buildToolExecutionPayload(
 
 async function postAgentTool(
   toolName: string,
-  args: Record<string, any>,
+  args: Record<string, unknown>,
   context: AgentToolContext,
-): Promise<NormalizedToolResponse<any>> {
+): Promise<NormalizedToolResponse<unknown>> {
   const payload = await apiPost("/api/agent/tools/execute", buildToolExecutionPayload(toolName, args, context));
   return normalizeToolResponse(payload);
 }
 
 async function gatewayPost(
   endpoint: string,
-  body: Record<string, any>
-): Promise<Record<string, any>> {
+  body: Record<string, unknown>
+): Promise<Record<string, unknown>> {
   const response = await fetch(`${GATEWAY_URL}${endpoint}`, {
     method: "POST",
     headers: {
@@ -416,8 +435,8 @@ async function gatewayPost(
 
 async function apiPost(
   endpoint: string,
-  body: Record<string, any>
-): Promise<Record<string, any>> {
+  body: Record<string, unknown>
+): Promise<Record<string, unknown>> {
   const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL
     ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
     : "http://localhost:3000";
@@ -439,8 +458,8 @@ async function apiPost(
 
 async function pushEvent(
   conversationId: string,
-  event: Record<string, any>
-): Promise<Record<string, any>> {
+  event: Record<string, unknown>
+): Promise<Record<string, unknown>> {
   const response = await fetch(`${AGENTS_URL}/${conversationId}/push`, {
     method: "POST",
     headers: {
