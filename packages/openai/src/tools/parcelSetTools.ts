@@ -3,7 +3,12 @@ import { z } from "zod";
 import { ParcelQueryExecutor, type GatewayAdapter } from "../planning/executor.js";
 import { ParcelSetRegistry } from "../planning/registry.js";
 import { wrapResultWithMapFeatures } from "./propertyDbTools.js";
-import type { ScreeningDimension, ParcelFacts, ParcelScreeningResult } from "@entitlement-os/shared";
+import type {
+  ParcelFacts,
+  ParcelFilter,
+  ParcelScreeningResult,
+  ScreeningDimension,
+} from "@entitlement-os/shared";
 
 /**
  * Parcel Set Tools — Materialization and description of parcel sets.
@@ -258,7 +263,7 @@ export const describeParcelSet = tool({
         intent: "identify" as const,
         inputSets: [setDef],
         resolution: { kind: "selection-passthrough" as const },
-        filters: [] as any[],
+        filters: [] as ParcelFilter[],
         screening: validDimensions.length > 0
           ? {
               dimensions: validDimensions,
@@ -317,7 +322,7 @@ export const describeParcelSet = tool({
         status: "materialized",
         count: materialization.count,
         members: materialization.memberIds.slice(0, 20), // first 20 for display
-        facts: materialization.facts.slice(0, 20).map((fact: any) => ({
+        facts: materialization.facts.slice(0, 20).map((fact: ParcelFacts) => ({
           parcelId: fact.parcelId,
           address: fact.address,
           zoningType: fact.zoningType,
