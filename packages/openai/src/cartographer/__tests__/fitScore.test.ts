@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const mockQuery = vi.fn();
-vi.mock("../../gatewayClient", () => ({
+vi.mock("../gatewayClient", () => ({
   getGatewayClient: () => ({ sql: mockQuery }),
 }));
 

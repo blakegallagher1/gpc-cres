@@ -9,7 +9,7 @@ import type {
   RunDashboardResponse,
   RunDashboardSourceIngestionOffender,
   RunDashboardTotals,
-} from "./run-dashboard.shared.js";
+} from "./run-dashboard.shared";
 import {
   buildEvidenceFreshnessSignals,
   MAX_CONFIDENCE_BINS,
@@ -21,7 +21,7 @@ import {
   MAX_TOOL_FAILURE_REASONS,
   parseRunOutput,
   toBucketArray,
-} from "./run-dashboard.shared.js";
+} from "./run-dashboard.shared";
 
 type RunRow = {
   id: string;

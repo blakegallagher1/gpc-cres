@@ -1,5 +1,10 @@
 import { tool } from "@openai/agents";
 import { z } from "zod";
+import type {
+  AssemblageCandidateResult,
+  FitScoreResult,
+  SitePlanZone,
+} from "../cartographer/types.js";
 
 /**
  * Cartographer tools — spatial-intelligence capabilities for the /map surface.
@@ -8,7 +13,7 @@ import { z } from "zod";
  * Each tool validates input, delegates to the corresponding server module,
  * and returns JSON results including __mapAction payloads for the map surface.
  *
- * Server modules live at: apps/web/lib/server/cartographer/
+ * Server modules live at: packages/openai/src/cartographer/
  * All SQL is validated (SELECT-only, allowlisted tables, enforced LIMIT).
  * All stored rows are scoped with orgId from the agent context.
  */
@@ -87,7 +92,7 @@ export const spatial_query = tool({
     try {
       // Dynamic import to keep server-only boundary clean
       const { executeSpatialQuery } = await import(
-        "@/lib/server/cartographer/spatialQuery.js"
+        "../cartographer/spatialQuery.js"
       );
 
       const result = await executeSpatialQuery(
@@ -169,7 +174,7 @@ export const fit_score = tool({
 
     try {
       const { computeFitScores } = await import(
-        "@/lib/server/cartographer/fitScore.js"
+        "../cartographer/fitScore.js"
       );
 
       const result = await computeFitScores(
@@ -192,7 +197,7 @@ export const fit_score = tool({
       return JSON.stringify({
         thesisName: result.thesisName,
         summary: result.summary,
-        topScores: result.scores.slice(0, 20).map((s) => ({
+        topScores: result.scores.slice(0, 20).map((s: FitScoreResult) => ({
           parcelId: s.parcelId,
           score: s.score,
           breakdown: s.breakdown,
@@ -251,7 +256,7 @@ export const find_assemblage = tool({
 
     try {
       const { findAssemblage } = await import(
-        "@/lib/server/cartographer/findAssemblage.js"
+        "../cartographer/findAssemblage.js"
       );
 
       const result = await findAssemblage(
@@ -267,7 +272,7 @@ export const find_assemblage = tool({
       return JSON.stringify({
         totalCandidateParcels: result.totalCandidateParcels,
         assemblageCount: result.candidates.length,
-        candidates: result.candidates.slice(0, 10).map((c) => ({
+        candidates: result.candidates.slice(0, 10).map((c: AssemblageCandidateResult) => ({
           name: c.assemblageName,
           parcelIds: c.parcelIds,
           totalAcreage: c.totalAcreage,
@@ -327,7 +332,7 @@ export const draft_site_plan = tool({
 
     try {
       const { draftSitePlan } = await import(
-        "@/lib/server/cartographer/draftSitePlan.js"
+        "../cartographer/draftSitePlan.js"
       );
 
       const result = await draftSitePlan(
@@ -347,7 +352,7 @@ export const draft_site_plan = tool({
 
       return JSON.stringify({
         planName: result.plan.planName,
-        zones: result.plan.zones.map((z) => ({
+        zones: result.plan.zones.map((z: SitePlanZone) => ({
           label: z.label,
           use: z.use,
           acreage: z.acreage,
@@ -401,7 +406,7 @@ export const temporal_query = tool({
 
     try {
       const { executeTemporalQuery } = await import(
-        "@/lib/server/cartographer/temporalQuery.js"
+        "../cartographer/temporalQuery.js"
       );
 
       const result = await executeTemporalQuery(

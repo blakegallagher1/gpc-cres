@@ -7,9 +7,9 @@ cd "$(dirname "$0")/.."
 pnpm -F @entitlement-os/db generate
 pnpm -F @entitlement-os/shared build
 pnpm -F @entitlement-os/db build
-pnpm -F @entitlement-os/evidence build
 pnpm -F @entitlement-os/artifacts build
 pnpm -F @entitlement-os/openai build
+pnpm -F @entitlement-os/evidence build
 
 cd apps/web
-next build
+pnpm exec next build

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getGatewayClient } from "../gatewayClient.js";
+import { getGatewayClient } from "./gatewayClient.js";
 import { validateSpatialSql } from "./sqlValidator.js";
 import type {
   CartographerContext,
