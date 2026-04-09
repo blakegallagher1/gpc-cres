@@ -2,6 +2,7 @@ import { prisma } from "@entitlement-os/db";
 import * as Sentry from "@sentry/nextjs";
 import { dispatchEvent } from "../automation/events";
 import { captureAutomationDispatchError } from "../automation/sentry";
+import type { ExecuteAgentWorkflow } from "../chat/agent-runtime-adapter";
 import { runAgentWorkflow } from "../chat/run-agent-workflow.service";
 
 const MAX_TASK_TURNS = 15;
@@ -23,6 +24,7 @@ function buildTaskPrompt(task: { title: string; description: string | null }, de
 export interface RunDealTaskAgentParams {
   orgId: string;
   userId: string;
+  executeAgentWorkflow: ExecuteAgentWorkflow;
   dealId: string;
   taskId: string;
   correlationId?: string;
@@ -88,6 +90,7 @@ export async function runDealTaskAgent(
     const { result: workflowResult } = await runAgentWorkflow({
       orgId: params.orgId,
       userId: params.userId,
+      executeAgentWorkflow: params.executeAgentWorkflow,
       correlationId: params.correlationId,
       message: buildTaskPrompt(task, deal.name),
       dealId: params.dealId,

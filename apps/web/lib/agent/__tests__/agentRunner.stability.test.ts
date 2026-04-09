@@ -15,6 +15,23 @@ const { chatSessionMock, prismaChatSessionCreateMock } = vi.hoisted(() => {
 });
 
 vi.mock("@entitlement-os/db", () => ({
+  isDatabaseConnectivityError: (error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error ?? "");
+    const lowered = message.toLowerCase();
+    return (
+      lowered.includes("gateway db proxy error") ||
+      lowered.includes("prismaclientinitializationerror") ||
+      lowered.includes("can't reach database server") ||
+      lowered.includes("cant reach database server") ||
+      lowered.includes("could not connect to server") ||
+      lowered.includes("connect etimedout") ||
+      lowered.includes("econnreset") ||
+      lowered.includes("origin database does not support ssl") ||
+      lowered.includes("connect econnrefused") ||
+      lowered.includes("connection terminated unexpectedly") ||
+      lowered.includes("database error")
+    );
+  },
   prisma: {
     run: {
       findUnique: vi.fn(),
@@ -51,7 +68,7 @@ vi.mock("../executeAgent", () => ({
   toDatabaseRunId: (runId: string) => `uuid-${runId}`,
 }));
 
-vi.mock("@/lib/workflowClient", () => ({
+vi.mock("@gpc/server/workflows/temporal-client", () => ({
   getTemporalClient: vi.fn(),
 }));
 
@@ -61,7 +78,7 @@ vi.mock("@gpc/server/chat/chat-session.service", () => ({
   },
 }));
 
-vi.mock("@/lib/services/preferenceService", () => ({
+vi.mock("@gpc/server/services/preference.service", () => ({
   buildPreferenceContext: vi.fn().mockResolvedValue(""),
 }));
 
@@ -84,12 +101,12 @@ const {
   }),
 }));
 
-vi.mock("@/lib/services/businessMemory.service", () => ({
+vi.mock("@gpc/server/services/business-memory.service", () => ({
   buildBusinessMemoryContext: buildBusinessMemoryContextMock,
   captureBusinessChatMemory: captureBusinessChatMemoryMock,
 }));
 
-import { getTemporalClient } from "@/lib/workflowClient";
+import { getTemporalClient } from "@gpc/server/workflows/temporal-client";
 import { prisma } from "@entitlement-os/db";
 import { executeAgentWorkflow } from "../executeAgent";
 import { isDatabaseConnectivityError, runAgentWorkflow } from "../agentRunner";

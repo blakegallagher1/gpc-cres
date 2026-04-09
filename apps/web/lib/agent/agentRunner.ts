@@ -1,2 +1,18 @@
-export { isDatabaseConnectivityError } from "../../../../packages/db/src/errors";
-export * from "../../../../packages/server/src/chat/run-agent-workflow.service";
+import {
+  isDatabaseConnectivityError,
+  runAgentWorkflow as runAgentWorkflowCore,
+  type AgentRunInput,
+} from "@gpc/server/chat/run-agent-workflow.service";
+import { executeAgentWorkflow } from "./executeAgent";
+
+export { isDatabaseConnectivityError };
+export type { AgentRunInput } from "@gpc/server/chat/run-agent-workflow.service";
+
+export async function runAgentWorkflow(
+  params: Omit<AgentRunInput, "executeAgentWorkflow">,
+) {
+  return runAgentWorkflowCore({
+    ...params,
+    executeAgentWorkflow,
+  });
+}

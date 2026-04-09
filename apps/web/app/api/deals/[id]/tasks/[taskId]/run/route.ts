@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { executeAgentWorkflow } from "@/lib/agent/executeAgent";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import * as Sentry from "@sentry/nextjs";
 import "@/lib/automation/handlers";
@@ -42,6 +43,7 @@ export async function POST(
         const result = await runDealTaskAgent({
           orgId,
           userId,
+          executeAgentWorkflow,
           dealId,
           taskId,
           correlationId:

@@ -1,9 +1,11 @@
-import type { AgentInputMessage } from "../../../../apps/web/lib/agent/executeAgent";
+import type { AgentInputMessage } from "@entitlement-os/shared";
+import type { ExecuteAgentWorkflow } from "./agent-runtime-adapter";
 import { runAgentWorkflow } from "./run-agent-workflow.service";
 
 export interface RunAgentApiParams {
   orgId: string;
   userId: string;
+  executeAgentWorkflow: ExecuteAgentWorkflow;
   conversationId?: string | null;
   message?: string;
   input?: AgentInputMessage[];
@@ -22,6 +24,7 @@ export async function runAgentApi(params: RunAgentApiParams): Promise<void> {
   await runAgentWorkflow({
     orgId: params.orgId,
     userId: params.userId,
+    executeAgentWorkflow: params.executeAgentWorkflow,
     conversationId: params.conversationId ?? null,
     message: params.message,
     input: params.input,

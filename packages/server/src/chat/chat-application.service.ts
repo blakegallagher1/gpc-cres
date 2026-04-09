@@ -1,4 +1,8 @@
-import type { MapContextInput, StructuredParcelContext } from "@entitlement-os/shared";
+import type {
+  AgentStreamEvent,
+  MapContextInput,
+  StructuredParcelContext,
+} from "@entitlement-os/shared";
 import { setupAgentTracing } from "@entitlement-os/openai";
 import {
   ParcelQueryExecutor,
@@ -6,8 +10,8 @@ import {
   ParcelSetRegistry,
 } from "@entitlement-os/openai/planning";
 import { runAgentWorkflow, isDatabaseConnectivityError } from "./run-agent-workflow.service";
-import type { AgentStreamEvent } from "../../../../apps/web/lib/agent/executeAgent";
 import type { ResearchLaneSelection } from "@entitlement-os/shared/research-routing";
+import type { ExecuteAgentWorkflow } from "./agent-runtime-adapter";
 import { extractAndMergeConversationPreferences } from "../services/preference-extraction.service";
 import {
   getPropertyDbScopeHeaders,
@@ -28,6 +32,7 @@ export type ChatRouteStatusEvent =
 export interface RunChatApplicationParams {
   orgId: string;
   userId: string;
+  executeAgentWorkflow: ExecuteAgentWorkflow;
   message: string;
   requestedConversationId?: string | null;
   effectiveConversationId: string;
@@ -277,6 +282,7 @@ export async function runChatApplication(
   }
 
   const workflowArgs = {
+    executeAgentWorkflow: params.executeAgentWorkflow,
     orgId: params.orgId,
     userId: params.userId,
     conversationId: params.appDatabaseUnavailableInDev

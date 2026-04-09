@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
+import type { AgentInputMessage } from "@entitlement-os/shared";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
-import type { AgentInputMessage } from "@/lib/agent/executeAgent";
+import { executeAgentWorkflow } from "@/lib/agent/executeAgent";
 import { runAgentApi } from "@gpc/server/chat/agent-api.service";
 import * as Sentry from "@sentry/nextjs";
 
@@ -151,6 +152,7 @@ export async function POST(req: NextRequest) {
       try {
         await runAgentApi({
           ...runInput,
+          executeAgentWorkflow,
           onEvent: (event) => {
             if (event.type === "done") {
               doneSent = true;

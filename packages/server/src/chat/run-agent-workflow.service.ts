@@ -1,15 +1,14 @@
 import { prisma, type Prisma } from "@entitlement-os/db";
 import * as Sentry from "@sentry/nextjs";
 import { randomUUID } from "node:crypto";
-import {
-  executeAgentWorkflow,
-  type AgentInputMessage,
-  type AgentStreamEvent,
-  toDatabaseRunId,
-} from "../../../../apps/web/lib/agent/executeAgent";
 import { getTemporalClient } from "../workflows/temporal-client";
 import { hashJsonSha256 } from "@entitlement-os/shared/crypto";
-import { sleepMs } from "@entitlement-os/shared";
+import {
+  sleepMs,
+  toDatabaseRunId,
+  type AgentInputMessage,
+  type AgentStreamEvent,
+} from "@entitlement-os/shared";
 import { isDatabaseConnectivityError } from "@entitlement-os/db";
 export { isDatabaseConnectivityError } from "@entitlement-os/db";
 import {
@@ -37,6 +36,7 @@ import type { MapFeature } from "@entitlement-os/shared/map-action-types";
 import { logger } from "./logger-adapter";
 import { dispatchEvent } from "../automation/events";
 import type { ResearchLaneSelection } from "@entitlement-os/shared/research-routing";
+import type { ExecuteAgentWorkflow } from "./agent-runtime-adapter";
 
 /**
  * Fire-and-forget dispatch of agent.run.completed for learning promotion (DA-007).
@@ -88,6 +88,7 @@ type CuaModelPreference = "gpt-5.4" | "gpt-5.4-mini";
 export type AgentRunInput = {
   orgId: string;
   userId: string;
+  executeAgentWorkflow: ExecuteAgentWorkflow;
   conversationId?: string | null;
   message?: string | null;
   input?: AgentInputMessage[];
@@ -728,7 +729,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
     }
     const ephemeralIntentHint =
       message ?? [...ephemeralAgentInput].reverse().find((entry) => entry.role === "user")?.content;
-    const result = await executeAgentWorkflow({
+    const result = await params.executeAgentWorkflow({
       orgId,
       userId,
       conversationId: "agent-run",
@@ -1304,7 +1305,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
       throw new Error(`Local run lease unavailable for ${workflowId}.`);
     }
 
-    const result = await executeAgentWorkflow({
+    const result = await params.executeAgentWorkflow({
       orgId,
       userId,
       conversationId: conversationId ?? "agent-run",
@@ -1380,7 +1381,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
     };
   }
 
-  const result = await executeAgentWorkflow({
+  const result = await params.executeAgentWorkflow({
     orgId,
     userId,
     conversationId: conversationId ?? "agent-run",

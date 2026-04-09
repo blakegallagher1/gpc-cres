@@ -8,6 +8,9 @@
  * All event producers and consumers should import from this module.
  */
 
+import type { MapActionPayload } from "../map-action-types.js";
+import type { AgentTrustEnvelope } from "../agent-trust.js";
+
 // ---------------------------------------------------------------------------
 // Core event types (emitted by both SSE and WS)
 // ---------------------------------------------------------------------------
@@ -21,7 +24,7 @@ export type ToolStartEvent = {
   type: "tool_start";
   name: string;
   args?: Record<string, unknown>;
-  toolCallId?: string;
+  toolCallId?: string | null;
 };
 
 export type ToolEndEvent = {
@@ -29,39 +32,8 @@ export type ToolEndEvent = {
   name: string;
   result?: unknown;
   status?: "completed" | "failed";
-  toolCallId?: string;
+  toolCallId?: string | null;
 };
-
-export type MapActionPayload =
-  | {
-      action: "highlight";
-      parcelIds: string[];
-      style?: "pulse" | "outline" | "fill";
-      color?: string;
-      durationMs?: number;
-    }
-  | {
-      action: "flyTo";
-      center: [number, number];
-      zoom?: number;
-      parcelId?: string;
-    }
-  | {
-      action: "addLayer";
-      layerId: string;
-      geojson: { type: "FeatureCollection"; features: unknown[] };
-      style?: {
-        fillColor?: string;
-        fillOpacity?: number;
-        strokeColor?: string;
-        strokeWidth?: number;
-      };
-      label?: string;
-    }
-  | {
-      action: "clearLayers";
-      layerIds?: string[];
-    };
 
 export type MapActionEvent = {
   type: "map_action";
@@ -140,13 +112,14 @@ export type AgentProgressEvent = {
   partialOutput: string;
   toolsInvoked?: string[];
   lastAgentName?: string;
+  runState?: Record<string, unknown>;
   correlationId?: string;
 };
 
 export type AgentSummaryEvent = {
   type: "agent_summary";
   runId: string;
-  trust: Record<string, unknown>;
+  trust: AgentTrustEnvelope;
 };
 
 // ---------------------------------------------------------------------------

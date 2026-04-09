@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import type { MapContextInput } from "@entitlement-os/shared";
 import { runChatApplication } from "@gpc/server/chat/chat-application.service";
 import { randomUUID } from "node:crypto";
+import { executeAgentWorkflow } from "@/lib/agent/executeAgent";
 import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
 import type { ResearchLaneSelection } from "@/lib/agent/researchRouting";
 import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
@@ -100,6 +101,7 @@ export async function POST(req: NextRequest) {
         await runChatApplication({
           orgId: auth.orgId,
           userId: auth.userId,
+          executeAgentWorkflow,
           message,
           requestedConversationId,
           effectiveConversationId,

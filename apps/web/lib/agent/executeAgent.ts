@@ -4,10 +4,13 @@ import {
   AgentReportSchema,
   AGENT_RUN_STATE_KEYS,
   AGENT_RUN_STATE_SCHEMA_VERSION,
+  type AgentInputMessage,
+  type AgentStreamEvent,
   type DataAgentRetrievalContext,
   type AgentEvidenceRetryPolicy,
   type AgentRunOutputJson,
   type AgentRunState,
+  toDatabaseRunId,
 } from "@entitlement-os/shared";
 import {
   computeEvidenceHash,
@@ -17,7 +20,6 @@ import {
 import { hashJsonSha256 } from "@entitlement-os/shared/crypto";
 import { prisma } from "@entitlement-os/db";
 import type { Prisma } from "@entitlement-os/db";
-import { createHash } from "node:crypto";
 import {
   buildAgentStreamRunOptions,
   collapseRepeatedTextArtifacts,
@@ -37,7 +39,7 @@ import {
   setupAgentTracing,
 } from "@entitlement-os/openai";
 import { AgentTrustEnvelope } from "@/types";
-import type { MapActionPayload } from "@/lib/chat/mapActionTypes";
+import type { MapActionPayload } from "@entitlement-os/shared/map-action-types";
 import { parseToolResultMapFeatures } from "@/lib/chat/toolResultWrapper";
 import { isSchemaDriftError } from "@/lib/api/prismaSchemaFallback";
 import { isLocalAppRuntime } from "@/lib/server/appDbEnv";
@@ -71,7 +73,6 @@ import {
 import { unifiedRetrieval } from "./retrievalAdapter";
 
 const DATA_AGENT_RETRIEVAL_LIMIT = 6;
-const DB_UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type CuaModelPreference = "gpt-5.4" | "gpt-5.4-mini";
 
 const PROPERTY_DATA_HINT_RE = /\b(?:comp|comps|sale|sales|sold|sold for|price|prices|noi|cap rate|cap-rate|lender|tour|correction|corrections|listing|offer|asking|bought|purchased|rent|rental|valuation|cap|value)\b/i;
@@ -222,71 +223,7 @@ function isParishScopedParcelRequest(firstUserInput: unknown, queryIntent: Query
   return extractRequestedParish(firstUserInput) !== null;
 }
 
-export type AgentInputMessage =
-  | { role: "user"; content: string }
-  | {
-      role: "assistant";
-      status: "completed";
-      content: Array<{ type: "output_text"; text: string }>;
-    };
-
-export type AgentStreamEvent =
-  | { type: "agent_switch"; agentName: string }
-  | {
-      type: "tool_approval_requested";
-      name: string;
-      args?: Record<string, unknown>;
-      toolCallId?: string | null;
-      runId?: string;
-    }
-  | {
-      type: "tool_start";
-      name: string;
-      args?: Record<string, unknown>;
-      toolCallId?: string | null;
-    }
-  | {
-      type: "tool_end";
-      name: string;
-      result?: unknown;
-      status?: "completed" | "failed";
-      toolCallId?: string | null;
-    }
-  | {
-      type: "handoff";
-      from?: string;
-      to: string;
-      fromAgent?: string;
-      toAgent?: string;
-    }
-  | { type: "text_delta"; content: string }
-  | {
-      type: "agent_progress";
-      runId: string;
-      status: "running";
-      partialOutput: string;
-      toolsInvoked?: string[];
-      lastAgentName?: string;
-      runState?: Record<string, unknown>;
-      correlationId?: string;
-    }
-  | {
-      type: "done";
-      runId: string;
-      status: "succeeded" | "failed" | "canceled";
-      conversationId?: string;
-    }
-  | { type: "error"; message: string }
-  | {
-      type: "agent_summary";
-      runId: string;
-      trust: AgentTrustEnvelope;
-    }
-  | {
-      type: "map_action";
-      payload: MapActionPayload;
-      toolCallId?: string | null;
-    };
+export type { AgentInputMessage, AgentStreamEvent } from "@entitlement-os/shared";
 
 export type AgentExecutionParams = {
   orgId: string;
@@ -321,19 +258,7 @@ export type AgentExecutionParams = {
   skipRunPersistence?: boolean;
 };
 
-export function toDatabaseRunId(runId: string): string {
-  const trimmedRunId = runId.trim();
-  if (DB_UUID_REGEX.test(trimmedRunId)) {
-    return trimmedRunId;
-  }
-
-  const source = trimmedRunId.length > 0 ? trimmedRunId : "agent-run";
-  const hash = createHash("sha256").update(source).digest("hex").slice(0, 32);
-  const variant = parseInt(hash[16], 16);
-  const variantCharacter = ((variant & 0x3) | 0x8).toString(16);
-
-  return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-${variantCharacter}${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
-}
+export { toDatabaseRunId } from "@entitlement-os/shared";
 
 const MISSING_EVIDENCE_RETRY_THRESHOLD = 3;
 const MISSING_EVIDENCE_RETRY_MAX_ATTEMPTS = 3;
