@@ -14,7 +14,7 @@ export interface ProbeRun {
 
 export interface CheckResult {
   name: string;
-  surface: "chat" | "map" | "workflow";
+  surface: "chat" | "map" | "workflow" | "db";
   status: "pass" | "fail" | "warn";
   value: number | string;
   threshold: number | string;
@@ -65,6 +65,7 @@ export function getThresholds() {
     mapParcelsP95MaxMs: envInt("MAP_PARCELS_P95_MAX_MS", 8000),
     mapSuggestP95MaxMs: envInt("MAP_SUGGEST_P95_MAX_MS", 8000),
     mapGeometryP95MaxMs: envInt("MAP_GEOMETRY_P95_MAX_MS", 10000),
+    dbP95MaxMs: envInt("DB_P95_MAX_MS", 5000),
     map5xxRateMax: envFloat("MAP_5XX_RATE_MAX", 0.1),
     mapGeometry429RateMax: envFloat("MAP_GEOMETRY_429_RATE_MAX", 0.15),
     workflowDuplicateMax: envInt("WORKFLOW_DUPLICATE_MAX_COUNT", 0),
@@ -246,6 +247,7 @@ export function evaluate(
   parcelsRuns: ProbeRun[],
   suggestRuns: ProbeRun[],
   geometryRuns: ProbeRun[],
+  dbRuns: ProbeRun[],
   workflow: WorkflowStats | null,
 ): { verdict: string; checks: CheckResult[]; failCount: number; warnCount: number } {
   const THRESHOLDS = getThresholds();
@@ -333,6 +335,42 @@ export function evaluate(
     value: Number(geometry429Rate.toFixed(3)),
     threshold: THRESHOLDS.mapGeometry429RateMax,
     detail: `${statusCounts(geometryRuns).s429}/${geometryRuns.length} geometry probes returned 429`,
+  });
+
+  const dbCounts = statusCounts(dbRuns);
+  const dbLatencies = latencyEligibleMs(dbRuns);
+  const dbP95 = percentile(dbLatencies, 95);
+  checks.push({
+    name: "db_p95",
+    surface: "db",
+    status:
+      dbLatencies.length === 0
+        ? dbCounts.s5xx > 0
+          ? "fail"
+          : "pass"
+        : dbP95 > THRESHOLDS.dbP95MaxMs
+          ? "fail"
+          : dbP95 > THRESHOLDS.dbP95MaxMs * 0.8
+            ? "warn"
+            : "pass",
+    value: dbLatencies.length === 0 ? "n/a" : dbP95,
+    threshold: THRESHOLDS.dbP95MaxMs,
+    detail:
+      dbLatencies.length === 0
+        ? dbCounts.s5xx > 0
+          ? `${dbCounts.s5xx}/${dbCounts.total} /db probes returned 5xx with no latency samples`
+          : `No latency samples (${dbCounts.auth} auth-rejected probes excluded from SLO)`
+        : `p95 latency: ${dbP95}ms (threshold: ${THRESHOLDS.dbP95MaxMs}ms, samples: ${dbLatencies.length})`,
+  });
+
+  const db5xxRate = rate(dbCounts.s5xx, dbCounts.total);
+  checks.push({
+    name: "db_5xx_rate",
+    surface: "db",
+    status: db5xxRate > THRESHOLDS.map5xxRateMax ? "fail" : "pass",
+    value: Number(db5xxRate.toFixed(3)),
+    threshold: THRESHOLDS.map5xxRateMax,
+    detail: `${dbCounts.s5xx}/${dbCounts.total} /db probes returned 5xx`,
   });
 
   if (workflow === null) {
@@ -467,11 +505,12 @@ export async function runStabilitySentinel(): Promise<SentinelResult> {
     process.env.SENTINEL_GEOMETRY_PARCEL_ID?.trim() ??
     "2438159d-fbc4-401a-819b-583c5ad79008";
 
-  const [chatRuns, parcelsRuns, suggestRuns, geometryRuns, workflow] = await Promise.all([
+  const [chatRuns, parcelsRuns, suggestRuns, geometryRuns, dbRuns, workflow] = await Promise.all([
     runProbe("/api/agent/tools/execute", "POST", '{"toolName":"search_parcels","arguments":{}}'),
     runProbe("/api/parcels?hasCoords=true", "GET"),
     runProbe("/api/parcels/suggest?q=airline+hwy", "GET"),
     runProbe(`/api/parcels/${encodeURIComponent(GEOMETRY_PARCEL_ID)}/geometry?detail_level=low`, "GET"),
+    runProbe("/db", "GET"),
     queryWorkflowStats(),
   ]);
 
@@ -480,6 +519,7 @@ export async function runStabilitySentinel(): Promise<SentinelResult> {
     parcelsRuns,
     suggestRuns,
     geometryRuns,
+    dbRuns,
     workflow,
   );
 
@@ -496,6 +536,7 @@ export async function runStabilitySentinel(): Promise<SentinelResult> {
       parcels: parcelsRuns.map((r) => ({ status: r.status, ms: r.totalMs })),
       suggest: suggestRuns.map((r) => ({ status: r.status, ms: r.totalMs })),
       geometry: geometryRuns.map((r) => ({ status: r.status, ms: r.totalMs })),
+      db: dbRuns.map((r) => ({ status: r.status, ms: r.totalMs })),
     },
     evaluatedAt: new Date().toISOString(),
   };

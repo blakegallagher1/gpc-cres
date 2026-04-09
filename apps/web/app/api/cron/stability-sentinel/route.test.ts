@@ -99,7 +99,8 @@ describe("GET /api/cron/stability-sentinel", () => {
     expect(body.failCount).toBe(0);
     expect(body.warnCount).toBe(0);
     expect(body.probes.geometry).toHaveLength(1);
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(body.probes.db).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
     expect(automationEventCreateMock).not.toHaveBeenCalled();
     expect(sentryCaptureMessageMock).not.toHaveBeenCalled();
   });
@@ -130,7 +131,8 @@ describe("GET /api/cron/stability-sentinel", () => {
 
     expect(res.status).toBe(200);
     expect(body.verdict).toBe("FAIL");
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(body.probes.db).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
     expect(automationEventCreateMock).toHaveBeenCalledTimes(1);
     expect(sentryCaptureMessageMock).toHaveBeenCalledTimes(1);
   });
