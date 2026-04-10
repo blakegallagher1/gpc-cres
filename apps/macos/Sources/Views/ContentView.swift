@@ -10,8 +10,18 @@ struct ContentView: View {
             initialURL: store.initialURL
         ) { state in
             store.updateBrowserState(state)
+        } onNavigationError: { message in
+            store.registerNavigationError(message)
         }
         .background(WindowConfigurator())
+        .overlay {
+            if store.currentURLString.isEmpty, store.isLoadingPage == false {
+                LoadFailureView(
+                    baseURL: store.endpointConfiguration.baseURL,
+                    errorMessage: store.lastErrorMessage
+                )
+            }
+        }
         .ignoresSafeArea()
         .overlay(alignment: .bottomLeading) {
             if store.lastErrorMessage.isEmpty == false {
@@ -84,5 +94,32 @@ private struct ErrorBanner: View {
         }
         .padding(12)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+private struct LoadFailureView: View {
+    let baseURL: String
+    let errorMessage: String
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "network.slash")
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundStyle(.secondary)
+
+            Text("Unable to load Entitlement OS")
+                .font(.title3.weight(.semibold))
+
+            Text(errorMessage.isEmpty ? "The app has not received a page response yet." : errorMessage)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            Text(baseURL)
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
+        }
+        .padding(28)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 }

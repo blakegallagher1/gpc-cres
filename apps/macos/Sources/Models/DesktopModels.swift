@@ -111,7 +111,7 @@ struct EndpointConfiguration: Equatable {
     var bearerToken: String
 
     static let `default` = EndpointConfiguration(
-        baseURL: "http://localhost:3000",
+        baseURL: "https://gallagherpropco.com",
         startPath: DesktopRoute.commandCenter.path,
         bearerToken: ""
     )

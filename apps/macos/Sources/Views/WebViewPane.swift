@@ -50,9 +50,14 @@ struct DesktopWebView: NSViewRepresentable {
     let allowedHost: String?
     let initialURL: URL
     let onNavigationStateChange: @MainActor (BrowserNavigationState) -> Void
+    let onNavigationError: @MainActor (String) -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(allowedHost: allowedHost, onNavigationStateChange: onNavigationStateChange)
+        Coordinator(
+            allowedHost: allowedHost,
+            onNavigationStateChange: onNavigationStateChange,
+            onNavigationError: onNavigationError
+        )
     }
 
     func makeNSView(context: Context) -> WKWebView {
@@ -63,7 +68,8 @@ struct DesktopWebView: NSViewRepresentable {
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = true
-        webView.setValue(false, forKey: "drawsBackground")
+        webView.setValue(true, forKey: "drawsBackground")
+        webView.underPageBackgroundColor = .windowBackgroundColor
 
         controller.attach(webView: webView)
         controller.navigate(to: initialURL)
@@ -77,13 +83,16 @@ struct DesktopWebView: NSViewRepresentable {
     final class Coordinator: NSObject, WKNavigationDelegate {
         var allowedHost: String?
         private let onNavigationStateChange: @MainActor (BrowserNavigationState) -> Void
+        private let onNavigationError: @MainActor (String) -> Void
 
         init(
             allowedHost: String?,
-            onNavigationStateChange: @escaping @MainActor (BrowserNavigationState) -> Void
+            onNavigationStateChange: @escaping @MainActor (BrowserNavigationState) -> Void,
+            onNavigationError: @escaping @MainActor (String) -> Void
         ) {
             self.allowedHost = allowedHost
             self.onNavigationStateChange = onNavigationStateChange
+            self.onNavigationError = onNavigationError
         }
 
         func webView(
@@ -104,6 +113,7 @@ struct DesktopWebView: NSViewRepresentable {
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
             publishState(for: webView, isLoading: false)
+            publishError(error.localizedDescription)
         }
 
         func webView(
@@ -112,6 +122,7 @@ struct DesktopWebView: NSViewRepresentable {
             withError error: Error
         ) {
             publishState(for: webView, isLoading: false)
+            publishError(error.localizedDescription)
         }
 
         private func publishState(for webView: WKWebView, isLoading: Bool) {
@@ -125,6 +136,12 @@ struct DesktopWebView: NSViewRepresentable {
 
             Task { @MainActor in
                 onNavigationStateChange(state)
+            }
+        }
+
+        private func publishError(_ message: String) {
+            Task { @MainActor in
+                onNavigationError(message)
             }
         }
     }

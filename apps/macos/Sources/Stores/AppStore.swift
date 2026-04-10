@@ -18,11 +18,13 @@ final class AppStore {
     @ObservationIgnored private let defaults = UserDefaults.standard
 
     init() {
-        let baseURL = defaults.string(forKey: Keys.baseURL) ?? EndpointConfiguration.default.baseURL
+        let storedBaseURL = defaults.string(forKey: Keys.baseURL)
+        let baseURL = Self.migrateBaseURLIfNeeded(storedBaseURL)
         let startPath = defaults.string(forKey: Keys.startPath) ?? EndpointConfiguration.default.startPath
         let bearerToken = defaults.string(forKey: Keys.bearerToken) ?? EndpointConfiguration.default.bearerToken
         endpointConfiguration = EndpointConfiguration(baseURL: baseURL, startPath: startPath, bearerToken: bearerToken)
         customPath = startPath
+        defaults.set(baseURL, forKey: Keys.baseURL)
     }
 
     func saveConfiguration(baseURL: String, startPath: String, bearerToken: String) {
@@ -122,6 +124,24 @@ final class AppStore {
     }
 
     private func sanitizeBaseURL(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = trimmed.hasSuffix("/") ? String(trimmed.dropLast()) : trimmed
+        return normalized.isEmpty ? EndpointConfiguration.default.baseURL : normalized
+    }
+
+    private static func migrateBaseURLIfNeeded(_ storedValue: String?) -> String {
+        guard let storedValue else { return EndpointConfiguration.default.baseURL }
+
+        let normalized = sanitizeStaticBaseURL(storedValue)
+        if normalized == "http://localhost:3000" {
+            DesktopLogger.settings.info("Migrating stored localhost base URL to production default")
+            return EndpointConfiguration.default.baseURL
+        }
+
+        return normalized
+    }
+
+    private static func sanitizeStaticBaseURL(_ value: String) -> String {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalized = trimmed.hasSuffix("/") ? String(trimmed.dropLast()) : trimmed
         return normalized.isEmpty ? EndpointConfiguration.default.baseURL : normalized
