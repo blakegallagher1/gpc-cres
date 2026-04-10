@@ -3,13 +3,22 @@ import SwiftUI
 struct SidebarView: View {
     @Bindable var store: AppStore
 
+    private let primaryRoutes: [DesktopRoute] = [
+        .commandCenter, .chat, .map, .deals, .opportunities, .workflows, .runs, .agents
+    ]
+
+    private let secondaryRoutes: [DesktopRoute] = [
+        .automation, .market, .portfolio, .evidence, .buyers, .screening, .reference, .admin
+    ]
+
     var body: some View {
         List(selection: $store.selectedRoute) {
-            Section("Operator Surfaces") {
-                ForEach(DesktopRoute.allCases) { route in
-                    SidebarRow(route: route)
-                        .tag(route)
-                }
+            Section("Core") {
+                routeRows(primaryRoutes)
+            }
+
+            Section("Operations") {
+                routeRows(secondaryRoutes)
             }
 
             Section("Environment") {
@@ -18,28 +27,40 @@ struct SidebarView: View {
                         .font(.callout)
                         .lineLimit(1)
 
-                    Text(store.lastRefreshLabel)
+                    Text(store.currentURLString.isEmpty ? store.endpointConfiguration.startPath : store.currentURLString)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .lineLimit(2)
                 }
                 .padding(.vertical, 4)
             }
         }
         .listStyle(.sidebar)
-        .onChange(of: store.selectedRoute) { _, newValue in
-            store.select(route: newValue)
+    }
+
+    @ViewBuilder
+    private func routeRows(_ routes: [DesktopRoute]) -> some View {
+        ForEach(routes) { route in
+            Button {
+                store.select(route: route)
+            } label: {
+                SidebarRow(route: route, isSelected: store.selectedRoute == route)
+            }
+            .buttonStyle(.plain)
+            .tag(route)
         }
     }
 }
 
 private struct SidebarRow: View {
     let route: DesktopRoute
+    let isSelected: Bool
 
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: route.systemImage)
                 .frame(width: 16)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(isSelected ? .primary : .secondary)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(route.title)
@@ -52,5 +73,6 @@ private struct SidebarRow: View {
             }
         }
         .padding(.vertical, 2)
+        .contentShape(Rectangle())
     }
 }

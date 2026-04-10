@@ -4,111 +4,144 @@ import Observation
 @MainActor
 @Observable
 final class AppStore {
-    var selectedRoute: DesktopRoute = .overview
+    var selectedRoute: DesktopRoute = .commandCenter
     var endpointConfiguration: EndpointConfiguration
-    var snapshot: OperatorSnapshot = .placeholder
-    var deals: [DealRecord] = []
-    var runs: [RunRecord] = []
-    var mapRecord: MapRecord = .placeholder
-    var automationRecords: [AutomationRecord] = []
-    var isRefreshing = false
+    var currentURLString = ""
+    var currentPageTitle = "Entitlement OS"
+    var customPath = ""
+    var canGoBack = false
+    var canGoForward = false
+    var isLoadingPage = false
     var lastErrorMessage = ""
-    var lastRefreshLabel = "Never"
 
+    @ObservationIgnored let browserController = BrowserController()
     @ObservationIgnored private let defaults = UserDefaults.standard
 
     init() {
         let baseURL = defaults.string(forKey: Keys.baseURL) ?? EndpointConfiguration.default.baseURL
+        let startPath = defaults.string(forKey: Keys.startPath) ?? EndpointConfiguration.default.startPath
         let bearerToken = defaults.string(forKey: Keys.bearerToken) ?? EndpointConfiguration.default.bearerToken
-        endpointConfiguration = EndpointConfiguration(baseURL: baseURL, bearerToken: bearerToken)
+        endpointConfiguration = EndpointConfiguration(baseURL: baseURL, startPath: startPath, bearerToken: bearerToken)
+        customPath = startPath
     }
 
-    func saveConfiguration(baseURL: String, bearerToken: String) {
+    func saveConfiguration(baseURL: String, startPath: String, bearerToken: String) {
         endpointConfiguration = EndpointConfiguration(
-            baseURL: baseURL.trimmingCharacters(in: .whitespacesAndNewlines),
+            baseURL: sanitizeBaseURL(baseURL),
+            startPath: normalizedPath(startPath),
             bearerToken: bearerToken.trimmingCharacters(in: .whitespacesAndNewlines)
         )
+        customPath = endpointConfiguration.startPath
         defaults.set(endpointConfiguration.baseURL, forKey: Keys.baseURL)
+        defaults.set(endpointConfiguration.startPath, forKey: Keys.startPath)
         defaults.set(endpointConfiguration.bearerToken, forKey: Keys.bearerToken)
-        DesktopLogger.settings.info("Saved endpoint configuration for \(self.endpointConfiguration.baseURL, privacy: .public)")
+        DesktopLogger.settings.info("Saved web configuration for \(self.endpointConfiguration.baseURL, privacy: .public)")
+        open(path: endpointConfiguration.startPath)
     }
 
     func select(route: DesktopRoute) {
         selectedRoute = route
+        customPath = route.path
         DesktopLogger.navigation.info("Selected route \(route.rawValue, privacy: .public)")
+        open(path: route.path)
     }
 
-    func refreshCurrentRoute() async {
-        guard isRefreshing == false else { return }
-        isRefreshing = true
+    func loadInitialRouteIfNeeded() {
+        guard currentURLString.isEmpty else { return }
+        open(path: endpointConfiguration.startPath)
+    }
+
+    func reloadCurrentPage() {
+        DesktopLogger.refresh.info("Reloading current page")
+        browserController.reload()
+    }
+
+    func goBack() {
+        DesktopLogger.navigation.info("Navigating back")
+        browserController.goBack()
+    }
+
+    func goForward() {
+        DesktopLogger.navigation.info("Navigating forward")
+        browserController.goForward()
+    }
+
+    func openCustomPath() {
+        open(path: customPath)
+    }
+
+    func absoluteURLForCurrentRoute() -> URL {
+        url(for: currentURLString.isEmpty ? selectedRoute.path : currentURLString) ?? fallbackURL
+    }
+
+    func updateBrowserState(_ state: BrowserNavigationState) {
+        currentURLString = state.urlString
+        currentPageTitle = state.title
+        canGoBack = state.canGoBack
+        canGoForward = state.canGoForward
+        isLoadingPage = state.isLoading
         lastErrorMessage = ""
-        DesktopLogger.refresh.info("Refreshing route \(self.selectedRoute.rawValue, privacy: .public)")
-        defer { isRefreshing = false }
 
-        do {
-            switch selectedRoute {
-            case .overview:
-                snapshot = try await client.fetchDashboardSnapshot()
-            case .deals:
-                deals = try await client.fetchDeals()
-            case .runs:
-                runs = try await client.fetchRuns()
-            case .map:
-                mapRecord = try await client.fetchMapRecord()
-            case .automation:
-                automationRecords = try await client.fetchAutomationRecords()
-            case .memory:
-                snapshot = try await client.fetchDashboardSnapshot()
-            }
-
-            lastRefreshLabel = Self.timestampFormatter.string(from: .now)
-        } catch {
-            lastErrorMessage = error.localizedDescription
-            DesktopLogger.refresh.error("Refresh failed: \(error.localizedDescription, privacy: .public)")
+        if let path = URL(string: state.urlString)?.path, path.isEmpty == false {
+            customPath = path
         }
     }
 
-    func refreshAll() async {
-        guard isRefreshing == false else { return }
-        isRefreshing = true
-        lastErrorMessage = ""
-        DesktopLogger.refresh.info("Refreshing all desktop surfaces")
-        defer { isRefreshing = false }
-
-        do {
-            async let overview = client.fetchDashboardSnapshot()
-            async let fetchedDeals = client.fetchDeals()
-            async let fetchedRuns = client.fetchRuns()
-            async let fetchedMap = client.fetchMapRecord()
-            async let fetchedAutomation = client.fetchAutomationRecords()
-
-            snapshot = try await overview
-            deals = try await fetchedDeals
-            runs = try await fetchedRuns
-            mapRecord = try await fetchedMap
-            automationRecords = try await fetchedAutomation
-            lastRefreshLabel = Self.timestampFormatter.string(from: .now)
-        } catch {
-            lastErrorMessage = error.localizedDescription
-            DesktopLogger.refresh.error("Global refresh failed: \(error.localizedDescription, privacy: .public)")
-        }
+    func registerNavigationError(_ message: String) {
+        lastErrorMessage = message
+        DesktopLogger.refresh.error("Navigation error: \(message, privacy: .public)")
     }
 
-    private var client: APIClient {
-        APIClient(configuration: endpointConfiguration)
+    var allowedHost: String? {
+        URL(string: endpointConfiguration.baseURL)?.host
+    }
+
+    var initialURL: URL {
+        url(for: endpointConfiguration.startPath) ?? fallbackURL
+    }
+
+    private func open(path: String) {
+        guard let targetURL = url(for: path) else {
+            registerNavigationError("Invalid path \(path)")
+            return
+        }
+
+        browserController.navigate(to: targetURL)
+    }
+
+    private func url(for pathOrURL: String) -> URL? {
+        let trimmed = pathOrURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false else { return nil }
+
+        if let absoluteURL = URL(string: trimmed), absoluteURL.scheme != nil {
+            return absoluteURL
+        }
+
+        let normalized = normalizedPath(trimmed)
+        return URL(string: endpointConfiguration.baseURL + normalized)
+    }
+
+    private func sanitizeBaseURL(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = trimmed.hasSuffix("/") ? String(trimmed.dropLast()) : trimmed
+        return normalized.isEmpty ? EndpointConfiguration.default.baseURL : normalized
+    }
+
+    private func normalizedPath(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false else { return EndpointConfiguration.default.startPath }
+        return trimmed.hasPrefix("/") ? trimmed : "/\(trimmed)"
+    }
+
+    private var fallbackURL: URL {
+        URL(string: EndpointConfiguration.default.baseURL + EndpointConfiguration.default.startPath)!
     }
 }
 
 private extension AppStore {
     enum Keys {
         static let baseURL = "gallagher-cres.macos.baseURL"
+        static let startPath = "gallagher-cres.macos.startPath"
         static let bearerToken = "gallagher-cres.macos.bearerToken"
     }
-
-    static let timestampFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter
-    }()
 }

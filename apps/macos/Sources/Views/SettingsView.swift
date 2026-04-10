@@ -3,29 +3,34 @@ import SwiftUI
 struct SettingsView: View {
     @Bindable var store: AppStore
     @State private var baseURL = ""
+    @State private var startPath = ""
     @State private var bearerToken = ""
 
     var body: some View {
         Form {
-            Section("Endpoint") {
+            Section("Website Environment") {
                 TextField("Base URL", text: $baseURL)
                     .textFieldStyle(.roundedBorder)
 
-                SecureField("Bearer token (optional)", text: $bearerToken)
+                TextField("Start Path", text: $startPath)
+                    .textFieldStyle(.roundedBorder)
+
+                SecureField("Advanced bearer token (optional)", text: $bearerToken)
                     .textFieldStyle(.roundedBorder)
             }
 
-            Section("Desktop Behavior") {
-                Label("Refresh surfaces from the toolbar or Command menu.", systemImage: "arrow.clockwise")
-                Label("Open the matching browser surface when the native pane needs deeper workflow coverage.", systemImage: "safari")
-                Label("Logs are written with unified logging categories for navigation, API, refresh, and settings.", systemImage: "waveform.path.ecg")
+            Section("Behavior") {
+                Label("The desktop app now hosts the full Entitlement OS website in a native macOS shell.", systemImage: "macwindow")
+                Label("Sign in through the website session to unlock the same production features you use in the browser.", systemImage: "person.badge.key")
+                Label("Sidebar favorites jump to major production surfaces, and the path field can open any route.", systemImage: "point.topleft.down.curvedto.point.bottomright.up")
+                Label("Unified logging remains enabled for navigation, refresh, settings, and window lifecycle events.", systemImage: "waveform.path.ecg")
             }
 
             HStack {
                 Spacer()
 
                 Button("Save Configuration") {
-                    store.saveConfiguration(baseURL: baseURL, bearerToken: bearerToken)
+                    store.saveConfiguration(baseURL: baseURL, startPath: startPath, bearerToken: bearerToken)
                 }
                 .keyboardShortcut(.defaultAction)
             }
@@ -34,6 +39,7 @@ struct SettingsView: View {
         .padding(20)
         .onAppear {
             baseURL = store.endpointConfiguration.baseURL
+            startPath = store.endpointConfiguration.startPath
             bearerToken = store.endpointConfiguration.bearerToken
         }
     }

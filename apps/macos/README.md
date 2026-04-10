@@ -1,15 +1,15 @@
 # Gallagher Cres macOS
 
-Native SwiftUI desktop client for Entitlement OS.
+Native SwiftUI macOS shell for the full Entitlement OS website.
 
 ## What it includes
 
 - Native sidebar-detail operator shell
-- Toolbar and Command menu refresh actions
-- Settings window for base URL and optional bearer token
+- Embedded `WKWebView` session that loads the real production website
+- Toolbar and Command menu browser controls
+- Settings window for base URL, launch path, and optional advanced token storage
 - Unified logging categories for navigation, API, refresh, settings, and windowing
-- Native views for overview, deals, runs, map workspace status, automation watch, and memory systems
-- HTTP bridge to existing Entitlement OS routes under `apps/web/app/api`
+- Sidebar favorites for major production routes plus a freeform path field for any route
 
 ## Run
 
@@ -35,5 +35,5 @@ The Codex desktop Run action is wired through:
 ## Notes
 
 - Default base URL is `http://localhost:3000`.
-- If the selected Entitlement OS environment requires auth, provide a bearer token in Settings.
+- Sign in through the in-app website session to access the same feature set as the browser.
 - Build artifacts are kept local under `apps/macos/.build` and `apps/macos/dist`.
