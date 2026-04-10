@@ -48,7 +48,6 @@ final class BrowserController {
         do {
             let result = try await webView.callAsyncJavaScript(
                 """
-                const path = arguments.path;
                 const response = await fetch(path, {
                   credentials: "include",
                   headers: { "Accept": "application/json" }
