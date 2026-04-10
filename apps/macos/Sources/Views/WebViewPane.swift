@@ -1,6 +1,12 @@
 import SwiftUI
 import WebKit
 
+struct BrowserProbeResult {
+    let statusCode: Int?
+    let payload: [String: Any]?
+    let errorMessage: String?
+}
+
 @MainActor
 final class BrowserController {
     weak var webView: WKWebView?
@@ -34,6 +40,47 @@ final class BrowserController {
 
     func goForward() {
         webView?.goForward()
+    }
+
+    func fetchJSONUsingPageSession(path: String) async -> BrowserProbeResult? {
+        guard let webView else { return nil }
+
+        do {
+            let result = try await webView.callAsyncJavaScript(
+                """
+                const path = arguments.path;
+                const response = await fetch(path, {
+                  credentials: "include",
+                  headers: { "Accept": "application/json" }
+                });
+
+                let payload = null;
+                try {
+                  payload = await response.json();
+                } catch {}
+
+                return {
+                  statusCode: response.status,
+                  payload
+                };
+                """,
+                arguments: ["path": path],
+                in: nil,
+                contentWorld: .page
+            )
+
+            guard let dictionary = result as? [String: Any] else {
+                return BrowserProbeResult(statusCode: nil, payload: nil, errorMessage: "Page session returned an unexpected payload.")
+            }
+
+            return BrowserProbeResult(
+                statusCode: dictionary["statusCode"] as? Int,
+                payload: dictionary["payload"] as? [String: Any],
+                errorMessage: nil
+            )
+        } catch {
+            return BrowserProbeResult(statusCode: nil, payload: nil, errorMessage: error.localizedDescription)
+        }
     }
 }
 

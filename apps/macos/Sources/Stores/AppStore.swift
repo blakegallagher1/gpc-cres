@@ -104,7 +104,10 @@ final class AppStore {
 
     func runConnectivityCheck() async {
         connectivity.state = .checking
-        let snapshot = await ConnectivityProbe(configuration: endpointConfiguration).run()
+        let snapshot = await ConnectivityProbe(
+            configuration: endpointConfiguration,
+            browserController: browserController
+        ).run()
         connectivity = snapshot
 
         if snapshot.state == .healthy {

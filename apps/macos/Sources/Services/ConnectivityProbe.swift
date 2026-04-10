@@ -3,10 +3,12 @@ import WebKit
 
 struct ConnectivityProbe {
     let configuration: EndpointConfiguration
+    let browserController: BrowserController?
     private let session: URLSession
 
-    init(configuration: EndpointConfiguration, session: URLSession = .shared) {
+    init(configuration: EndpointConfiguration, browserController: BrowserController? = nil, session: URLSession = .shared) {
         self.configuration = configuration
+        self.browserController = browserController
         self.session = session
     }
 
@@ -28,8 +30,20 @@ struct ConnectivityProbe {
     }
 
     private func fetch(path: String, authorize: Bool, sessionContext: SessionContext? = nil) async -> ProbeResult {
+        if authorize,
+           let browserController,
+           let pageResult = await browserController.fetchJSONUsingPageSession(path: path) {
+            return ProbeResult(
+                path: path,
+                statusCode: pageResult.statusCode,
+                payload: pageResult.payload,
+                errorMessage: pageResult.errorMessage,
+                usedPageSession: true
+            )
+        }
+
         guard let url = URL(string: configuration.baseURL + path) else {
-            return ProbeResult(path: path, statusCode: nil, payload: nil, errorMessage: "Invalid URL")
+            return ProbeResult(path: path, statusCode: nil, payload: nil, errorMessage: "Invalid URL", usedPageSession: false)
         }
 
         var request = URLRequest(url: url)
@@ -51,9 +65,9 @@ struct ConnectivityProbe {
             let (data, response) = try await session.data(for: request)
             let statusCode = (response as? HTTPURLResponse)?.statusCode
             let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-            return ProbeResult(path: path, statusCode: statusCode, payload: payload, errorMessage: nil)
+            return ProbeResult(path: path, statusCode: statusCode, payload: payload, errorMessage: nil, usedPageSession: false)
         } catch {
-            return ProbeResult(path: path, statusCode: nil, payload: nil, errorMessage: error.localizedDescription)
+            return ProbeResult(path: path, statusCode: nil, payload: nil, errorMessage: error.localizedDescription, usedPageSession: false)
         }
     }
 
@@ -91,8 +105,12 @@ struct ConnectivityProbe {
                 return "API health rejected the configured bearer token."
             }
 
+            if result.usedPageSession {
+                return "Desktop page session still returned 401 for /api/health."
+            }
+
             if sessionContext?.hasCookies == true {
-                return "Signed-in session present, but /api/auth/token or health auth still returned 401."
+                return "Cookies were present, but token-based fallback auth still returned 401."
             }
 
             return "API health requires sign-in in the desktop app or a bearer token in Settings."
@@ -125,6 +143,10 @@ struct ConnectivityProbe {
     }
 
     private func resolveSessionContext() async -> SessionContext {
+        if browserController != nil {
+            return SessionContext(cookieHeader: nil, authToken: nil, hasCookies: false)
+        }
+
         let cookies = await loadCookies()
         let cookieHeader = cookies.isEmpty ? nil : HTTPCookie.requestHeaderFields(with: cookies)["Cookie"]
 
@@ -179,6 +201,7 @@ private struct ProbeResult {
     let statusCode: Int?
     let payload: [String: Any]?
     let errorMessage: String?
+    let usedPageSession: Bool
 
     var isSuccess: Bool {
         guard let statusCode else { return false }
