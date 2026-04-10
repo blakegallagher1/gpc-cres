@@ -80,6 +80,7 @@ final class AppStore {
     }
 
     func updateBrowserState(_ state: BrowserNavigationState) {
+        let previousURL = currentURLString
         currentURLString = state.urlString
         currentPageTitle = state.title
         canGoBack = state.canGoBack
@@ -89,6 +90,10 @@ final class AppStore {
 
         if let path = URL(string: state.urlString)?.path, path.isEmpty == false {
             customPath = path
+        }
+
+        if state.isLoading == false, state.urlString.isEmpty == false, state.urlString != previousURL {
+            Task { await runConnectivityCheck() }
         }
     }
 
