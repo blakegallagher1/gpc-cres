@@ -117,6 +117,30 @@ struct EndpointConfiguration: Equatable {
     )
 }
 
+enum ConnectivityState: String {
+    case unknown
+    case checking
+    case healthy
+    case degraded
+    case failed
+}
+
+struct ConnectivitySnapshot: Equatable {
+    var state: ConnectivityState
+    var siteSummary: String
+    var apiSummary: String
+    var databaseSummary: String
+    var checkedAtLabel: String
+
+    static let initial = ConnectivitySnapshot(
+        state: .unknown,
+        siteSummary: "No connectivity probe has run yet.",
+        apiSummary: "API health not checked.",
+        databaseSummary: "Database status unavailable.",
+        checkedAtLabel: "Never"
+    )
+}
+
 struct OperatorMetric: Identifiable, Hashable {
     let id: String
     let label: String

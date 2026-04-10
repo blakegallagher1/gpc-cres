@@ -29,6 +29,12 @@ struct ContentView: View {
                     .padding()
             }
         }
+        .overlay(alignment: .bottomTrailing) {
+            if store.connectivity.state == .checking || store.connectivity.state == .degraded || store.connectivity.state == .failed {
+                ConnectivityBadge(snapshot: store.connectivity)
+                    .padding()
+            }
+        }
         .overlay(alignment: .topTrailing) {
             if store.isLoadingPage {
                 ProgressView()
@@ -68,6 +74,10 @@ struct DesktopCommands: Commands {
                 store.openCustomPath()
             }
             .keyboardShortcut("l", modifiers: [.command, .shift])
+
+            Button("Check Live Connectivity") {
+                Task { await store.runConnectivityCheck() }
+            }
         }
 
         CommandMenu("Navigate") {
@@ -76,6 +86,38 @@ struct DesktopCommands: Commands {
                     store.select(route: route)
                 }
             }
+        }
+    }
+}
+
+private struct ConnectivityBadge: View {
+    let snapshot: ConnectivitySnapshot
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+            Text(snapshot.apiSummary)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+            Text(snapshot.databaseSummary)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+        }
+        .padding(12)
+        .frame(width: 260, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var title: String {
+        switch snapshot.state {
+        case .checking: "Checking live connectivity..."
+        case .healthy: "Live stack healthy"
+        case .degraded: "Live stack degraded"
+        case .failed: "Live stack unreachable"
+        case .unknown: "Connectivity unknown"
         }
     }
 }

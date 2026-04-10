@@ -13,6 +13,7 @@ final class AppStore {
     var canGoForward = false
     var isLoadingPage = false
     var lastErrorMessage = ""
+    var connectivity = ConnectivitySnapshot.initial
 
     @ObservationIgnored let browserController = BrowserController()
     @ObservationIgnored private let defaults = UserDefaults.standard
@@ -39,6 +40,7 @@ final class AppStore {
         defaults.set(endpointConfiguration.bearerToken, forKey: Keys.bearerToken)
         DesktopLogger.settings.info("Saved web configuration for \(self.endpointConfiguration.baseURL, privacy: .public)")
         open(path: endpointConfiguration.startPath)
+        Task { await runConnectivityCheck() }
     }
 
     func select(route: DesktopRoute) {
@@ -51,6 +53,7 @@ final class AppStore {
     func loadInitialRouteIfNeeded() {
         guard currentURLString.isEmpty else { return }
         open(path: endpointConfiguration.startPath)
+        Task { await runConnectivityCheck() }
     }
 
     func reloadCurrentPage() {
@@ -92,6 +95,20 @@ final class AppStore {
     func registerNavigationError(_ message: String) {
         lastErrorMessage = message
         DesktopLogger.refresh.error("Navigation error: \(message, privacy: .public)")
+    }
+
+    func runConnectivityCheck() async {
+        connectivity.state = .checking
+        let snapshot = await ConnectivityProbe(configuration: endpointConfiguration).run()
+        connectivity = snapshot
+
+        if snapshot.state == .healthy {
+            DesktopLogger.refresh.info("Connectivity probe healthy at \(snapshot.checkedAtLabel, privacy: .public)")
+        } else {
+            DesktopLogger.refresh.error(
+                "Connectivity probe \(snapshot.state.rawValue, privacy: .public): \(snapshot.apiSummary, privacy: .public) / \(snapshot.databaseSummary, privacy: .public)"
+            )
+        }
     }
 
     var allowedHost: String? {
