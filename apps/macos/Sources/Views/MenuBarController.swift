@@ -93,7 +93,8 @@ private struct MenuBarRouteRow: View {
 
 // MARK: - Menu Bar Controller
 
-final class MenuBarController {
+@MainActor
+final class MenuBarController: NSObject {
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
     private weak var store: AppStore?
@@ -129,12 +130,12 @@ final class MenuBarController {
         case .healthy:
             button.image = NSImage(systemSymbolName: "building.2", accessibilityDescription: "Entitlement OS — healthy")
         case .authRequired:
-            button.image = NSImage(systemSymbolName: "building.2.crop.circle", accessibilityDescription: "Entitlement OS — auth required")
+            button.image = NSImage(systemSymbolName: "building.2.crop.circle.badge.exclamationmark", accessibilityDescription: "Entitlement OS — auth required")
         case .degraded:
-            button.image = NSImage(systemSymbolName: "building.2", accessibilityDescription: "Entitlement OS — degraded")
+            button.image = NSImage(systemSymbolName: "building.2.crop.circle", accessibilityDescription: "Entitlement OS — degraded")
         case .failed:
-            button.image = NSImage(systemSymbolName: "building.2", accessibilityDescription: "Entitlement OS — unreachable")
-        case .checking, .unknown:
+            button.image = NSImage(systemSymbolName: "network.slash", accessibilityDescription: "Entitlement OS — unreachable")
+        default:
             button.image = NSImage(systemSymbolName: "building.2", accessibilityDescription: "Entitlement OS")
         }
     }

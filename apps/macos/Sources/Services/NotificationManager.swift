@@ -7,8 +7,11 @@ final class NotificationManager {
     private init() {}
 
     func requestAuthorization() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-            if let error {
+        Task {
+            do {
+                try await UNUserNotificationCenter.current()
+                    .requestAuthorization(options: [.alert, .sound, .badge])
+            } catch {
                 print("[NotificationManager] Authorization error: \(error.localizedDescription)")
             }
         }

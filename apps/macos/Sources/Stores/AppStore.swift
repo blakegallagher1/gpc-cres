@@ -36,6 +36,7 @@ final class AppStore {
 
     @ObservationIgnored let browserController = BrowserController()
     @ObservationIgnored private let defaults = UserDefaults.standard
+    @ObservationIgnored private var notifiedRunIDs: Set<String> = []
 
     init() {
         let storedBaseURL = defaults.string(forKey: Keys.baseURL)
@@ -210,6 +211,8 @@ final class AppStore {
             lastNativeRefreshLabel = Self.refreshLabelFormatter.string(from: .now)
             updateDockBadge()
             for run in runRecords where run.status.lowercased() == "completed" || run.status.lowercased() == "failed" {
+                guard notifiedRunIDs.contains(run.id) == false else { continue }
+                notifiedRunIDs.insert(run.id)
                 NotificationManager.shared.fireRunCompleted(title: run.title, status: run.status)
             }
             if lastErrorMessage.hasPrefix("Desktop data refresh failed") {
@@ -228,13 +231,10 @@ final class AppStore {
     }
 
     func updateDockBadge() {
-        let activeRuns = runRecords.filter {
+        let count = runRecords.filter {
             $0.status.lowercased() == "running" || $0.status.lowercased() == "active"
         }.count
-        let count = activeRuns
-        DispatchQueue.main.async {
-            NSApp.dockTile.badgeLabel = count > 0 ? "\(count)" : nil
-        }
+        NSApp.dockTile.badgeLabel = count > 0 ? "\(count)" : nil
     }
 
     var allowedHost: String? {
