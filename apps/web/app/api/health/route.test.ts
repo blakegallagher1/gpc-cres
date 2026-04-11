@@ -38,6 +38,10 @@ describe("GET /api/health", () => {
     getHealthStatusSnapshotMock.mockResolvedValue({
       status: "ok",
       missing: [],
+      appDb: {
+        ok: true,
+        latencyMs: 12,
+      },
       propertyDb: {
         configured: true,
         reachable: true,
@@ -45,6 +49,11 @@ describe("GET /api/health", () => {
         gatewayConfigured: true,
         directUrlConfigured: false,
         monitorAuthConfigured: true,
+      },
+      controlPlane: {
+        propertyGateway: { configured: true, reachable: true, latencyMs: 25 },
+        adminApi: { configured: true, reachable: true, latencyMs: 26 },
+        cuaWorker: { configured: true, reachable: true, latencyMs: 27 },
       },
       build: {
         sha: null,
@@ -76,6 +85,10 @@ describe("GET /api/health", () => {
     expect(await res.json()).toEqual({
       status: "ok",
       missing: [],
+      appDb: {
+        ok: true,
+        latencyMs: 12,
+      },
       propertyDb: {
         configured: true,
         reachable: true,
@@ -83,6 +96,11 @@ describe("GET /api/health", () => {
         gatewayConfigured: true,
         directUrlConfigured: false,
         monitorAuthConfigured: true,
+      },
+      controlPlane: {
+        propertyGateway: { configured: true, reachable: true, latencyMs: 25 },
+        adminApi: { configured: true, reachable: true, latencyMs: 26 },
+        cuaWorker: { configured: true, reachable: true, latencyMs: 27 },
       },
       build: {
         sha: null,
@@ -104,6 +122,10 @@ describe("GET /api/health", () => {
     getHealthStatusSnapshotMock.mockResolvedValue({
       status: "degraded",
       missing: ["LOCAL_API_URL"],
+      appDb: {
+        ok: true,
+        latencyMs: 18,
+      },
       propertyDb: {
         configured: false,
         reachable: null,
@@ -111,6 +133,11 @@ describe("GET /api/health", () => {
         gatewayConfigured: false,
         directUrlConfigured: false,
         monitorAuthConfigured: true,
+      },
+      controlPlane: {
+        propertyGateway: { configured: false, reachable: null },
+        adminApi: { configured: false, reachable: null },
+        cuaWorker: { configured: false, reachable: null },
       },
       build: {
         sha: null,
@@ -128,6 +155,10 @@ describe("GET /api/health", () => {
     expect(await res.json()).toEqual({
       status: "degraded",
       missing: ["LOCAL_API_URL"],
+      appDb: {
+        ok: true,
+        latencyMs: 18,
+      },
       propertyDb: {
         configured: false,
         reachable: null,
@@ -135,6 +166,11 @@ describe("GET /api/health", () => {
         gatewayConfigured: false,
         directUrlConfigured: false,
         monitorAuthConfigured: true,
+      },
+      controlPlane: {
+        propertyGateway: { configured: false, reachable: null },
+        adminApi: { configured: false, reachable: null },
+        cuaWorker: { configured: false, reachable: null },
       },
       build: {
         sha: null,

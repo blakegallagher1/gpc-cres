@@ -65,6 +65,20 @@ describe("GET /api/health/detailed", () => {
       gatewayConfigured: true,
       directUrlConfigured: false,
     });
+    expect(payload.controlPlane).toMatchObject({
+      propertyGateway: {
+        configured: true,
+        reachable: expect.any(Boolean),
+      },
+      adminApi: {
+        configured: true,
+        reachable: expect.any(Boolean),
+      },
+      cuaWorker: {
+        configured: false,
+        reachable: null,
+      },
+    });
     expect(payload.migrationVersion).toBe("20240202020202_init");
     expect(payload.timestamp).toBe(new Date(payload.timestamp).toISOString());
     expect(payload.uptimeSeconds).toBeTypeOf("number");

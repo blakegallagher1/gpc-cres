@@ -23,8 +23,8 @@ psql postgresql://postgres:YOUR_DB_PASSWORD@localhost:54323/entitlement_os -f in
 ```
 =================================================================
 SETUP COMPLETE!
-Total parcels: XXXXX
-Parcels with geometry: XXXXX
+Total parcels: [actual imported parcel count]
+Parcels with geometry: [actual imported geometry count]
 =================================================================
 ```
 

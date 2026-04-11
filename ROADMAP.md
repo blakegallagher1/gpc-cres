@@ -42,6 +42,14 @@ Only items meeting all checks are added below as `Planned`.
 
 ## Active Roadmap (Prioritized)
 
+### INFRA-CP-001 — Control Plane Extraction (P0)
+
+- **Priority:** P0
+- **Status:** Deferred
+- **Scope:** Linux control-plane extraction while property data and KB remain on Windows.
+- **Deferred reason:** User explicitly chose to keep the deployment Windows-based for now and back out the Hetzner bootstrap. The staged Linux work was removed before cutover.
+- **Revisit trigger:** Only reopen if the user decides to move the public control plane off Windows again.
+
 ### OPS-RISK-001 — Production Gap Registry And Runbook Closure (P0)
 
 - **Priority:** P0

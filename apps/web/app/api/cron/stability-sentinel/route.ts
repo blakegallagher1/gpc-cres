@@ -1,7 +1,3 @@
-// TODO: The sentinel currently checks chat/map/workflow but does NOT probe the
-// /db endpoint. Add a fourth surface check that hits the gateway /db endpoint —
-// /health returning OK is not sufficient (it was healthy while /db was dead
-// during the 2026-03-31 Docker crash).
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import crypto from "node:crypto";

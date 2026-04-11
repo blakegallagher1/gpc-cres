@@ -11,6 +11,12 @@ export type DbStatus = {
   latencyMs?: number;
 };
 
+export type DependencyStatus = {
+  configured: boolean;
+  reachable: boolean | null;
+  latencyMs?: number;
+};
+
 function getDbMode(
   gatewayConfigured: boolean,
   directUrlConfigured: boolean,
@@ -35,6 +41,26 @@ async function getDbStatus(): Promise<DbStatus> {
   }
 }
 
+async function probeJsonHealth(url: string, headers: Record<string, string>): Promise<DependencyStatus> {
+  const startedAt = Date.now();
+  try {
+    const response = await fetch(url, {
+      headers,
+      signal: AbortSignal.timeout(5000),
+    });
+    return {
+      configured: true,
+      reachable: response.ok,
+      latencyMs: Date.now() - startedAt,
+    };
+  } catch {
+    return {
+      configured: true,
+      reachable: false,
+    };
+  }
+}
+
 async function getMigrationVersion(): Promise<string | null> {
   try {
     const rows = await prisma.$queryRawUnsafe<Array<{ migration_name: string | null }>>(
@@ -56,6 +82,7 @@ export async function getHealthStatusSnapshot(options: {
 }): Promise<{
   status: "ok" | "degraded" | "down";
   missing: string[];
+  appDb: DbStatus;
   propertyDb: {
     configured: boolean;
     reachable: boolean | null;
@@ -63,6 +90,11 @@ export async function getHealthStatusSnapshot(options: {
     gatewayConfigured: boolean;
     directUrlConfigured: boolean;
     monitorAuthConfigured: boolean;
+  };
+  controlPlane: {
+    propertyGateway: DependencyStatus;
+    adminApi: DependencyStatus;
+    cuaWorker: DependencyStatus;
   };
   build: {
     sha: string | null;
@@ -90,42 +122,55 @@ export async function getHealthStatusSnapshot(options: {
     missing.push("LOCAL_API_KEY");
   }
 
+  const appDb = await getDbStatus();
+
   let propertyDbReachable: boolean | null = null;
+  let propertyGateway: DependencyStatus = {
+    configured: gatewayConfigured,
+    reachable: null,
+  };
+  let adminApi: DependencyStatus = {
+    configured: gatewayConfigured,
+    reachable: null,
+  };
   if (propertyDbConfig) {
-    try {
-      const adminKey = process.env.ADMIN_API_KEY?.trim();
-      const headers = {
-        Authorization: `Bearer ${adminKey ?? propertyDbConfig.key}`,
-        ...getCloudflareAccessHeadersFromEnv(),
-      };
-      const response = await fetch(`${propertyDbConfig.url}/health`, {
-        headers,
-        signal: AbortSignal.timeout(5000),
-      });
-      if (response.ok) {
-        propertyDbReachable = true;
-      } else {
-        const legacyResponse = await fetch(`${propertyDbConfig.url}/admin/health`, {
-          headers,
-          signal: AbortSignal.timeout(5000),
-        });
-        propertyDbReachable = legacyResponse.ok;
-      }
-    } catch {
-      propertyDbReachable = false;
-    }
+    const adminKey = process.env.ADMIN_API_KEY?.trim();
+    const propertyHeaders = {
+      Authorization: `Bearer ${propertyDbConfig.key}`,
+      ...getCloudflareAccessHeadersFromEnv(),
+    };
+    const adminHeaders = adminKey
+      ? {
+          Authorization: `Bearer ${adminKey}`,
+          ...getCloudflareAccessHeadersFromEnv(),
+        }
+      : propertyHeaders;
+
+    propertyGateway = await probeJsonHealth(`${propertyDbConfig.url}/health`, propertyHeaders);
+    adminApi = await probeJsonHealth(`${propertyDbConfig.url}/admin/health`, adminHeaders);
+    propertyDbReachable = propertyGateway.reachable;
   }
 
+  const cuaWorkerUrl = process.env.CUA_WORKER_URL?.trim();
+  const cuaWorker = cuaWorkerUrl
+    ? await probeJsonHealth(`${cuaWorkerUrl.replace(/\/$/, "")}/cua/health`, {})
+    : { configured: false, reachable: null };
+
   const status =
-    propertyDbReachable === false || !gatewayConfigured || missing.includes("OPENAI_API_KEY")
+    !appDb.ok ||
+    propertyDbReachable === false ||
+    adminApi.reachable === false ||
+    !gatewayConfigured ||
+    missing.includes("OPENAI_API_KEY")
       ? "down"
-      : missing.length > 0 || !monitorAuthConfigured
+      : missing.length > 0 || !monitorAuthConfigured || cuaWorker.reachable === false
         ? "degraded"
         : "ok";
 
   return {
     status,
     missing,
+    appDb,
     propertyDb: {
       configured: gatewayConfigured,
       reachable: propertyDbReachable,
@@ -133,6 +178,11 @@ export async function getHealthStatusSnapshot(options: {
       gatewayConfigured,
       directUrlConfigured,
       monitorAuthConfigured,
+    },
+    controlPlane: {
+      propertyGateway,
+      adminApi,
+      cuaWorker,
     },
     build: {
       sha: process.env.VERCEL_GIT_COMMIT_SHA || null,
@@ -150,14 +200,43 @@ export async function getDetailedHealthStatus(): Promise<{
     gatewayConfigured: boolean;
     directUrlConfigured: boolean;
   };
+  controlPlane: {
+    propertyGateway: DependencyStatus;
+    adminApi: DependencyStatus;
+    cuaWorker: DependencyStatus;
+  };
   migrationVersion: string | null;
   timestamp: string;
   uptimeSeconds: number;
 }> {
   const dbStatus = await getDbStatus();
   const migrationVersion = dbStatus.ok ? await getMigrationVersion() : null;
-  const gatewayConfigured = Boolean(getPropertyDbConfigOrNull());
+  const propertyDbConfig = getPropertyDbConfigOrNull();
+  const gatewayConfigured = Boolean(propertyDbConfig);
   const directUrlConfigured = Boolean(process.env.DATABASE_URL?.trim());
+  const adminKey = process.env.ADMIN_API_KEY?.trim();
+  const propertyHeaders = propertyDbConfig
+    ? {
+        Authorization: `Bearer ${propertyDbConfig.key}`,
+        ...getCloudflareAccessHeadersFromEnv(),
+      }
+    : {};
+  const adminHeaders = propertyDbConfig
+    ? {
+        Authorization: `Bearer ${adminKey ?? propertyDbConfig.key}`,
+        ...getCloudflareAccessHeadersFromEnv(),
+      }
+    : {};
+  const propertyGateway = propertyDbConfig
+    ? await probeJsonHealth(`${propertyDbConfig.url}/health`, propertyHeaders)
+    : { configured: false, reachable: null };
+  const adminApi = propertyDbConfig
+    ? await probeJsonHealth(`${propertyDbConfig.url}/admin/health`, adminHeaders)
+    : { configured: false, reachable: null };
+  const cuaWorkerUrl = process.env.CUA_WORKER_URL?.trim();
+  const cuaWorker = cuaWorkerUrl
+    ? await probeJsonHealth(`${cuaWorkerUrl.replace(/\/$/, "")}/cua/health`, {})
+    : { configured: false, reachable: null };
 
   return {
     dbStatus,
@@ -165,6 +244,11 @@ export async function getDetailedHealthStatus(): Promise<{
       dbMode: getDbMode(gatewayConfigured, directUrlConfigured),
       gatewayConfigured,
       directUrlConfigured,
+    },
+    controlPlane: {
+      propertyGateway,
+      adminApi,
+      cuaWorker,
     },
     migrationVersion,
     timestamp: new Date().toISOString(),

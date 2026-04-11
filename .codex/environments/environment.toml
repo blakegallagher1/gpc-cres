@@ -53,3 +53,8 @@ command = "pnpm test"
 name = "Lint"
 icon = "check"
 command = "pnpm lint && pnpm typecheck"
+
+[[actions]]
+name = "Run"
+icon = "run"
+command = "./script/build_and_run.sh"

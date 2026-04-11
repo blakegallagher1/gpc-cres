@@ -37,6 +37,8 @@ describe("GET /api/cron/stability-sentinel", () => {
   const originalProbeRuns = process.env.SENTINEL_PROBE_RUNS;
   const originalWebhookUrl = process.env.SENTINEL_ALERT_WEBHOOK_URL;
   const originalBaseUrl = process.env.BASE_URL;
+  const originalLocalApiUrl = process.env.LOCAL_API_URL;
+  const originalLocalApiKey = process.env.LOCAL_API_KEY;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -45,6 +47,8 @@ describe("GET /api/cron/stability-sentinel", () => {
     process.env.CRON_SECRET = "cron-secret";
     process.env.SENTINEL_PROBE_RUNS = "1";
     process.env.BASE_URL = "https://gallagherpropco.com";
+    process.env.LOCAL_API_URL = "https://api.gallagherpropco.com";
+    process.env.LOCAL_API_KEY = "gateway-key";
     delete process.env.SENTINEL_ALERT_WEBHOOK_URL;
 
     automationEventCountMock.mockReset();
@@ -70,6 +74,8 @@ describe("GET /api/cron/stability-sentinel", () => {
     process.env.SENTINEL_PROBE_RUNS = originalProbeRuns;
     process.env.SENTINEL_ALERT_WEBHOOK_URL = originalWebhookUrl;
     process.env.BASE_URL = originalBaseUrl;
+    process.env.LOCAL_API_URL = originalLocalApiUrl;
+    process.env.LOCAL_API_KEY = originalLocalApiKey;
   });
 
   it("returns 401 when cron secret is invalid", async () => {
@@ -101,6 +107,17 @@ describe("GET /api/cron/stability-sentinel", () => {
     expect(body.probes.geometry).toHaveLength(1);
     expect(body.probes.db).toHaveLength(1);
     expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.gallagherpropco.com/db",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: "Bearer gateway-key",
+          "Content-Type": "application/json",
+        }),
+        body: JSON.stringify({ sql: "SELECT 1", args: [] }),
+      }),
+    );
     expect(automationEventCreateMock).not.toHaveBeenCalled();
     expect(sentryCaptureMessageMock).not.toHaveBeenCalled();
   });

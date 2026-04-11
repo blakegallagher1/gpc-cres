@@ -222,7 +222,7 @@
 - ✅ 4 skill bundles (screening, parish-pack, deal-enrichment, cua-playbook)
 - ✅ Skill definitions in `/skills/` with SKILL.md
 - ✅ Inline skill builder for dynamic playbooks
-- **TODO**: Upload to OpenAI Skills API; test with hosted shell; document integration
+- **Deferred:** Upload to OpenAI Skills API and hosted-shell integration remain deferred until they are promoted into `ROADMAP.md` as active work.
 
 **Timeline**: Q1 2026 ✅ → Q2 2026 (API upload & integration testing)
 
