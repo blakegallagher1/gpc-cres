@@ -34,6 +34,6 @@ The Codex desktop Run action is wired through:
 
 ## Notes
 
-- Default base URL is `http://localhost:3000`.
+- Default base URL is `https://gallagherpropco.com`.
 - Sign in through the in-app website session to access the same feature set as the browser.
 - Build artifacts are kept local under `apps/macos/.build` and `apps/macos/dist`.
