@@ -214,3 +214,113 @@ struct AutomationRecord: Hashable {
     let title: String
     let summary: String
 }
+
+// MARK: - Per-route snapshot types
+
+struct ChatSnapshot: Equatable {
+    var conversationCount: Int
+    var messagesToday: Int
+    var lastActiveAgent: String
+
+    static let placeholder = ChatSnapshot(
+        conversationCount: 0,
+        messagesToday: 0,
+        lastActiveAgent: "—"
+    )
+}
+
+struct CommandCenterSnapshot: Equatable {
+    var collisions: Int
+    var innovationQueueDepth: Int
+    var driftAlerts: Int
+    var briefingDate: String
+
+    static let placeholder = CommandCenterSnapshot(
+        collisions: 0,
+        innovationQueueDepth: 0,
+        driftAlerts: 0,
+        briefingDate: "—"
+    )
+}
+
+struct OpportunitiesSnapshot: Equatable {
+    var screenedCount: Int
+    var topParcelAddresses: [String]
+    var avgScore: String
+
+    static let placeholder = OpportunitiesSnapshot(
+        screenedCount: 0,
+        topParcelAddresses: [],
+        avgScore: "—"
+    )
+}
+
+struct MarketSnapshot: Equatable {
+    var briefingDate: String
+    var alertCount: Int
+    var monitoredCorridors: [String]
+
+    static let placeholder = MarketSnapshot(
+        briefingDate: "—",
+        alertCount: 0,
+        monitoredCorridors: []
+    )
+}
+
+struct PortfolioSnapshot: Equatable {
+    var propertyCount: Int
+    var totalValueLabel: String
+    var debtAlerts: Int
+
+    static let placeholder = PortfolioSnapshot(
+        propertyCount: 0,
+        totalValueLabel: "—",
+        debtAlerts: 0
+    )
+}
+
+struct WealthSnapshot: Equatable {
+    var netWorthLabel: String
+    var entityCount: Int
+    var taxAlerts: Int
+
+    static let placeholder = WealthSnapshot(
+        netWorthLabel: "—",
+        entityCount: 0,
+        taxAlerts: 0
+    )
+}
+
+struct AgentsSnapshot: Equatable {
+    var activeCount: Int
+    var errorCount: Int
+    var lastRunLabels: [String]
+
+    static let placeholder = AgentsSnapshot(
+        activeCount: 0,
+        errorCount: 0,
+        lastRunLabels: []
+    )
+}
+
+struct WorkflowsSnapshot: Equatable {
+    var activeCount: Int
+    var lastRunStatus: String
+
+    static let placeholder = WorkflowsSnapshot(
+        activeCount: 0,
+        lastRunStatus: "—"
+    )
+}
+
+struct AdminSnapshot: Equatable {
+    var dbStatus: String
+    var sentinelAlerts: Int
+    var containerHealth: String
+
+    static let placeholder = AdminSnapshot(
+        dbStatus: "—",
+        sentinelAlerts: 0,
+        containerHealth: "—"
+    )
+}
