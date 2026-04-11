@@ -171,7 +171,7 @@ struct MemoryPane: View {
     }
 }
 
-private struct MetricCard: View {
+struct MetricCard: View {
     let metric: OperatorMetric
 
     var body: some View {
@@ -193,7 +193,7 @@ private struct MetricCard: View {
     }
 }
 
-private struct SurfaceCard<Content: View>: View {
+struct SurfaceCard<Content: View>: View {
     let title: String
     let subtitle: String
     @ViewBuilder let content: Content
@@ -218,7 +218,7 @@ private struct SurfaceCard<Content: View>: View {
 }
 
 @ViewBuilder
-private func paneHeader(title: String, subtitle: String) -> some View {
+func paneHeader(title: String, subtitle: String) -> some View {
     VStack(alignment: .leading, spacing: 4) {
         Text(title)
             .font(.title2.weight(.semibold))
@@ -226,5 +226,227 @@ private func paneHeader(title: String, subtitle: String) -> some View {
         Text(subtitle)
             .font(.callout)
             .foregroundStyle(.secondary)
+    }
+}
+
+// MARK: - Per-route panes
+
+struct ChatPane: View {
+    let snapshot: ChatSnapshot
+    let lastRefreshLabel: String
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                paneHeader(title: "Chat", subtitle: "Last refresh \(lastRefreshLabel)")
+
+                LazyVGrid(columns: [GridItem(.flexible(minimum: 140)), GridItem(.flexible(minimum: 140))], spacing: 16) {
+                    MetricCard(metric: OperatorMetric(id: "convos", label: "Conversations", value: "\(snapshot.conversationCount)", detail: "Total loaded"))
+                    MetricCard(metric: OperatorMetric(id: "msgs", label: "Messages Today", value: "\(snapshot.messagesToday)", detail: "Updated this session"))
+                }
+
+                SurfaceCard(title: "Last Active Agent", subtitle: "Most recent conversation") {
+                    Text(snapshot.lastActiveAgent)
+                        .font(.headline)
+                }
+            }
+            .padding(24)
+        }
+    }
+}
+
+struct CommandCenterPane: View {
+    let snapshot: CommandCenterSnapshot
+    let lastRefreshLabel: String
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                paneHeader(title: "Command Center", subtitle: "Last refresh \(lastRefreshLabel)")
+
+                LazyVGrid(columns: [GridItem(.flexible(minimum: 140)), GridItem(.flexible(minimum: 140))], spacing: 16) {
+                    MetricCard(metric: OperatorMetric(id: "collisions", label: "Memory Collisions", value: "\(snapshot.collisions)", detail: "Entity conflicts"))
+                    MetricCard(metric: OperatorMetric(id: "queue", label: "Innovation Queue", value: "\(snapshot.innovationQueueDepth)", detail: "Pending items"))
+                    MetricCard(metric: OperatorMetric(id: "drift", label: "Drift Alerts", value: "\(snapshot.driftAlerts)", detail: "Active alerts"))
+                }
+
+                SurfaceCard(title: "Briefing Date", subtitle: "Last daily briefing generated") {
+                    Text(snapshot.briefingDate)
+                        .font(.headline)
+                }
+            }
+            .padding(24)
+        }
+    }
+}
+
+struct OpportunitiesPane: View {
+    let snapshot: OpportunitiesSnapshot
+    let lastRefreshLabel: String
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                paneHeader(title: "Opportunities", subtitle: "Last refresh \(lastRefreshLabel)")
+
+                LazyVGrid(columns: [GridItem(.flexible(minimum: 140)), GridItem(.flexible(minimum: 140))], spacing: 16) {
+                    MetricCard(metric: OperatorMetric(id: "screened", label: "Top Screened", value: "\(snapshot.screenedCount)", detail: "Returned from API"))
+                    MetricCard(metric: OperatorMetric(id: "avg", label: "Avg Score", value: snapshot.avgScore, detail: "Top results"))
+                }
+
+                if snapshot.topParcelAddresses.isEmpty == false {
+                    SurfaceCard(title: "Top Parcels", subtitle: "Highest scored") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(snapshot.topParcelAddresses, id: \.self) { address in
+                                Label(address, systemImage: "mappin")
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(24)
+        }
+    }
+}
+
+struct MarketPane: View {
+    let snapshot: MarketSnapshot
+    let lastRefreshLabel: String
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                paneHeader(title: "Market Intel", subtitle: "Last refresh \(lastRefreshLabel)")
+
+                LazyVGrid(columns: [GridItem(.flexible(minimum: 140)), GridItem(.flexible(minimum: 140))], spacing: 16) {
+                    MetricCard(metric: OperatorMetric(id: "alerts", label: "Alerts", value: "\(snapshot.alertCount)", detail: "Active market alerts"))
+                    MetricCard(metric: OperatorMetric(id: "corridors", label: "Corridors", value: "\(snapshot.monitoredCorridors.count)", detail: "Monitored"))
+                }
+
+                SurfaceCard(title: "Briefing Date", subtitle: "Last daily briefing") {
+                    Text(snapshot.briefingDate)
+                        .font(.headline)
+                }
+
+                if snapshot.monitoredCorridors.isEmpty == false {
+                    SurfaceCard(title: "Monitored Corridors", subtitle: "Active market coverage") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(snapshot.monitoredCorridors, id: \.self) { corridor in
+                                Label(corridor, systemImage: "chart.line.uptrend.xyaxis")
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(24)
+        }
+    }
+}
+
+struct PortfolioPane: View {
+    let snapshot: PortfolioSnapshot
+    let lastRefreshLabel: String
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                paneHeader(title: "Portfolio", subtitle: "Last refresh \(lastRefreshLabel)")
+
+                LazyVGrid(columns: [GridItem(.flexible(minimum: 140)), GridItem(.flexible(minimum: 140))], spacing: 16) {
+                    MetricCard(metric: OperatorMetric(id: "count", label: "Properties", value: "\(snapshot.propertyCount)", detail: "In portfolio"))
+                    MetricCard(metric: OperatorMetric(id: "value", label: "Total Value", value: snapshot.totalValueLabel, detail: "Portfolio estimate"))
+                    MetricCard(metric: OperatorMetric(id: "debt", label: "Debt Alerts", value: "\(snapshot.debtAlerts)", detail: "Maturing or at risk"))
+                }
+            }
+            .padding(24)
+        }
+    }
+}
+
+struct WealthPane: View {
+    let snapshot: WealthSnapshot
+    let lastRefreshLabel: String
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                paneHeader(title: "Wealth", subtitle: "Last refresh \(lastRefreshLabel)")
+
+                LazyVGrid(columns: [GridItem(.flexible(minimum: 140)), GridItem(.flexible(minimum: 140))], spacing: 16) {
+                    MetricCard(metric: OperatorMetric(id: "networth", label: "Net Worth", value: snapshot.netWorthLabel, detail: "Snapshot"))
+                    MetricCard(metric: OperatorMetric(id: "entities", label: "Entities", value: "\(snapshot.entityCount)", detail: "Active entities"))
+                    MetricCard(metric: OperatorMetric(id: "tax", label: "Tax Alerts", value: "\(snapshot.taxAlerts)", detail: "Require attention"))
+                }
+            }
+            .padding(24)
+        }
+    }
+}
+
+struct AgentsPane: View {
+    let snapshot: AgentsSnapshot
+    let lastRefreshLabel: String
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                paneHeader(title: "Agents", subtitle: "Last refresh \(lastRefreshLabel)")
+
+                LazyVGrid(columns: [GridItem(.flexible(minimum: 140)), GridItem(.flexible(minimum: 140))], spacing: 16) {
+                    MetricCard(metric: OperatorMetric(id: "active", label: "Active", value: "\(snapshot.activeCount)", detail: "Running now"))
+                    MetricCard(metric: OperatorMetric(id: "errors", label: "Errors", value: "\(snapshot.errorCount)", detail: "Failed runs"))
+                }
+
+                if snapshot.lastRunLabels.isEmpty == false {
+                    SurfaceCard(title: "Recent Runs", subtitle: "Last 3") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(snapshot.lastRunLabels, id: \.self) { label in
+                                Label(label, systemImage: "bolt.horizontal.circle")
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(24)
+        }
+    }
+}
+
+struct WorkflowsPane: View {
+    let snapshot: WorkflowsSnapshot
+    let lastRefreshLabel: String
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                paneHeader(title: "Workflows", subtitle: "Last refresh \(lastRefreshLabel)")
+
+                LazyVGrid(columns: [GridItem(.flexible(minimum: 140)), GridItem(.flexible(minimum: 140))], spacing: 16) {
+                    MetricCard(metric: OperatorMetric(id: "active", label: "Active", value: "\(snapshot.activeCount)", detail: "Running workflows"))
+                    MetricCard(metric: OperatorMetric(id: "last", label: "Last Status", value: snapshot.lastRunStatus, detail: "Most recent run"))
+                }
+            }
+            .padding(24)
+        }
+    }
+}
+
+struct AdminPane: View {
+    let snapshot: AdminSnapshot
+    let lastRefreshLabel: String
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                paneHeader(title: "Admin", subtitle: "Last refresh \(lastRefreshLabel)")
+
+                LazyVGrid(columns: [GridItem(.flexible(minimum: 140)), GridItem(.flexible(minimum: 140))], spacing: 16) {
+                    MetricCard(metric: OperatorMetric(id: "db", label: "Database", value: snapshot.dbStatus, detail: "Live health check"))
+                    MetricCard(metric: OperatorMetric(id: "sentinel", label: "Sentinel Alerts", value: "\(snapshot.sentinelAlerts)", detail: "Active alerts"))
+                    MetricCard(metric: OperatorMetric(id: "containers", label: "Containers", value: snapshot.containerHealth, detail: "Docker health"))
+                }
+            }
+            .padding(24)
+        }
     }
 }
