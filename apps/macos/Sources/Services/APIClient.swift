@@ -81,9 +81,10 @@ struct APIClient {
         let payload = try await requestJSON(path: "/api/chat/conversations?limit=50")
         let items = APIParsers.extractPublicItems(from: payload)
         let today = Calendar.current.startOfDay(for: Date())
+        let formatter = ISO8601DateFormatter()
         let messagesToday = items.filter { item in
             guard let updatedAt = APIParsers.publicString(in: item, keys: ["updatedAt", "lastMessageAt", "createdAt"]),
-                  let date = ISO8601DateFormatter().date(from: updatedAt) else { return false }
+                  let date = formatter.date(from: updatedAt) else { return false }
             return date >= today
         }.count
         let lastAgent = APIParsers.publicString(in: items.first ?? [:], keys: ["agentName", "agent", "title"]) ?? "—"
@@ -137,7 +138,7 @@ struct APIClient {
     }
 
     func fetchAgentsSnapshot() async throws -> AgentsSnapshot {
-        let payload = try await requestJSON(path: "/api/runs/dashboard")
+        let payload = (try? await requestJSON(path: "/api/runs/dashboard")) ?? []
         let items = APIParsers.extractPublicItems(from: payload)
         let active = items.filter { ($0["status"] as? String)?.lowercased() == "running" }.count
         let errors = items.filter {
