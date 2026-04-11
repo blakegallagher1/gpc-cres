@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Observation
 
@@ -201,6 +202,7 @@ final class AppStore {
             }
 
             lastNativeRefreshLabel = Self.refreshLabelFormatter.string(from: .now)
+            updateDockBadge()
             if lastErrorMessage.hasPrefix("Desktop data refresh failed") {
                 lastErrorMessage = ""
             }
@@ -213,6 +215,17 @@ final class AppStore {
     func toggleInspector() {
         inspectorCollapsed.toggle()
         defaults.set(inspectorCollapsed, forKey: Keys.inspectorCollapsed)
+        updateDockBadge()
+    }
+
+    func updateDockBadge() {
+        let activeRuns = runRecords.filter {
+            $0.status.lowercased() == "running" || $0.status.lowercased() == "active"
+        }.count
+        let count = activeRuns
+        DispatchQueue.main.async {
+            NSApp.dockTile.badgeLabel = count > 0 ? "\(count)" : nil
+        }
     }
 
     var allowedHost: String? {
