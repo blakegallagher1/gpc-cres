@@ -77,6 +77,104 @@ struct APIClient {
         return APIParsers.automationRecords(from: payload)
     }
 
+    func fetchChatSnapshot() async throws -> ChatSnapshot {
+        let payload = try await requestJSON(path: "/api/chat/conversations?limit=50")
+        let items = APIParsers.extractPublicItems(from: payload)
+        let today = Calendar.current.startOfDay(for: Date())
+        let messagesToday = items.filter { item in
+            guard let updatedAt = APIParsers.publicString(in: item, keys: ["updatedAt", "lastMessageAt", "createdAt"]),
+                  let date = ISO8601DateFormatter().date(from: updatedAt) else { return false }
+            return date >= today
+        }.count
+        let lastAgent = APIParsers.publicString(in: items.first ?? [:], keys: ["agentName", "agent", "title"]) ?? "—"
+        return ChatSnapshot(conversationCount: items.count, messagesToday: messagesToday, lastActiveAgent: lastAgent)
+    }
+
+    func fetchCommandCenterSnapshot() async throws -> CommandCenterSnapshot {
+        let briefing = (try? await requestJSON(path: "/api/intelligence/daily-briefing")) ?? [:]
+        let stats = (try? await requestJSON(path: "/api/memory/stats")) ?? [:]
+        let briefingDate = APIParsers.publicString(in: briefing as? [String: Any] ?? [:], keys: ["date", "generatedAt"]) ?? "—"
+        let alerts = (briefing as? [String: Any]).flatMap { $0["alerts"] as? [[String: Any]] }?.count ?? 0
+        let collisions = (stats as? [String: Any]).flatMap { $0["collisions"] as? Int } ?? 0
+        let queueDepth = (stats as? [String: Any]).flatMap { $0["innovationQueue"] as? Int } ?? 0
+        return CommandCenterSnapshot(collisions: collisions, innovationQueueDepth: queueDepth, driftAlerts: alerts, briefingDate: briefingDate)
+    }
+
+    func fetchOpportunitiesSnapshot() async throws -> OpportunitiesSnapshot {
+        let payload = try await requestJSON(path: "/api/parcels?limit=5&sort=score&order=desc")
+        let items = APIParsers.extractPublicItems(from: payload)
+        let addresses = items.compactMap { APIParsers.publicString(in: $0, keys: ["address", "siteAddress", "parcelAddress"]) }
+        let scores = items.compactMap { ($0["score"] as? Double) ?? ($0["triageScore"] as? Double) }
+        let avg = scores.isEmpty ? "—" : String(format: "%.1f", scores.reduce(0, +) / Double(scores.count))
+        return OpportunitiesSnapshot(screenedCount: items.count, topParcelAddresses: Array(addresses.prefix(3)), avgScore: avg)
+    }
+
+    func fetchMarketSnapshot() async throws -> MarketSnapshot {
+        let briefing = (try? await requestJSON(path: "/api/intelligence/daily-briefing")) ?? [:]
+        let dict = briefing as? [String: Any] ?? [:]
+        let date = APIParsers.publicString(in: dict, keys: ["date", "generatedAt"]) ?? "—"
+        let alerts = (dict["alerts"] as? [[String: Any]])?.count ?? 0
+        let corridors = (dict["corridors"] as? [String]) ?? (dict["areas"] as? [String]) ?? []
+        return MarketSnapshot(briefingDate: date, alertCount: alerts, monitoredCorridors: Array(corridors.prefix(5)))
+    }
+
+    func fetchPortfolioSnapshot() async throws -> PortfolioSnapshot {
+        let payload = (try? await requestJSON(path: "/api/portfolio/analytics")) ?? [:]
+        let dict = payload as? [String: Any] ?? [:]
+        let count = dict["propertyCount"] as? Int ?? (dict["total"] as? Int) ?? 0
+        let value = APIParsers.publicString(in: dict, keys: ["totalValue", "totalValueFormatted", "portfolioValue"]) ?? "—"
+        let alerts = dict["debtAlerts"] as? Int ?? (dict["alerts"] as? Int) ?? 0
+        return PortfolioSnapshot(propertyCount: count, totalValueLabel: value, debtAlerts: alerts)
+    }
+
+    func fetchWealthSnapshot() async throws -> WealthSnapshot {
+        let payload = (try? await requestJSON(path: "/api/wealth")) ?? [:]
+        let dict = payload as? [String: Any] ?? [:]
+        let netWorth = APIParsers.publicString(in: dict, keys: ["netWorth", "netWorthFormatted", "totalNetWorth"]) ?? "—"
+        let entities = dict["entityCount"] as? Int ?? (dict["entities"] as? [[String: Any]])?.count ?? 0
+        let taxAlerts = dict["taxAlerts"] as? Int ?? 0
+        return WealthSnapshot(netWorthLabel: netWorth, entityCount: entities, taxAlerts: taxAlerts)
+    }
+
+    func fetchAgentsSnapshot() async throws -> AgentsSnapshot {
+        let payload = try await requestJSON(path: "/api/runs/dashboard")
+        let items = APIParsers.extractPublicItems(from: payload)
+        let active = items.filter { ($0["status"] as? String)?.lowercased() == "running" }.count
+        let errors = items.filter {
+            let s = ($0["status"] as? String)?.lowercased() ?? ""
+            return s == "failed" || s == "error"
+        }.count
+        let labels = items.prefix(3).compactMap { item -> String? in
+            guard let title = APIParsers.publicString(in: item, keys: ["title", "agent", "name"]),
+                  let status = APIParsers.publicString(in: item, keys: ["status"]) else { return nil }
+            return "\(title): \(status)"
+        }
+        return AgentsSnapshot(activeCount: active, errorCount: errors, lastRunLabels: labels)
+    }
+
+    func fetchWorkflowsSnapshot() async throws -> WorkflowsSnapshot {
+        let payload = (try? await requestJSON(path: "/api/workflows?limit=10")) ?? []
+        let items = APIParsers.extractPublicItems(from: payload)
+        let active = items.filter {
+            let s = ($0["status"] as? String)?.lowercased() ?? ""
+            return s == "running" || s == "active"
+        }.count
+        let lastStatus = APIParsers.publicString(in: items.first ?? [:], keys: ["status", "state"]) ?? "—"
+        return WorkflowsSnapshot(activeCount: active, lastRunStatus: lastStatus)
+    }
+
+    func fetchAdminSnapshot() async throws -> AdminSnapshot {
+        let health = (try? await requestJSON(path: "/api/health/detailed")) ?? [:]
+        let stats = (try? await requestJSON(path: "/api/admin/stats")) ?? [:]
+        let healthDict = health as? [String: Any] ?? [:]
+        let statsDict = stats as? [String: Any] ?? [:]
+        let dbOk = (healthDict["dbStatus"] as? [String: Any])?["ok"] as? Bool
+        let dbStatus = dbOk == true ? "Healthy" : (dbOk == false ? "Degraded" : "Unknown")
+        let alerts = statsDict["sentinelAlerts"] as? Int ?? (statsDict["alerts"] as? Int) ?? 0
+        let containers = APIParsers.publicString(in: statsDict, keys: ["containerHealth", "health"]) ?? "—"
+        return AdminSnapshot(dbStatus: dbStatus, sentinelAlerts: alerts, containerHealth: containers)
+    }
+
     func requestJSON(path: String) async throws -> Any {
         if let browserController,
            let pageResult = await browserController.fetchJSONUsingPageSession(path: path) {
@@ -316,6 +414,23 @@ enum APIParsers {
             "Desktop client loaded \(dealCount) deals from the Entitlement OS API.",
             "Desktop client loaded \(runCount) runs from the run surfaces."
         ]
+    }
+
+    static func extractPublicItems(from payload: Any) -> [[String: Any]] {
+        if let items = payload as? [[String: Any]] { return items }
+        guard let dict = payload as? [String: Any] else { return [] }
+        for key in ["items", "data", "deals", "runs", "results", "conversations", "workflows", "parcels"] {
+            if let array = dict[key] as? [[String: Any]] { return array }
+        }
+        return [dict]
+    }
+
+    static func publicString(in dictionary: [String: Any], keys: [String]) -> String? {
+        for key in keys {
+            if let value = dictionary[key] as? String, value.isEmpty == false { return value }
+            if let value = dictionary[key] as? NSNumber { return value.stringValue }
+        }
+        return nil
     }
 
     private static func extractItems(from payload: Any) -> [[String: Any]] {
