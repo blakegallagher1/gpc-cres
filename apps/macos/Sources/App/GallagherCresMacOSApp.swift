@@ -15,6 +15,9 @@ struct GallagherCresMacOSApp: App {
                 .onAppear {
                     menuBarController.setup(store: store)
                 }
+                .onChange(of: store.connectivity.state) { _, _ in
+                    menuBarController.update(connectivity: store.connectivity)
+                }
         }
         .commands {
             DesktopCommands(store: store)

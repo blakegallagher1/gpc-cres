@@ -52,6 +52,7 @@ struct CommandPaletteView: View {
         .frame(width: 480)
         .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
         .onAppear { searchFocused = true }
+        .onExitCommand { isPresented = false }
     }
 }
 
