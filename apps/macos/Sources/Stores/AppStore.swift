@@ -30,6 +30,7 @@ final class AppStore {
     var workflowsSnapshot = WorkflowsSnapshot.placeholder
     var adminSnapshot = AdminSnapshot.placeholder
     var inspectorCollapsed = false
+    var showCommandPalette = false
     var lastNativeRefreshLabel = "Never"
     var isRefreshingNativeData = false
 

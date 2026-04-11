@@ -20,6 +20,20 @@ struct ContentView: View {
             .animation(.easeInOut(duration: 0.2), value: store.inspectorCollapsed)
             .background(WindowConfigurator())
         }
+        .overlay {
+            if store.showCommandPalette {
+                ZStack {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                        .onTapGesture { store.showCommandPalette = false }
+                    CommandPaletteView(isPresented: $store.showCommandPalette) { route in
+                        store.select(route: route)
+                    }
+                }
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            }
+        }
+        .animation(.easeInOut(duration: 0.15), value: store.showCommandPalette)
         .toolbar {
             ToolbarItemGroup {
                 Button {
@@ -138,6 +152,11 @@ struct DesktopCommands: Commands {
 
     var body: some Commands {
         CommandMenu("Entitlement OS") {
+            Button("Open Command Palette") {
+                store.showCommandPalette = true
+            }
+            .keyboardShortcut("k", modifiers: .command)
+
             Button("Reload Current Page") {
                 store.reloadCurrentPage()
             }
