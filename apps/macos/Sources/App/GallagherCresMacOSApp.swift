@@ -6,11 +6,15 @@ import UserNotifications
 struct GallagherCresMacOSApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var store = AppStore()
+    @ObservationIgnored private let menuBarController = MenuBarController()
 
     var body: some Scene {
         WindowGroup("Gallagher Cres", id: "main") {
             ContentView(store: store)
                 .frame(minWidth: 1200, minHeight: 760)
+                .onAppear {
+                    menuBarController.setup(store: store)
+                }
         }
         .commands {
             DesktopCommands(store: store)
