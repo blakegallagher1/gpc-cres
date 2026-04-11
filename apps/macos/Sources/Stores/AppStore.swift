@@ -203,6 +203,9 @@ final class AppStore {
 
             lastNativeRefreshLabel = Self.refreshLabelFormatter.string(from: .now)
             updateDockBadge()
+            for run in runRecords where run.status.lowercased() == "completed" || run.status.lowercased() == "failed" {
+                NotificationManager.shared.fireRunCompleted(title: run.title, status: run.status)
+            }
             if lastErrorMessage.hasPrefix("Desktop data refresh failed") {
                 lastErrorMessage = ""
             }
