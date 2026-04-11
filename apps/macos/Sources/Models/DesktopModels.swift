@@ -12,6 +12,8 @@ enum DesktopRoute: String, CaseIterable, Identifiable {
     case automation
     case market
     case portfolio
+    case wealth
+    case settings
     case evidence
     case buyers
     case screening
@@ -33,6 +35,8 @@ enum DesktopRoute: String, CaseIterable, Identifiable {
         case .automation: "Automation"
         case .market: "Market"
         case .portfolio: "Portfolio"
+        case .wealth: "Wealth"
+        case .settings: "Settings"
         case .evidence: "Evidence"
         case .buyers: "Buyers"
         case .screening: "Screening"
@@ -54,6 +58,8 @@ enum DesktopRoute: String, CaseIterable, Identifiable {
         case .automation: "Cron health and escalation"
         case .market: "Permits, overlays, and intelligence"
         case .portfolio: "Portfolio analytics and stress"
+        case .wealth: "Net worth, entities, and tax"
+        case .settings: "User preferences and configuration"
         case .evidence: "Evidence packages and delivery"
         case .buyers: "Buyer pipeline and outreach"
         case .screening: "Screening intake and playbooks"
@@ -75,6 +81,8 @@ enum DesktopRoute: String, CaseIterable, Identifiable {
         case .automation: "clock.arrow.circlepath"
         case .market: "chart.line.uptrend.xyaxis"
         case .portfolio: "briefcase"
+        case .wealth: "chart.pie"
+        case .settings: "gear"
         case .evidence: "doc.text.image"
         case .buyers: "person.2"
         case .screening: "checklist"
@@ -96,6 +104,8 @@ enum DesktopRoute: String, CaseIterable, Identifiable {
         case .automation: "/automation"
         case .market: "/market"
         case .portfolio: "/portfolio"
+        case .wealth: "/wealth"
+        case .settings: "/settings"
         case .evidence: "/evidence"
         case .buyers: "/buyers"
         case .screening: "/screening"

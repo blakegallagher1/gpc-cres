@@ -244,7 +244,7 @@ private struct NativeInspectorPane: View {
             AutomationPane(records: store.automationRecords, lastRefreshLabel: store.lastNativeRefreshLabel)
         case .agents, .portfolio, .evidence, .reference, .admin:
             MemoryPane(snapshot: store.operatorSnapshot, lastRefreshLabel: store.lastNativeRefreshLabel)
-        case .commandCenter, .chat, .opportunities, .workflows, .market, .buyers, .screening:
+        case .commandCenter, .chat, .opportunities, .workflows, .market, .buyers, .screening, .wealth, .settings:
             OverviewPane(snapshot: store.operatorSnapshot, lastRefreshLabel: store.lastNativeRefreshLabel)
         }
     }

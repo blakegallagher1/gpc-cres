@@ -167,7 +167,7 @@ final class AppStore {
                 automationRecords = try await client.fetchAutomationRecords()
             case .agents, .portfolio, .evidence, .reference, .admin:
                 operatorSnapshot = await client.fetchDashboardSnapshot()
-            case .commandCenter, .chat, .opportunities, .workflows, .market, .buyers, .screening:
+            case .commandCenter, .chat, .opportunities, .workflows, .market, .buyers, .screening, .wealth, .settings:
                 operatorSnapshot = await client.fetchDashboardSnapshot()
             }
 
