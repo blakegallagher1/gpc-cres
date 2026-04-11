@@ -44,6 +44,10 @@ final class AppStore {
         let bearerToken = defaults.string(forKey: Keys.bearerToken) ?? EndpointConfiguration.default.bearerToken
         endpointConfiguration = EndpointConfiguration(baseURL: baseURL, startPath: startPath, bearerToken: bearerToken)
         customPath = startPath
+        if let savedRoute = defaults.string(forKey: Keys.selectedRoute),
+           let route = DesktopRoute(rawValue: savedRoute) {
+            selectedRoute = route
+        }
         inspectorCollapsed = defaults.bool(forKey: Keys.inspectorCollapsed)
         defaults.set(baseURL, forKey: Keys.baseURL)
     }
@@ -65,6 +69,7 @@ final class AppStore {
 
     func select(route: DesktopRoute) {
         selectedRoute = route
+        defaults.set(route.rawValue, forKey: Keys.selectedRoute)
         customPath = route.path
         DesktopLogger.navigation.info("Selected route \(route.rawValue, privacy: .public)")
         open(path: route.path)
@@ -337,5 +342,6 @@ private extension AppStore {
         static let startPath = "gallagher-cres.macos.startPath"
         static let bearerToken = "gallagher-cres.macos.bearerToken"
         static let inspectorCollapsed = "gallagher-cres.macos.inspectorCollapsed"
+        static let selectedRoute = "gallagher-cres.macos.selectedRoute"
     }
 }
