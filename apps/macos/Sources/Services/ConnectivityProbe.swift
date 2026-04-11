@@ -33,13 +33,15 @@ struct ConnectivityProbe {
         if authorize,
            let browserController,
            let pageResult = await browserController.fetchJSONUsingPageSession(path: path) {
-            return ProbeResult(
-                path: path,
-                statusCode: pageResult.statusCode,
-                payload: pageResult.payload,
-                errorMessage: pageResult.errorMessage,
-                usedPageSession: true
-            )
+            if let statusCode = pageResult.statusCode, (200 ... 299).contains(statusCode) {
+                return ProbeResult(
+                    path: path,
+                    statusCode: statusCode,
+                    payload: pageResult.payload,
+                    errorMessage: pageResult.errorMessage,
+                    usedPageSession: true
+                )
+            }
         }
 
         guard let url = URL(string: configuration.baseURL + path) else {

@@ -1,42 +1,49 @@
 import Foundation
+import WebKit
 
 struct APIClient {
     let configuration: EndpointConfiguration
+    let browserController: BrowserController?
     private let session: URLSession
 
-    init(configuration: EndpointConfiguration, session: URLSession = .shared) {
+    init(
+        configuration: EndpointConfiguration,
+        browserController: BrowserController? = nil,
+        session: URLSession = .shared
+    ) {
         self.configuration = configuration
+        self.browserController = browserController
         self.session = session
     }
 
-    func fetchDashboardSnapshot() async throws -> OperatorSnapshot {
-        async let healthPayload = requestJSON(path: "/api/health/detailed")
-        async let dealsPayload = requestJSON(path: "/api/deals")
-        async let runsPayload = requestJSON(path: "/api/runs/dashboard")
+    func fetchDashboardSnapshot() async -> OperatorSnapshot {
+        let health = try? await requestJSON(path: "/api/health/detailed")
+        let deals = try? await requestJSON(path: "/api/deals")
+        let runs = try? await requestJSON(path: "/api/runs/dashboard")
 
-        let health = try await healthPayload
-        let deals = try await dealsPayload
-        let runs = try await runsPayload
+        let healthPayload = health ?? ["message": "Detailed health is unavailable in the current session."]
+        let dealsPayload = deals ?? []
+        let runsPayload = runs ?? []
 
-        let statusLine = APIParsers.healthSummary(from: health)
+        let statusLine = APIParsers.healthSummary(from: healthPayload)
         let metrics = [
             OperatorMetric(
                 id: "health",
                 label: "Platform",
-                value: APIParsers.healthStatus(from: health),
+                value: APIParsers.healthStatus(from: healthPayload),
                 detail: statusLine
             ),
             OperatorMetric(
                 id: "deals",
                 label: "Deals",
-                value: "\(APIParsers.dealRecords(from: deals).count)",
+                value: "\(APIParsers.dealRecords(from: dealsPayload).count)",
                 detail: "Loaded from /api/deals"
             ),
             OperatorMetric(
                 id: "runs",
                 label: "Runs",
-                value: APIParsers.runRecords(from: runs).first?.status ?? "Unknown",
-                detail: "\(APIParsers.runRecords(from: runs).count) records returned"
+                value: APIParsers.runRecords(from: runsPayload).first?.status ?? "Unknown",
+                detail: "\(APIParsers.runRecords(from: runsPayload).count) records returned"
             )
         ]
 
@@ -44,9 +51,9 @@ struct APIClient {
             statusLine: statusLine,
             metrics: metrics,
             focusItems: APIParsers.focusItems(
-                health: health,
-                deals: deals,
-                runs: runs
+                health: healthPayload,
+                deals: dealsPayload,
+                runs: runsPayload
             )
         )
     }
@@ -71,16 +78,30 @@ struct APIClient {
     }
 
     func requestJSON(path: String) async throws -> Any {
+        if let browserController,
+           let pageResult = await browserController.fetchJSONUsingPageSession(path: path) {
+            if let statusCode = pageResult.statusCode, (200 ... 299).contains(statusCode), let payload = pageResult.payload {
+                return payload
+            }
+        }
+
         guard let url = URL(string: configuration.baseURL + path) else {
             throw DesktopAPIError.invalidBaseURL(configuration.baseURL)
         }
 
+        let sessionContext = await resolveSessionContext()
         var request = URLRequest(url: url)
         request.timeoutInterval = 20
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
+        if let cookieHeader = sessionContext.cookieHeader {
+            request.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
+        }
+
         if configuration.bearerToken.isEmpty == false {
             request.setValue("Bearer \(configuration.bearerToken)", forHTTPHeaderField: "Authorization")
+        } else if let authToken = sessionContext.authToken {
+            request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
         }
 
         DesktopLogger.api.info("Requesting \(path, privacy: .public)")
@@ -111,6 +132,61 @@ enum DesktopAPIError: LocalizedError {
             "The server returned a non-HTTP response."
         case let .httpStatus(statusCode):
             "The server returned HTTP \(statusCode)."
+        }
+    }
+}
+
+private struct SessionContext {
+    let cookieHeader: String?
+    let authToken: String?
+}
+
+private extension APIClient {
+    func resolveSessionContext() async -> SessionContext {
+        let cookies = await loadCookies()
+        let cookieHeader = cookies.isEmpty ? nil : HTTPCookie.requestHeaderFields(with: cookies)["Cookie"]
+
+        if configuration.bearerToken.isEmpty == false {
+            return SessionContext(cookieHeader: cookieHeader, authToken: nil)
+        }
+
+        return SessionContext(
+            cookieHeader: cookieHeader,
+            authToken: await fetchAuthToken(cookieHeader: cookieHeader)
+        )
+    }
+
+    @MainActor
+    func loadCookies() async -> [HTTPCookie] {
+        await withCheckedContinuation { continuation in
+            WKWebsiteDataStore.default().httpCookieStore.getAllCookies { cookies in
+                continuation.resume(returning: cookies)
+            }
+        }
+    }
+
+    func fetchAuthToken(cookieHeader: String?) async -> String? {
+        guard let url = URL(string: configuration.baseURL + "/api/auth/token") else {
+            return nil
+        }
+
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 15
+
+        if let cookieHeader {
+            request.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
+        }
+
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                return nil
+            }
+
+            let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            return payload?["token"] as? String
+        } catch {
+            return nil
         }
     }
 }

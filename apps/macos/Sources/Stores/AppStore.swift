@@ -14,6 +14,13 @@ final class AppStore {
     var isLoadingPage = false
     var lastErrorMessage = ""
     var connectivity = ConnectivitySnapshot.initial
+    var operatorSnapshot = OperatorSnapshot.placeholder
+    var dealRecords: [DealRecord] = []
+    var runRecords: [RunRecord] = []
+    var mapRecord = MapRecord.placeholder
+    var automationRecords: [AutomationRecord] = []
+    var lastNativeRefreshLabel = "Never"
+    var isRefreshingNativeData = false
 
     @ObservationIgnored let browserController = BrowserController()
     @ObservationIgnored private let defaults = UserDefaults.standard
@@ -48,6 +55,7 @@ final class AppStore {
         customPath = route.path
         DesktopLogger.navigation.info("Selected route \(route.rawValue, privacy: .public)")
         open(path: route.path)
+        Task { await refreshNativeData() }
     }
 
     func loadInitialRouteIfNeeded() {
@@ -117,6 +125,44 @@ final class AppStore {
                 "Connectivity probe \(snapshot.state.rawValue, privacy: .public): \(snapshot.apiSummary, privacy: .public) / \(snapshot.databaseSummary, privacy: .public)"
             )
         }
+
+        await refreshNativeData()
+    }
+
+    func refreshNativeData() async {
+        guard isRefreshingNativeData == false else { return }
+        isRefreshingNativeData = true
+        defer { isRefreshingNativeData = false }
+
+        do {
+            let client = APIClient(
+                configuration: endpointConfiguration,
+                browserController: browserController
+            )
+
+            switch selectedRoute {
+            case .deals:
+                dealRecords = try await client.fetchDeals()
+            case .runs:
+                runRecords = try await client.fetchRuns()
+            case .map:
+                mapRecord = try await client.fetchMapRecord()
+            case .automation:
+                automationRecords = try await client.fetchAutomationRecords()
+            case .agents, .portfolio, .evidence, .reference, .admin:
+                operatorSnapshot = await client.fetchDashboardSnapshot()
+            case .commandCenter, .chat, .opportunities, .workflows, .market, .buyers, .screening:
+                operatorSnapshot = await client.fetchDashboardSnapshot()
+            }
+
+            lastNativeRefreshLabel = Self.refreshLabelFormatter.string(from: .now)
+            if lastErrorMessage.hasPrefix("Desktop data refresh failed") {
+                lastErrorMessage = ""
+            }
+        } catch {
+            lastErrorMessage = "Desktop data refresh failed: \(error.localizedDescription)"
+            DesktopLogger.refresh.error("Desktop data refresh failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     var allowedHost: String? {
@@ -184,6 +230,13 @@ final class AppStore {
 }
 
 private extension AppStore {
+    static let refreshLabelFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
     enum Keys {
         static let baseURL = "gallagher-cres.macos.baseURL"
         static let startPath = "gallagher-cres.macos.startPath"
