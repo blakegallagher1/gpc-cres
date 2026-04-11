@@ -83,6 +83,12 @@ final class AppStore {
         open(path: customPath)
     }
 
+    func openLogin() {
+        customPath = "/login"
+        DesktopLogger.navigation.info("Opening login route from desktop shell")
+        open(path: "/login")
+    }
+
     func absoluteURLForCurrentRoute() -> URL {
         url(for: currentURLString.isEmpty ? selectedRoute.path : currentURLString) ?? fallbackURL
     }
@@ -137,6 +143,12 @@ final class AppStore {
         guard isRefreshingNativeData == false else { return }
         isRefreshingNativeData = true
         defer { isRefreshingNativeData = false }
+
+        if connectivity.state == .authRequired {
+            applySignedOutDesktopState()
+            lastNativeRefreshLabel = Self.refreshLabelFormatter.string(from: .now)
+            return
+        }
 
         do {
             let client = APIClient(
@@ -226,6 +238,25 @@ final class AppStore {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false else { return EndpointConfiguration.default.startPath }
         return trimmed.hasPrefix("/") ? trimmed : "/\(trimmed)"
+    }
+
+    private func applySignedOutDesktopState() {
+        operatorSnapshot = OperatorSnapshot(
+            statusLine: "Desktop sign-in required",
+            metrics: [
+                OperatorMetric(id: "health", label: "Platform", value: "Sign in", detail: "Protected operator APIs are gated behind the website session."),
+                OperatorMetric(id: "deals", label: "Deals", value: "--", detail: "Unlock after signing in."),
+                OperatorMetric(id: "runs", label: "Runs", value: "--", detail: "Unlock after signing in.")
+            ],
+            focusItems: [
+                "Open /login in the web pane to establish a production session.",
+                "Use Settings only if you need to override the base URL or supply an advanced bearer token."
+            ]
+        )
+        dealRecords = []
+        runRecords = []
+        automationRecords = []
+        mapRecord = MapRecord.placeholder
     }
 
     private var fallbackURL: URL {

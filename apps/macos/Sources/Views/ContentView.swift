@@ -150,6 +150,11 @@ struct DesktopCommands: Commands {
             }
             .keyboardShortcut("l", modifiers: [.command, .shift])
 
+            Button("Open Login") {
+                store.openLogin()
+            }
+            .keyboardShortcut("l", modifiers: [.command, .option])
+
             Button("Check Live Connectivity") {
                 Task { await store.runConnectivityCheck() }
             }
@@ -211,6 +216,15 @@ private struct NativeInspectorPane: View {
 
     @ViewBuilder
     private var inspectorBody: some View {
+        if store.connectivity.state == .authRequired {
+            AuthRequiredPane(store: store)
+        } else {
+            routeInspectorBody
+        }
+    }
+
+    @ViewBuilder
+    private var routeInspectorBody: some View {
         switch store.selectedRoute {
         case .deals:
             if store.dealRecords.isEmpty, store.isRefreshingNativeData == false {
@@ -233,6 +247,77 @@ private struct NativeInspectorPane: View {
         case .commandCenter, .chat, .opportunities, .workflows, .market, .buyers, .screening:
             OverviewPane(snapshot: store.operatorSnapshot, lastRefreshLabel: store.lastNativeRefreshLabel)
         }
+    }
+}
+
+private struct AuthRequiredPane: View {
+    @Bindable var store: AppStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Sign in required", systemImage: "person.crop.circle.badge.exclamationmark")
+                    .font(.title3.weight(.semibold))
+
+                Text("The desktop shell is live, but protected Entitlement OS APIs need an authenticated web session or an advanced bearer token before native operator data can load.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            AuthInfoCard(title: "Next step", subtitle: "Use the same production login flow as the browser") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(store.connectivity.apiSummary)
+                    Text(store.connectivity.databaseSummary)
+                        .foregroundStyle(.secondary)
+                }
+                .font(.callout)
+            }
+
+            HStack(spacing: 10) {
+                Button("Open Login") {
+                    store.openLogin()
+                }
+                .keyboardShortcut(.defaultAction)
+
+                Button("Retry") {
+                    Task { await store.runConnectivityCheck() }
+                }
+                .disabled(store.isRefreshingNativeData)
+
+                SettingsLink {
+                    Text("Settings")
+                }
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+}
+
+private struct AuthInfoCard<Content: View>: View {
+    let title: String
+    let subtitle: String
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.headline)
+
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            content
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
