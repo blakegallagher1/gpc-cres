@@ -12,9 +12,13 @@ struct ContentView: View {
                 webWorkspace
                     .frame(minWidth: 760, maxWidth: .infinity, maxHeight: .infinity)
 
-                NativeInspectorPane(store: store)
-                    .frame(minWidth: 320, idealWidth: 360, maxWidth: 440, maxHeight: .infinity)
+                if store.inspectorCollapsed == false {
+                    NativeInspectorPane(store: store)
+                        .frame(minWidth: 320, idealWidth: 360, maxWidth: 440, maxHeight: .infinity)
+                        .transition(.move(edge: .trailing))
+                }
             }
+            .animation(.easeInOut(duration: 0.2), value: store.inspectorCollapsed)
             .background(WindowConfigurator())
         }
         .toolbar {
@@ -70,6 +74,14 @@ struct ContentView: View {
                     Label("Refresh Desktop Data", systemImage: "arrow.clockwise.circle")
                 }
                 .disabled(store.isRefreshingNativeData)
+
+                Button {
+                    store.toggleInspector()
+                } label: {
+                    Label(store.inspectorCollapsed ? "Show Inspector" : "Hide Inspector",
+                          systemImage: store.inspectorCollapsed ? "sidebar.right" : "sidebar.right.fill")
+                }
+                .keyboardShortcut("i", modifiers: [.command, .option])
             }
         }
         .task {
@@ -166,10 +178,27 @@ struct DesktopCommands: Commands {
         }
 
         CommandMenu("Navigate") {
+            Button("Chat") { store.select(route: .chat) }
+                .keyboardShortcut("1", modifiers: .command)
+            Button("Command Center") { store.select(route: .commandCenter) }
+                .keyboardShortcut("2", modifiers: .command)
+            Button("Deals") { store.select(route: .deals) }
+                .keyboardShortcut("3", modifiers: .command)
+            Button("Map") { store.select(route: .map) }
+                .keyboardShortcut("4", modifiers: .command)
+            Button("Opportunities") { store.select(route: .opportunities) }
+                .keyboardShortcut("5", modifiers: .command)
+            Button("Runs") { store.select(route: .runs) }
+                .keyboardShortcut("6", modifiers: .command)
+            Button("Automation") { store.select(route: .automation) }
+                .keyboardShortcut("7", modifiers: .command)
+            Button("Portfolio") { store.select(route: .portfolio) }
+                .keyboardShortcut("8", modifiers: .command)
+            Button("Wealth") { store.select(route: .wealth) }
+                .keyboardShortcut("9", modifiers: .command)
+            Divider()
             ForEach(DesktopRoute.allCases) { route in
-                Button(route.title) {
-                    store.select(route: route)
-                }
+                Button(route.title) { store.select(route: route) }
             }
         }
     }
@@ -226,25 +255,43 @@ private struct NativeInspectorPane: View {
     @ViewBuilder
     private var routeInspectorBody: some View {
         switch store.selectedRoute {
+        case .chat:
+            ChatPane(snapshot: store.chatSnapshot, lastRefreshLabel: store.lastNativeRefreshLabel)
+        case .commandCenter:
+            CommandCenterPane(snapshot: store.commandCenterSnapshot, lastRefreshLabel: store.lastNativeRefreshLabel)
         case .deals:
             if store.dealRecords.isEmpty, store.isRefreshingNativeData == false {
                 EmptyInspectorState(message: "No deal records have been loaded yet.")
             } else {
                 DealsPane(records: store.dealRecords, lastRefreshLabel: store.lastNativeRefreshLabel)
             }
+        case .map:
+            MapPane(record: store.mapRecord, lastRefreshLabel: store.lastNativeRefreshLabel)
+        case .opportunities:
+            OpportunitiesPane(snapshot: store.opportunitiesSnapshot, lastRefreshLabel: store.lastNativeRefreshLabel)
+        case .market:
+            MarketPane(snapshot: store.marketSnapshot, lastRefreshLabel: store.lastNativeRefreshLabel)
+        case .portfolio:
+            PortfolioPane(snapshot: store.portfolioSnapshot, lastRefreshLabel: store.lastNativeRefreshLabel)
+        case .wealth:
+            WealthPane(snapshot: store.wealthSnapshot, lastRefreshLabel: store.lastNativeRefreshLabel)
+        case .agents:
+            AgentsPane(snapshot: store.agentsSnapshot, lastRefreshLabel: store.lastNativeRefreshLabel)
         case .runs:
             if store.runRecords.isEmpty, store.isRefreshingNativeData == false {
                 EmptyInspectorState(message: "No run records have been loaded yet.")
             } else {
                 RunsPane(records: store.runRecords, lastRefreshLabel: store.lastNativeRefreshLabel)
             }
-        case .map:
-            MapPane(record: store.mapRecord, lastRefreshLabel: store.lastNativeRefreshLabel)
         case .automation:
             AutomationPane(records: store.automationRecords, lastRefreshLabel: store.lastNativeRefreshLabel)
-        case .agents, .portfolio, .evidence, .reference, .admin:
-            MemoryPane(snapshot: store.operatorSnapshot, lastRefreshLabel: store.lastNativeRefreshLabel)
-        case .commandCenter, .chat, .opportunities, .workflows, .market, .buyers, .screening, .wealth, .settings:
+        case .workflows:
+            WorkflowsPane(snapshot: store.workflowsSnapshot, lastRefreshLabel: store.lastNativeRefreshLabel)
+        case .reference:
+            OverviewPane(snapshot: store.operatorSnapshot, lastRefreshLabel: store.lastNativeRefreshLabel)
+        case .admin:
+            AdminPane(snapshot: store.adminSnapshot, lastRefreshLabel: store.lastNativeRefreshLabel)
+        case .settings, .evidence, .buyers, .screening:
             OverviewPane(snapshot: store.operatorSnapshot, lastRefreshLabel: store.lastNativeRefreshLabel)
         }
     }
