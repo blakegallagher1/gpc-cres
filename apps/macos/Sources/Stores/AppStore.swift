@@ -19,6 +19,16 @@ final class AppStore {
     var runRecords: [RunRecord] = []
     var mapRecord = MapRecord.placeholder
     var automationRecords: [AutomationRecord] = []
+    var chatSnapshot = ChatSnapshot.placeholder
+    var commandCenterSnapshot = CommandCenterSnapshot.placeholder
+    var opportunitiesSnapshot = OpportunitiesSnapshot.placeholder
+    var marketSnapshot = MarketSnapshot.placeholder
+    var portfolioSnapshot = PortfolioSnapshot.placeholder
+    var wealthSnapshot = WealthSnapshot.placeholder
+    var agentsSnapshot = AgentsSnapshot.placeholder
+    var workflowsSnapshot = WorkflowsSnapshot.placeholder
+    var adminSnapshot = AdminSnapshot.placeholder
+    var inspectorCollapsed = false
     var lastNativeRefreshLabel = "Never"
     var isRefreshingNativeData = false
 
@@ -32,6 +42,7 @@ final class AppStore {
         let bearerToken = defaults.string(forKey: Keys.bearerToken) ?? EndpointConfiguration.default.bearerToken
         endpointConfiguration = EndpointConfiguration(baseURL: baseURL, startPath: startPath, bearerToken: bearerToken)
         customPath = startPath
+        inspectorCollapsed = defaults.bool(forKey: Keys.inspectorCollapsed)
         defaults.set(baseURL, forKey: Keys.baseURL)
     }
 
@@ -165,10 +176,28 @@ final class AppStore {
                 mapRecord = try await client.fetchMapRecord()
             case .automation:
                 automationRecords = try await client.fetchAutomationRecords()
-            case .agents, .portfolio, .evidence, .reference, .admin:
+            case .chat:
+                chatSnapshot = try await client.fetchChatSnapshot()
+            case .commandCenter:
+                commandCenterSnapshot = try await client.fetchCommandCenterSnapshot()
+            case .opportunities:
+                opportunitiesSnapshot = try await client.fetchOpportunitiesSnapshot()
+            case .market:
+                marketSnapshot = try await client.fetchMarketSnapshot()
+            case .portfolio:
+                portfolioSnapshot = try await client.fetchPortfolioSnapshot()
+            case .wealth:
+                wealthSnapshot = try await client.fetchWealthSnapshot()
+            case .agents:
+                agentsSnapshot = try await client.fetchAgentsSnapshot()
+            case .workflows:
+                workflowsSnapshot = try await client.fetchWorkflowsSnapshot()
+            case .admin:
+                adminSnapshot = try await client.fetchAdminSnapshot()
+            case .reference:
                 operatorSnapshot = await client.fetchDashboardSnapshot()
-            case .commandCenter, .chat, .opportunities, .workflows, .market, .buyers, .screening, .wealth, .settings:
-                operatorSnapshot = await client.fetchDashboardSnapshot()
+            case .settings, .evidence, .buyers, .screening:
+                break // WebView-only routes — no native data needed
             }
 
             lastNativeRefreshLabel = Self.refreshLabelFormatter.string(from: .now)
@@ -179,6 +208,11 @@ final class AppStore {
             lastErrorMessage = "Desktop data refresh failed: \(error.localizedDescription)"
             DesktopLogger.refresh.error("Desktop data refresh failed: \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    func toggleInspector() {
+        inspectorCollapsed.toggle()
+        defaults.set(inspectorCollapsed, forKey: Keys.inspectorCollapsed)
     }
 
     var allowedHost: String? {
@@ -257,6 +291,15 @@ final class AppStore {
         runRecords = []
         automationRecords = []
         mapRecord = MapRecord.placeholder
+        chatSnapshot = ChatSnapshot.placeholder
+        commandCenterSnapshot = CommandCenterSnapshot.placeholder
+        opportunitiesSnapshot = OpportunitiesSnapshot.placeholder
+        marketSnapshot = MarketSnapshot.placeholder
+        portfolioSnapshot = PortfolioSnapshot.placeholder
+        wealthSnapshot = WealthSnapshot.placeholder
+        agentsSnapshot = AgentsSnapshot.placeholder
+        workflowsSnapshot = WorkflowsSnapshot.placeholder
+        adminSnapshot = AdminSnapshot.placeholder
     }
 
     private var fallbackURL: URL {
@@ -276,5 +319,6 @@ private extension AppStore {
         static let baseURL = "gallagher-cres.macos.baseURL"
         static let startPath = "gallagher-cres.macos.startPath"
         static let bearerToken = "gallagher-cres.macos.bearerToken"
+        static let inspectorCollapsed = "gallagher-cres.macos.inspectorCollapsed"
     }
 }
