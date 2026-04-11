@@ -15,7 +15,6 @@ struct ContentView: View {
                 if store.inspectorCollapsed == false {
                     NativeInspectorPane(store: store)
                         .frame(minWidth: 320, idealWidth: 360, maxWidth: 440, maxHeight: .infinity)
-                        .transition(.move(edge: .trailing))
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: store.inspectorCollapsed)
@@ -86,7 +85,6 @@ struct ContentView: View {
         }
         .task {
             store.loadInitialRouteIfNeeded()
-            await store.refreshNativeData()
         }
     }
 
