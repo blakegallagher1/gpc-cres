@@ -104,7 +104,10 @@ struct ContentView: View {
         }
         .overlay(alignment: .bottomTrailing) {
             VStack(alignment: .trailing, spacing: 12) {
-                if store.connectivity.state == .checking || store.connectivity.state == .degraded || store.connectivity.state == .failed {
+                if store.connectivity.state == .checking
+                    || store.connectivity.state == .authRequired
+                    || store.connectivity.state == .degraded
+                    || store.connectivity.state == .failed {
                     ConnectivityBadge(snapshot: store.connectivity)
                 }
 
@@ -276,6 +279,7 @@ private struct ConnectivityBadge: View {
     private var title: String {
         switch snapshot.state {
         case .checking: "Checking live connectivity..."
+        case .authRequired: "Authentication required"
         case .healthy: "Live stack healthy"
         case .degraded: "Live stack degraded"
         case .failed: "Live stack unreachable"

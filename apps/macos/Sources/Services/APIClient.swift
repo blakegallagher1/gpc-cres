@@ -83,6 +83,10 @@ struct APIClient {
             if let statusCode = pageResult.statusCode, (200 ... 299).contains(statusCode), let payload = pageResult.payload {
                 return payload
             }
+
+            if pageResult.statusCode == 401 {
+                throw DesktopAPIError.httpStatus(401)
+            }
         }
 
         guard let url = URL(string: configuration.baseURL + path) else {

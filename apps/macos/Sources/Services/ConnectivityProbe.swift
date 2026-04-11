@@ -18,7 +18,12 @@ struct ConnectivityProbe {
         let apiResult = await fetch(path: "/api/health", authorize: true, sessionContext: sessionContext)
         let detailedResult = await fetch(path: "/api/health/detailed", authorize: true, sessionContext: sessionContext)
 
-        let state = deriveState(siteResult: siteResult, apiResult: apiResult, detailedResult: detailedResult)
+        let state = deriveState(
+            siteResult: siteResult,
+            apiResult: apiResult,
+            detailedResult: detailedResult,
+            sessionContext: sessionContext
+        )
 
         return ConnectivitySnapshot(
             state: state,
@@ -37,6 +42,16 @@ struct ConnectivityProbe {
                 return ProbeResult(
                     path: path,
                     statusCode: statusCode,
+                    payload: pageResult.payload,
+                    errorMessage: pageResult.errorMessage,
+                    usedPageSession: true
+                )
+            }
+
+            if pageResult.statusCode == 401 {
+                return ProbeResult(
+                    path: path,
+                    statusCode: 401,
                     payload: pageResult.payload,
                     errorMessage: pageResult.errorMessage,
                     usedPageSession: true
@@ -73,7 +88,12 @@ struct ConnectivityProbe {
         }
     }
 
-    private func deriveState(siteResult: ProbeResult, apiResult: ProbeResult, detailedResult: ProbeResult) -> ConnectivityState {
+    private func deriveState(
+        siteResult: ProbeResult,
+        apiResult: ProbeResult,
+        detailedResult: ProbeResult,
+        sessionContext: SessionContext
+    ) -> ConnectivityState {
         if siteResult.isFailure {
             return .failed
         }
@@ -83,7 +103,14 @@ struct ConnectivityProbe {
         }
 
         if apiResult.isUnauthorized || detailedResult.isUnauthorized {
-            return .degraded
+            if configuration.bearerToken.isEmpty,
+               apiResult.usedPageSession || detailedResult.usedPageSession {
+                return .authRequired
+            }
+
+            return sessionContext.hasUsableAuthentication || configuration.bearerToken.isEmpty == false
+                ? .degraded
+                : .authRequired
         }
 
         if apiResult.isFailure || detailedResult.isFailure || detailedResult.databaseOK == false {
@@ -111,11 +138,11 @@ struct ConnectivityProbe {
                 return "Desktop page session still returned 401 for /api/health."
             }
 
-            if sessionContext?.hasCookies == true {
-                return "Cookies were present, but token-based fallback auth still returned 401."
+            if sessionContext?.hasUsableAuthentication == true {
+                return "Desktop auth token was present, but API health still returned 401."
             }
 
-            return "API health requires sign-in in the desktop app or a bearer token in Settings."
+            return "Sign in in the desktop app or provide a bearer token in Settings to unlock protected health endpoints."
         }
 
         if let statusCode = result.statusCode {
@@ -127,7 +154,9 @@ struct ConnectivityProbe {
 
     private func summarizeDatabase(_ result: ProbeResult) -> String {
         if result.isUnauthorized {
-            return "Detailed DB health requires a bearer token."
+            return configuration.bearerToken.isEmpty
+                ? "Detailed DB health unlocks after desktop sign-in or a bearer token."
+                : "Detailed DB health rejected the configured bearer token."
         }
 
         if let payload = result.payload,
@@ -145,10 +174,6 @@ struct ConnectivityProbe {
     }
 
     private func resolveSessionContext() async -> SessionContext {
-        if browserController != nil {
-            return SessionContext(cookieHeader: nil, authToken: nil, hasCookies: false)
-        }
-
         let cookies = await loadCookies()
         let cookieHeader = cookies.isEmpty ? nil : HTTPCookie.requestHeaderFields(with: cookies)["Cookie"]
 
@@ -229,6 +254,10 @@ private struct SessionContext {
     let cookieHeader: String?
     let authToken: String?
     let hasCookies: Bool
+
+    var hasUsableAuthentication: Bool {
+        authToken?.isEmpty == false
+    }
 }
 
 private extension ConnectivityProbe {

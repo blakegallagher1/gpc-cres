@@ -120,6 +120,7 @@ struct EndpointConfiguration: Equatable {
 enum ConnectivityState: String {
     case unknown
     case checking
+    case authRequired
     case healthy
     case degraded
     case failed

@@ -120,6 +120,10 @@ final class AppStore {
 
         if snapshot.state == .healthy {
             DesktopLogger.refresh.info("Connectivity probe healthy at \(snapshot.checkedAtLabel, privacy: .public)")
+        } else if snapshot.state == .authRequired {
+            DesktopLogger.refresh.info(
+                "Connectivity probe auth-required: \(snapshot.apiSummary, privacy: .public) / \(snapshot.databaseSummary, privacy: .public)"
+            )
         } else {
             DesktopLogger.refresh.error(
                 "Connectivity probe \(snapshot.state.rawValue, privacy: .public): \(snapshot.apiSummary, privacy: .public) / \(snapshot.databaseSummary, privacy: .public)"
