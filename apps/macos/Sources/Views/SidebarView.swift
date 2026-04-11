@@ -3,22 +3,42 @@ import SwiftUI
 struct SidebarView: View {
     @Bindable var store: AppStore
 
-    private let primaryRoutes: [DesktopRoute] = [
-        .commandCenter, .chat, .map, .deals, .opportunities, .workflows, .runs, .agents
+    private let pinnedRoutes: [DesktopRoute] = [.chat]
+
+    private let operateRoutes: [DesktopRoute] = [
+        .commandCenter, .deals, .map
     ]
 
-    private let secondaryRoutes: [DesktopRoute] = [
-        .automation, .market, .portfolio, .evidence, .buyers, .screening, .reference, .admin
+    private let intelligenceRoutes: [DesktopRoute] = [
+        .opportunities, .market, .portfolio, .wealth
     ]
+
+    private let systemRoutes: [DesktopRoute] = [
+        .agents, .runs, .automation, .workflows, .reference
+    ]
+
+    private let footerRoutes: [DesktopRoute] = [.settings, .admin]
 
     var body: some View {
         List(selection: $store.selectedRoute) {
-            Section("Core") {
-                routeRows(primaryRoutes)
+            Section("Pinned") {
+                routeRows(pinnedRoutes)
             }
 
-            Section("Operations") {
-                routeRows(secondaryRoutes)
+            Section("Operate") {
+                routeRows(operateRoutes)
+            }
+
+            Section("Intelligence") {
+                routeRows(intelligenceRoutes)
+            }
+
+            Section("System") {
+                routeRows(systemRoutes)
+            }
+
+            Section("") {
+                routeRows(footerRoutes)
             }
 
             Section("Environment") {
