@@ -362,7 +362,12 @@ function connectUpstream(connectionId: string) {
       }
     };
 
-    void processEventData();
+    void processEventData().catch((error) => {
+      Sentry.captureException(error, {
+        tags: { route: "api.admin.codex", method: "UNKNOWN" },
+      });
+      logRelayVerbose(connectionId, "upstream_message_processor_failed", error);
+    });
   });
 
   upstream.addEventListener("close", (event) => {
