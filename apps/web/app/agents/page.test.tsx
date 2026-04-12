@@ -24,6 +24,29 @@ vi.mock("@/stores/agentStore", () => ({
   }),
 }));
 
+vi.mock("@/lib/hooks/useAgents", () => ({
+  useAgents: () => ({
+    isLoading: false,
+    agents: [
+      {
+        id: "agent-1",
+        name: "Harvey",
+        description: "Unified operator for research, evidence, and underwriting work.",
+        status: "active",
+        model: "gpt-5.2",
+        color: "#2563eb",
+        run_count: 14,
+        handoffs: [{ agent: "finance" }],
+        tools: [
+          { name: "search_knowledge_base" },
+          { name: "search_parcels" },
+          { name: "query_property_db" },
+        ],
+      },
+    ],
+  }),
+}));
+
 vi.mock("@/components/layout/DashboardShell", () => ({
   DashboardShell: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
@@ -60,7 +83,7 @@ describe("AgentsPage", () => {
     const { container } = render(<AgentsPage />);
 
     expect(screen.getByText("Tool surface")).toBeInTheDocument();
-    expect(screen.getByText("28")).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getAllByText(/catalog tools/)[0]).toBeInTheDocument();
     expect(screen.getAllByText("search_knowledge_base")[0]).toBeInTheDocument();
     expect(container.firstChild).toMatchSnapshot();

@@ -26,6 +26,7 @@ final class AppStore {
     var marketSnapshot = MarketSnapshot.placeholder
     var portfolioSnapshot = PortfolioSnapshot.placeholder
     var wealthSnapshot = WealthSnapshot.placeholder
+    var notificationsSnapshot = NotificationsSnapshot.placeholder
     var agentsSnapshot = AgentsSnapshot.placeholder
     var workflowsSnapshot = WorkflowsSnapshot.placeholder
     var adminSnapshot = AdminSnapshot.placeholder
@@ -51,6 +52,7 @@ final class AppStore {
         }
         inspectorCollapsed = defaults.bool(forKey: Keys.inspectorCollapsed)
         defaults.set(baseURL, forKey: Keys.baseURL)
+        syncBrowserSessionBridge()
     }
 
     func saveConfiguration(baseURL: String, startPath: String, bearerToken: String) {
@@ -63,6 +65,7 @@ final class AppStore {
         defaults.set(endpointConfiguration.baseURL, forKey: Keys.baseURL)
         defaults.set(endpointConfiguration.startPath, forKey: Keys.startPath)
         defaults.set(endpointConfiguration.bearerToken, forKey: Keys.bearerToken)
+        syncBrowserSessionBridge()
         DesktopLogger.settings.info("Saved web configuration for \(self.endpointConfiguration.baseURL, privacy: .public)")
         open(path: endpointConfiguration.startPath)
         Task { await runConnectivityCheck() }
@@ -120,6 +123,10 @@ final class AppStore {
         canGoForward = state.canGoForward
         isLoadingPage = state.isLoading
         lastErrorMessage = ""
+
+        DesktopLogger.navigation.info(
+            "Browser state url=\(state.urlString, privacy: .public) title=\(state.title, privacy: .public) loading=\(state.isLoading, privacy: .public)"
+        )
 
         if let path = URL(string: state.urlString)?.path, path.isEmpty == false {
             customPath = path
@@ -186,6 +193,8 @@ final class AppStore {
                 automationRecords = try await client.fetchAutomationRecords()
             case .chat:
                 chatSnapshot = try await client.fetchChatSnapshot()
+            case .notifications:
+                notificationsSnapshot = try await client.fetchNotificationsSnapshot()
             case .commandCenter:
                 commandCenterSnapshot = try await client.fetchCommandCenterSnapshot()
             case .opportunities:
@@ -251,7 +260,15 @@ final class AppStore {
             return
         }
 
+        DesktopLogger.navigation.info("Opening path \(targetURL.absoluteString, privacy: .public)")
         browserController.navigate(to: targetURL)
+    }
+
+    private func syncBrowserSessionBridge() {
+        browserController.configureSessionBridge(
+            baseURL: endpointConfiguration.baseURL,
+            bearerToken: endpointConfiguration.bearerToken
+        )
     }
 
     private func url(for pathOrURL: String) -> URL? {
@@ -319,6 +336,7 @@ final class AppStore {
         marketSnapshot = MarketSnapshot.placeholder
         portfolioSnapshot = PortfolioSnapshot.placeholder
         wealthSnapshot = WealthSnapshot.placeholder
+        notificationsSnapshot = NotificationsSnapshot.placeholder
         agentsSnapshot = AgentsSnapshot.placeholder
         workflowsSnapshot = WorkflowsSnapshot.placeholder
         adminSnapshot = AdminSnapshot.placeholder

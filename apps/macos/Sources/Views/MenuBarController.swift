@@ -7,7 +7,7 @@ struct MenuBarPopoverView: View {
     let store: AppStore
     let onSelect: (DesktopRoute) -> Void
 
-    private let quickRoutes: [DesktopRoute] = [.chat, .deals, .runs, .map, .commandCenter]
+    private let quickRoutes: [DesktopRoute] = [.chat, .deals, .runs, .notifications, .map, .commandCenter]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {

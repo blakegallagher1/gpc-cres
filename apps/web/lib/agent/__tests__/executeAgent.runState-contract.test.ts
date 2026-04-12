@@ -3,6 +3,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 vi.mock("@entitlement-os/db", () => ({
   prisma: {
     run: {
+      findFirst: vi.fn(),
       findUnique: vi.fn(),
       upsert: vi.fn(),
       update: vi.fn(),
@@ -20,6 +21,27 @@ vi.mock("@entitlement-os/openai", () => ({
   inferQueryIntentFromText: vi.fn(() => "analysis"),
   inferQueryIntentFromDealContext: vi.fn(() => null),
   createConfiguredCoordinator: vi.fn(() => ({ id: "coordinator-agent" })),
+  applyAgentToolPolicy: vi.fn((coordinator: { tools?: Array<{ name?: string }> }) => {
+    const configuredToolNames = Array.isArray(coordinator.tools)
+      ? coordinator.tools
+          .map((tool) => tool?.name)
+          .filter((name): name is string => typeof name === "string" && name.length > 0)
+      : [];
+    return {
+      preFilterTools: [...configuredToolNames],
+      configuredToolNames,
+      memoryToolsPresent: configuredToolNames.filter((name) =>
+        [
+          "store_memory",
+          "get_entity_truth",
+          "get_entity_memory",
+          "record_memory_event",
+          "lookup_entity_by_address",
+        ].includes(name),
+      ),
+      missingMemoryTools: [],
+    };
+  }),
   evaluateProofCompliance: vi.fn(() => []),
   buildAgentStreamRunOptions: vi.fn(() => ({})),
   captureAgentError: vi.fn(),
@@ -197,7 +219,7 @@ describe("executeAgentWorkflow", () => {
       assistant: ReturnType<typeof vi.fn>;
     };
 
-    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.findFirst.mockResolvedValue(null);
     prisma.run.upsert.mockResolvedValue({
       id: NORMALIZED_RUN_ID,
       status: "running",
@@ -250,7 +272,7 @@ describe("executeAgentWorkflow", () => {
       assistant: ReturnType<typeof vi.fn>;
     };
 
-    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.findFirst.mockResolvedValue(null);
     prisma.run.upsert.mockResolvedValue({
       id: NORMALIZED_RUN_ID,
       status: "running",
@@ -349,7 +371,7 @@ describe("executeAgentWorkflow", () => {
       captureAgentWarning: ReturnType<typeof vi.fn>;
     };
 
-    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.findFirst.mockResolvedValue(null);
     prisma.run.upsert.mockResolvedValue({
       id: NORMALIZED_RUN_ID,
       status: "running",
@@ -397,7 +419,7 @@ describe("executeAgentWorkflow", () => {
       captureAgentWarning: ReturnType<typeof vi.fn>;
     };
 
-    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.findFirst.mockResolvedValue(null);
     prisma.run.upsert.mockResolvedValue({
       id: NORMALIZED_RUN_ID,
       status: "running",
@@ -447,7 +469,7 @@ describe("executeAgentWorkflow", () => {
     vi.setSystemTime(fixedTime);
 
     try {
-      prisma.run.findUnique.mockResolvedValue(null);
+      prisma.run.findFirst.mockResolvedValue(null);
       prisma.run.upsert.mockResolvedValue({
         id: NORMALIZED_RUN_ID,
         status: "running",
@@ -499,7 +521,7 @@ describe("executeAgentWorkflow", () => {
       assistant: ReturnType<typeof vi.fn>;
     };
 
-    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.findFirst.mockResolvedValue(null);
     prisma.run.upsert.mockResolvedValue({
       id: NORMALIZED_RUN_ID,
       status: "running",
@@ -562,7 +584,7 @@ describe("executeAgentWorkflow", () => {
       assistant: ReturnType<typeof vi.fn>;
     };
 
-    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.findFirst.mockResolvedValue(null);
     prisma.run.upsert.mockResolvedValue({
       id: NORMALIZED_RUN_ID,
       status: "running",
@@ -648,7 +670,7 @@ describe("executeAgentWorkflow", () => {
       assistant: ReturnType<typeof vi.fn>;
     };
 
-    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.findFirst.mockResolvedValue(null);
     prisma.run.upsert.mockResolvedValue({
       id: NORMALIZED_RUN_ID,
       status: "running",
@@ -748,7 +770,7 @@ describe("executeAgentWorkflow", () => {
       assistant: ReturnType<typeof vi.fn>;
     };
 
-    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.findFirst.mockResolvedValue(null);
     prisma.run.upsert.mockResolvedValue({
       id: NORMALIZED_RUN_ID,
       status: "running",
@@ -863,7 +885,7 @@ describe("executeAgentWorkflow", () => {
     openAiRuntime.getProofGroupsForIntent.mockReturnValue([]);
     openAiRuntime.evaluateProofCompliance.mockReturnValue([]);
 
-    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.findFirst.mockResolvedValue(null);
     prisma.run.upsert.mockResolvedValue({
       id: NORMALIZED_RUN_ID,
       status: "running",
@@ -962,7 +984,7 @@ describe("executeAgentWorkflow", () => {
     openAiRuntime.getProofGroupsForIntent.mockReturnValue([]);
     openAiRuntime.evaluateProofCompliance.mockReturnValue([]);
 
-    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.findFirst.mockResolvedValue(null);
     prisma.run.upsert.mockResolvedValue({
       id: NORMALIZED_RUN_ID,
       status: "running",
@@ -1058,7 +1080,7 @@ describe("executeAgentWorkflow", () => {
       assistant: ReturnType<typeof vi.fn>;
     };
 
-    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.findFirst.mockResolvedValue(null);
     prisma.run.upsert.mockResolvedValue({
       id: NORMALIZED_RUN_ID,
       status: "running",
@@ -1112,7 +1134,7 @@ describe("executeAgentWorkflow", () => {
       "I found a conflict with prior stored data for this address. Please confirm which sale price is correct. I stored the new claim as draft pending your confirmation.";
     const events: Array<{ type: string; content?: string }> = [];
 
-    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.findFirst.mockResolvedValue(null);
     prisma.run.upsert.mockResolvedValue({
       id: NORMALIZED_RUN_ID,
       status: "running",
@@ -1189,7 +1211,7 @@ describe("executeAgentWorkflow", () => {
       assistant: ReturnType<typeof vi.fn>;
     };
 
-    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.findFirst.mockResolvedValue(null);
     prisma.run.upsert.mockResolvedValue({
       id: NORMALIZED_RUN_ID,
       status: "running",
@@ -1246,7 +1268,7 @@ describe("executeAgentWorkflow", () => {
       "I will not attribute nearby parcel records to this address. Please confirm the exact parcel_id or address variant.";
     const events: Array<{ type: string; content?: string }> = [];
 
-    prisma.run.findUnique.mockResolvedValue(null);
+    prisma.run.findFirst.mockResolvedValue(null);
     prisma.run.upsert.mockResolvedValue({
       id: NORMALIZED_RUN_ID,
       status: "running",

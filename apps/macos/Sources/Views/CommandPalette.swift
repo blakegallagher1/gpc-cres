@@ -5,6 +5,7 @@ struct CommandPaletteView: View {
     let onSelect: (DesktopRoute) -> Void
 
     @State private var query = ""
+    @State private var highlightedIndex = 0
     @FocusState private var searchFocused: Bool
 
     private var filteredRoutes: [DesktopRoute] {
@@ -25,8 +26,9 @@ struct CommandPaletteView: View {
                     .font(.title3)
                     .focused($searchFocused)
                     .onSubmit {
-                        if let first = filteredRoutes.first {
-                            onSelect(first)
+                        let index = min(highlightedIndex, max(filteredRoutes.count - 1, 0))
+                        if filteredRoutes.indices.contains(index) {
+                            onSelect(filteredRoutes[index])
                             isPresented = false
                         }
                     }
@@ -39,7 +41,10 @@ struct CommandPaletteView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(filteredRoutes) { route in
-                        PaletteRow(route: route) {
+                        PaletteRow(
+                            route: route,
+                            isHighlighted: filteredRoutes[safe: highlightedIndex] == route
+                        ) {
                             onSelect(route)
                             isPresented = false
                         }
@@ -52,12 +57,27 @@ struct CommandPaletteView: View {
         .frame(width: 480)
         .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
         .onAppear { searchFocused = true }
+        .onChange(of: query) { _, _ in
+            highlightedIndex = 0
+        }
         .onExitCommand { isPresented = false }
+        .onMoveCommand { direction in
+            guard filteredRoutes.isEmpty == false else { return }
+            switch direction {
+            case .down:
+                highlightedIndex = min(highlightedIndex + 1, filteredRoutes.count - 1)
+            case .up:
+                highlightedIndex = max(highlightedIndex - 1, 0)
+            default:
+                break
+            }
+        }
     }
 }
 
 private struct PaletteRow: View {
     let route: DesktopRoute
+    let isHighlighted: Bool
     let action: () -> Void
     @State private var isHovered = false
 
@@ -77,10 +97,16 @@ private struct PaletteRow: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
-            .background(isHovered ? Color.primary.opacity(0.07) : Color.clear)
+            .background((isHovered || isHighlighted) ? Color.primary.opacity(0.07) : Color.clear)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
+    }
+}
+
+private extension Collection {
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }

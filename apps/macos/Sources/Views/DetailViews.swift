@@ -431,6 +431,44 @@ struct WorkflowsPane: View {
     }
 }
 
+struct NotificationsPane: View {
+    let snapshot: NotificationsSnapshot
+    let lastRefreshLabel: String
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                paneHeader(title: "Notifications", subtitle: "Last refresh \(lastRefreshLabel)")
+
+                MetricCard(
+                    metric: OperatorMetric(
+                        id: "unread",
+                        label: "Unread",
+                        value: "\(snapshot.unreadCount)",
+                        detail: "Unread production notifications"
+                    )
+                )
+
+                if snapshot.latestTitles.isEmpty {
+                    SurfaceCard(title: "Recent Notifications", subtitle: "No items returned") {
+                        Text("No notifications were returned from the production API.")
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    SurfaceCard(title: "Recent Notifications", subtitle: "Latest 5") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(snapshot.latestTitles, id: \.self) { title in
+                                Label(title, systemImage: "bell")
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(24)
+        }
+    }
+}
+
 struct AdminPane: View {
     let snapshot: AdminSnapshot
     let lastRefreshLabel: String

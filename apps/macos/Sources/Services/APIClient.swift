@@ -91,6 +91,22 @@ struct APIClient {
         return ChatSnapshot(conversationCount: items.count, messagesToday: messagesToday, lastActiveAgent: lastAgent)
     }
 
+    func fetchNotificationsSnapshot() async throws -> NotificationsSnapshot {
+        let unreadPayload = (try? await requestJSON(path: "/api/notifications/unread-count")) ?? [:]
+        let listPayload = (try? await requestJSON(path: "/api/notifications?limit=5")) ?? [:]
+
+        let unread = (unreadPayload as? [String: Any])?["count"] as? Int ?? 0
+        let items = ((listPayload as? [String: Any])?["notifications"] as? [[String: Any]]) ?? []
+        let titles = items.compactMap { item in
+            APIParsers.publicString(in: item, keys: ["title", "message", "summary"])
+        }
+
+        return NotificationsSnapshot(
+            unreadCount: unread,
+            latestTitles: Array(titles.prefix(5))
+        )
+    }
+
     func fetchCommandCenterSnapshot() async throws -> CommandCenterSnapshot {
         let briefing = (try? await requestJSON(path: "/api/intelligence/daily-briefing")) ?? [:]
         let stats = (try? await requestJSON(path: "/api/memory/stats")) ?? [:]

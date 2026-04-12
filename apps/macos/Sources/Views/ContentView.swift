@@ -207,6 +207,7 @@ struct DesktopCommands: Commands {
                 .keyboardShortcut("5", modifiers: .command)
             Button("Runs") { store.select(route: .runs) }
                 .keyboardShortcut("6", modifiers: .command)
+            Button("Notifications") { store.select(route: .notifications) }
             Button("Automation") { store.select(route: .automation) }
                 .keyboardShortcut("7", modifiers: .command)
             Button("Portfolio") { store.select(route: .portfolio) }
@@ -300,6 +301,8 @@ private struct NativeInspectorPane: View {
             } else {
                 RunsPane(records: store.runRecords, lastRefreshLabel: store.lastNativeRefreshLabel)
             }
+        case .notifications:
+            NotificationsPane(snapshot: store.notificationsSnapshot, lastRefreshLabel: store.lastNativeRefreshLabel)
         case .automation:
             AutomationPane(records: store.automationRecords, lastRefreshLabel: store.lastNativeRefreshLabel)
         case .workflows:

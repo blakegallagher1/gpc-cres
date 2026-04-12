@@ -121,8 +121,9 @@ describe("MessageBubble", () => {
     render(<MessageBubble message={message} />);
 
     const text = screen.getByText("Please draft the zoning memo and include assumptions.");
+    const bubble = text.closest("div.rounded-2xl");
     expect(text).toBeInTheDocument();
-    expect(text).toHaveClass("text-primary-foreground");
+    expect(bubble).toHaveClass("bg-primary", "text-primary-foreground");
     expect(screen.queryByText("Structured assistant report")).not.toBeInTheDocument();
   });
 });

@@ -1,8 +1,10 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { dirname, join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const API_ROOT = join(process.cwd(), "apps/web/app/api");
+const APP_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const API_ROOT = join(APP_ROOT, "app/api");
 
 const PUBLIC_PREFIXES = [
   "auth/",
@@ -142,6 +144,6 @@ describe("API route auth inventory", () => {
   it("keeps the inventory expectations easy to review in failures", () => {
     const files = getRouteFiles();
     expect(files.length).toBeGreaterThan(0);
-    expect(relative(process.cwd(), API_ROOT)).toBe("apps/web/app/api");
+    expect(relative(APP_ROOT, API_ROOT)).toBe("app/api");
   });
 });

@@ -15,12 +15,16 @@ struct ConnectivityProbe {
     func run() async -> ConnectivitySnapshot {
         let sessionContext = await resolveSessionContext()
         let siteResult = await fetch(path: "/", authorize: false)
-        let apiResult = await fetch(path: "/api/health", authorize: true, sessionContext: sessionContext)
+        let authResult = await fetch(path: "/api/agent/auth/resolve", authorize: true, sessionContext: sessionContext)
+        let operatorResult = await fetch(path: "/api/runs/dashboard", authorize: true, sessionContext: sessionContext)
+        let healthResult = await fetch(path: "/api/health", authorize: true, sessionContext: sessionContext)
         let detailedResult = await fetch(path: "/api/health/detailed", authorize: true, sessionContext: sessionContext)
 
         let state = deriveState(
             siteResult: siteResult,
-            apiResult: apiResult,
+            authResult: authResult,
+            operatorResult: operatorResult,
+            healthResult: healthResult,
             detailedResult: detailedResult,
             sessionContext: sessionContext
         )
@@ -28,8 +32,18 @@ struct ConnectivityProbe {
         return ConnectivitySnapshot(
             state: state,
             siteSummary: summarizeSite(siteResult),
-            apiSummary: summarizeAPI(apiResult, sessionContext: sessionContext),
-            databaseSummary: summarizeDatabase(detailedResult),
+            apiSummary: summarizeOperatorAPI(
+                authResult: authResult,
+                operatorResult: operatorResult,
+                sessionContext: sessionContext
+            ),
+            databaseSummary: summarizeSystemHealth(
+                healthResult: healthResult,
+                detailedResult: detailedResult,
+                authResult: authResult,
+                operatorResult: operatorResult,
+                sessionContext: sessionContext
+            ),
             checkedAtLabel: Self.timestampFormatter.string(from: .now)
         )
     }
@@ -90,7 +104,9 @@ struct ConnectivityProbe {
 
     private func deriveState(
         siteResult: ProbeResult,
-        apiResult: ProbeResult,
+        authResult: ProbeResult,
+        operatorResult: ProbeResult,
+        healthResult: ProbeResult,
         detailedResult: ProbeResult,
         sessionContext: SessionContext
     ) -> ConnectivityState {
@@ -98,22 +114,36 @@ struct ConnectivityProbe {
             return .failed
         }
 
-        if apiResult.isSuccess, detailedResult.isSuccess, detailedResult.databaseOK {
+        let operatorAPIsHealthy = authResult.isSuccess && operatorResult.isSuccess
+
+        if operatorAPIsHealthy {
+            if detailedResult.isSuccess, detailedResult.databaseOK == false {
+                return .degraded
+            }
+
+            if healthResult.isFailure, healthResult.isUnauthorized == false {
+                return .degraded
+            }
+
+            if detailedResult.isFailure, detailedResult.isUnauthorized == false {
+                return .degraded
+            }
+
             return .healthy
         }
 
-        if apiResult.isUnauthorized || detailedResult.isUnauthorized {
+        if authResult.isUnauthorized || operatorResult.isUnauthorized {
             if configuration.bearerToken.isEmpty,
-               apiResult.usedPageSession || detailedResult.usedPageSession {
+               authResult.usedPageSession || operatorResult.usedPageSession {
                 return .authRequired
             }
 
             return sessionContext.hasUsableAuthentication || configuration.bearerToken.isEmpty == false
-                ? .degraded
+                ? .authRequired
                 : .authRequired
         }
 
-        if apiResult.isFailure || detailedResult.isFailure || detailedResult.databaseOK == false {
+        if authResult.isFailure || operatorResult.isFailure {
             return .degraded
         }
 
@@ -128,49 +158,77 @@ struct ConnectivityProbe {
         return "Site check failed: \(result.errorMessage ?? "Unknown error")."
     }
 
-    private func summarizeAPI(_ result: ProbeResult, sessionContext: SessionContext?) -> String {
-        if result.isUnauthorized {
+    private func summarizeOperatorAPI(
+        authResult: ProbeResult,
+        operatorResult: ProbeResult,
+        sessionContext: SessionContext?
+    ) -> String {
+        if authResult.isSuccess, operatorResult.isSuccess {
+            return "Operator APIs are healthy. Authenticated production routes are responding."
+        }
+
+        if authResult.isUnauthorized || operatorResult.isUnauthorized {
             if configuration.bearerToken.isEmpty == false {
-                return "API health rejected the configured bearer token."
+                return "Configured bearer token does not authorize operator APIs."
             }
 
-            if result.usedPageSession {
-                return "Desktop page session still returned 401 for /api/health."
+            if authResult.usedPageSession || operatorResult.usedPageSession {
+                return "Desktop page session is not authenticated for protected operator APIs yet."
             }
 
             if sessionContext?.hasUsableAuthentication == true {
-                return "Desktop auth token was present, but API health still returned 401."
+                return "Desktop auth token was present, but operator APIs still returned 401."
             }
 
-            return "Sign in in the desktop app or provide a bearer token in Settings to unlock protected health endpoints."
+            return "Sign in in the desktop app or provide an advanced bearer token to unlock native operator data."
         }
 
-        if let statusCode = result.statusCode {
-            return "API health responded with HTTP \(statusCode)."
+        if let statusCode = operatorResult.statusCode {
+            return "Operator APIs responded with HTTP \(statusCode)."
         }
 
-        return "API health failed: \(result.errorMessage ?? "Unknown error")."
+        return "Operator API probe failed: \(operatorResult.errorMessage ?? authResult.errorMessage ?? "Unknown error")."
     }
 
-    private func summarizeDatabase(_ result: ProbeResult) -> String {
-        if result.isUnauthorized {
-            return configuration.bearerToken.isEmpty
-                ? "Detailed DB health unlocks after desktop sign-in or a bearer token."
-                : "Detailed DB health rejected the configured bearer token."
+    private func summarizeSystemHealth(
+        healthResult: ProbeResult,
+        detailedResult: ProbeResult,
+        authResult: ProbeResult,
+        operatorResult: ProbeResult,
+        sessionContext: SessionContext?
+    ) -> String {
+        if healthResult.isUnauthorized || detailedResult.isUnauthorized {
+            if authResult.isSuccess, operatorResult.isSuccess {
+                return "Elevated health endpoints require a dedicated health token, but operator APIs are healthy."
+            }
+
+            if configuration.bearerToken.isEmpty == false {
+                return "Configured bearer token does not unlock elevated health endpoints."
+            }
+
+            if sessionContext?.hasUsableAuthentication == true {
+                return "Operator auth is present, but elevated health endpoints still require a dedicated health token."
+            }
+
+            return "Detailed system health unlocks after desktop sign-in or a dedicated health token."
         }
 
-        if let payload = result.payload,
+        if let payload = detailedResult.payload,
            let dbStatus = payload["dbStatus"] as? [String: Any] {
             let ok = (dbStatus["ok"] as? Bool) ?? false
             let detail = (dbStatus["detail"] as? String) ?? ((dbStatus["reason"] as? String) ?? "No DB detail")
             return ok ? "Database healthy: \(detail)" : "Database unhealthy: \(detail)"
         }
 
-        if let statusCode = result.statusCode {
+        if let statusCode = detailedResult.statusCode {
             return "Detailed health responded with HTTP \(statusCode)."
         }
 
-        return "Detailed health failed: \(result.errorMessage ?? "Unknown error")."
+        if let statusCode = healthResult.statusCode {
+            return "System health responded with HTTP \(statusCode)."
+        }
+
+        return "Detailed health failed: \(detailedResult.errorMessage ?? healthResult.errorMessage ?? "Unknown error")."
     }
 
     private func resolveSessionContext() async -> SessionContext {

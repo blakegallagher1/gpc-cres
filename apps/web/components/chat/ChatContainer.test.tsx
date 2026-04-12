@@ -236,12 +236,10 @@ describe("ChatContainer", () => {
           enabled: false,
         }),
       );
-      expect(screen.getByText("Start with a question.")).toBeInTheDocument();
+      expect(screen.getByText("Ask Harvey anything.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Draft memo" })).toBeInTheDocument();
       expect(
-        screen.getByRole("button", { name: "Open advanced workspace" }),
-      ).toBeInTheDocument();
-      expect(
-        screen.getByText(/Ask naturally\. The system can search your internal data/i),
+        screen.getByText(/Lead with the matter, outcome, or document you need\./i),
       ).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "History", exact: true })).not.toBeInTheDocument();
       expect(
@@ -264,10 +262,8 @@ describe("ChatContainer", () => {
         expect(fetchMock).toHaveBeenCalledWith("/api/chat/conversations");
       });
 
-      expect(screen.getByText("Start with a question.")).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: "Open advanced workspace" }),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Ask Harvey anything.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Draft memo" })).toBeInTheDocument();
       expect(screen.queryByTestId("conversation-sidebar")).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "History", exact: true })).not.toBeInTheDocument();
       expect(

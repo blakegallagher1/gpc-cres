@@ -5,7 +5,7 @@ import { DashboardShell } from "@/components/layout/DashboardShell";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { DealSummary } from "@/components/deals/DealCard";
 import DealsPage from "./page-client";
-import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { auth } from "@/auth";
 import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -125,8 +125,11 @@ function DealsFallback() {
 }
 
 export default async function DealsRoute({ searchParams }: DealsRouteProps) {
-  const auth = await resolveAuth();
-  if (!auth) {
+  const session = await auth();
+  const userId = session?.user?.id;
+  const orgId = (session?.user as { orgId?: string | null } | undefined)?.orgId;
+
+  if (!userId || !orgId) {
     redirect("/login");
   }
 
@@ -148,7 +151,7 @@ export default async function DealsRoute({ searchParams }: DealsRouteProps) {
     query.set("search", searchTerm);
   }
 
-  const dealsPromise = fetchDealsFromLocalApi(auth.orgId, query);
+  const dealsPromise = fetchDealsFromLocalApi(orgId, query);
 
   return (
     <Suspense

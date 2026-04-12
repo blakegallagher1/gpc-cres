@@ -45,10 +45,10 @@ describe("zoningLayerConfig", () => {
     expect(layer).toMatchSnapshot();
   });
 
-  it("uses the advanced zoning function contract by default", () => {
+  it("uses the same-origin zoning proxy contract by default", () => {
     const contract = getPreferredZoningTileContract();
-    expect(contract.sourceId).toBe("get_zoning_mvt");
-    expect(contract.sourceLayer).toBe("zoning");
+    expect(contract.sourceId).toBe("get_parcel_mvt_proxy");
+    expect(contract.sourceLayer).toBe("parcels");
     expect(contract.propertyName).toBe("zoning_type");
     expect(contract.metadataUrl).toBe("/api/map/zoning-tiles/metadata");
     expect(contract.tileUrl).toContain("/api/map/zoning-tiles/{z}/{x}/{y}");

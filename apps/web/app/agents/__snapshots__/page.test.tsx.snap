@@ -39,7 +39,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
           Tool surface
         </span>
         <span>
-          28
+          3
         </span>
         <span>
           Total tools attached across the visible agent fleet.
@@ -162,7 +162,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
             >
               <div
                 class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-border/60 bg-background/65"
-                style="background-color: #6366f120;"
+                style="background-color: #2563eb20;"
               >
                 <svg
                   aria-hidden="true"
@@ -173,7 +173,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
                   stroke-linecap="round"
                   stroke-linejoin="round"
                   stroke-width="2"
-                  style="color: #6366f1;"
+                  style="color: #2563eb;"
                   viewBox="0 0 24 24"
                   width="24"
                   xmlns="http://www.w3.org/2000/svg"
@@ -208,7 +208,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
                 <h3
                   class="truncate text-lg font-semibold"
                 >
-                  EntitlementOS
+                  Harvey
                 </h3>
                 <p
                   class="text-sm text-muted-foreground"
@@ -230,7 +230,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
           <p
             class="text-sm text-muted-foreground line-clamp-2"
           >
-            Unified AI agent with comprehensive domain expertise across finance, legal, entitlements, risk, and operations for complete deal analysis and decision support.
+            Unified operator for research, evidence, and underwriting work.
           </p>
           <div
             class="flex flex-wrap gap-4 text-sm"
@@ -256,7 +256,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
                 />
               </svg>
               <span>
-                28
+                3
                  catalog tools
               </span>
             </div>
@@ -291,7 +291,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
                 />
               </svg>
               <span>
-                0
+                1
                  handoffs
               </span>
             </div>
@@ -316,7 +316,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
                 />
               </svg>
               <span>
-                0
+                14
                  runs
               </span>
             </div>
@@ -332,19 +332,12 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
             <div
               class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
-              store_knowledge_entry
+              search_parcels
             </div>
             <div
               class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background/42 text-foreground text-xs"
             >
-              search_similar_episodes
-            </div>
-            <div
-              class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/65 text-secondary-foreground hover:bg-secondary/90 text-xs"
-            >
-              +
-              25
-               more
+              query_property_db
             </div>
           </div>
           <div
@@ -379,7 +372,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
             </button>
             <a
               class="inline-flex items-center justify-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-10 px-4 py-2"
-              href="/agents/coordinator"
+              href="/agents/agent-1"
             >
               <svg
                 aria-hidden="true"

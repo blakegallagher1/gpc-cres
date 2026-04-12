@@ -14,7 +14,7 @@ struct SidebarView: View {
     ]
 
     private let systemRoutes: [DesktopRoute] = [
-        .agents, .runs, .automation, .workflows, .reference
+        .agents, .runs, .notifications, .automation, .workflows, .reference
     ]
 
     private let footerRoutes: [DesktopRoute] = [.settings, .admin]

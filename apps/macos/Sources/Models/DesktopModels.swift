@@ -8,6 +8,7 @@ enum DesktopRoute: String, CaseIterable, Identifiable {
     case opportunities
     case workflows
     case runs
+    case notifications
     case agents
     case automation
     case market
@@ -31,6 +32,7 @@ enum DesktopRoute: String, CaseIterable, Identifiable {
         case .opportunities: "Opportunities"
         case .workflows: "Workflows"
         case .runs: "Runs"
+        case .notifications: "Notifications"
         case .agents: "Agents"
         case .automation: "Automation"
         case .market: "Market"
@@ -54,6 +56,7 @@ enum DesktopRoute: String, CaseIterable, Identifiable {
         case .opportunities: "Opportunity OS inbox and thesis"
         case .workflows: "Workflow execution and review"
         case .runs: "Agent runs and verification"
+        case .notifications: "Unread updates and approval prompts"
         case .agents: "Agent catalog and diagnostics"
         case .automation: "Cron health and escalation"
         case .market: "Permits, overlays, and intelligence"
@@ -77,6 +80,7 @@ enum DesktopRoute: String, CaseIterable, Identifiable {
         case .opportunities: "sparkles.rectangle.stack"
         case .workflows: "point.3.connected.trianglepath.dotted"
         case .runs: "bolt.horizontal.circle"
+        case .notifications: "bell.badge"
         case .agents: "person.3.sequence"
         case .automation: "clock.arrow.circlepath"
         case .market: "chart.line.uptrend.xyaxis"
@@ -98,8 +102,9 @@ enum DesktopRoute: String, CaseIterable, Identifiable {
         case .deals: "/deals"
         case .map: "/map"
         case .opportunities: "/opportunities"
-        case .workflows: "/workflows"
+        case .workflows: "/automation?tab=builder"
         case .runs: "/runs"
+        case .notifications: "/chat"
         case .agents: "/agents"
         case .automation: "/automation"
         case .market: "/market"
@@ -310,6 +315,16 @@ struct WorkflowsSnapshot: Equatable {
     static let placeholder = WorkflowsSnapshot(
         activeCount: 0,
         lastRunStatus: "—"
+    )
+}
+
+struct NotificationsSnapshot: Equatable {
+    var unreadCount: Int
+    var latestTitles: [String]
+
+    static let placeholder = NotificationsSnapshot(
+        unreadCount: 0,
+        latestTitles: []
     )
 }
 
