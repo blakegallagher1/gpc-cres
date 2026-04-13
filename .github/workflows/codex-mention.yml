@@ -1,0 +1,197 @@
+name: Codex Mention
+
+# Trigger: type "@codex <request>" in any issue or PR comment → Codex executes it.
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  mention:
+    if: |
+      contains(github.event.comment.body, '@codex') &&
+      (github.event.comment.user.login == 'gallagherpropertycompany' ||
+       github.event.comment.author_association == 'OWNER' ||
+       github.event.comment.author_association == 'MEMBER' ||
+       github.event.comment.author_association == 'COLLABORATOR')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Determine checkout ref
+        id: ref
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pullRequest = context.payload.pull_request
+              ?? (context.payload.issue?.pull_request
+                ? (await github.rest.pulls.get({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    pull_number: context.payload.issue.number,
+                  })).data
+                : null);
+
+            if (pullRequest) {
+              core.setOutput('ref', pullRequest.head.ref);
+              core.setOutput('issue_number', pullRequest.number);
+            } else {
+              core.setOutput('ref', 'main');
+              core.setOutput('issue_number', context.payload.issue.number);
+            }
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.ref.outputs.ref }}
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create .env from .env.example
+        run: cp .env.example .env
+
+      - name: Generate Prisma client
+        run: pnpm --filter @entitlement-os/db generate
+
+      - name: Post acknowledgement
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ steps.ref.outputs.issue_number }},
+              body: `**Codex** is working on this... ⚙️`,
+            });
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Codex CLI
+        run: npm install -g @openai/codex@latest
+
+      - name: Run Codex on mention
+        id: codex-mention
+        run: |
+          codex exec \
+            --full-auto \
+            "$PROMPT" \
+            > /tmp/codex-mention-output.log 2>&1 || true
+
+          if [ ! -f /tmp/codex-mention-result.json ]; then
+            echo '{"response":"Codex processed the request.","changes_made":false,"summary":"No structured output produced"}' \
+              > /tmp/codex-mention-result.json
+          fi
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PROMPT: |
+            You were mentioned in a GitHub comment. Execute the request below.
+
+            Comment:
+            ${{ github.event.comment.body }}
+
+            Context — issue/PR #${{ steps.ref.outputs.issue_number }} in the Entitlement OS project
+            (commercial real estate platform, Gallagher Property Company).
+
+            Rules:
+            - Only do exactly what was requested in the @codex mention
+            - All API routes must use resolveAuth() + orgId scoping
+            - Zod params use .nullable() not .optional(); no .url()/.email() validators
+            - Event dispatch uses .catch(() => {}) — never blocks response
+            - Run: pnpm typecheck && pnpm lint before finishing
+            - Do NOT commit or push — just stage changes
+
+            Write results to /tmp/codex-mention-result.json:
+            {"response": string, "changes_made": boolean, "summary": string}
+
+      - name: Commit changes and reply
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const { execFileSync } = require('child_process');
+            let result = { response: 'Done.', changes_made: false, summary: 'No output' };
+            try {
+              result = JSON.parse(fs.readFileSync('/tmp/codex-mention-result.json', 'utf8'));
+            } catch {}
+
+            const normalizedSummary = String(result.summary ?? 'No output')
+              .replace(/\s+/g, ' ')
+              .trim();
+            const commitSummary = normalizedSummary.slice(0, 72) || 'No output';
+            const prSummary = normalizedSummary.slice(0, 60) || 'No output';
+
+            let prUrl = null;
+            if (result.changes_made) {
+              try {
+                const branch = `codex/mention-${context.runNumber}`;
+                execFileSync('git', ['config', 'user.name', 'Codex']);
+                execFileSync('git', ['config', 'user.email', 'codex@openai.com']);
+
+                // If we're already on a PR branch, just push to it
+                const currentBranch = execFileSync('git', ['branch', '--show-current'], {
+                  encoding: 'utf8',
+                }).trim();
+                if (currentBranch !== 'main') {
+                  execFileSync('git', ['add', '-A']);
+                  execFileSync('git', ['commit', '-m', `fix: codex mention - ${commitSummary}`]);
+                  execFileSync('git', ['push', 'origin', currentBranch]);
+                } else {
+                  execFileSync('git', ['checkout', '-b', branch]);
+                  execFileSync('git', ['add', '-A']);
+                  execFileSync('git', ['commit', '-m', `feat: codex mention - ${commitSummary}`]);
+                  execFileSync('git', ['push', 'origin', branch]);
+
+                  const pr = await github.rest.pulls.create({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    title: `feat: codex mention - ${prSummary}`,
+                    body: [
+                      '## Codex Mention Response',
+                      '',
+                      `Requested in a comment on #${{ steps.ref.outputs.issue_number }}`,
+                      '',
+                      `**Summary:** ${result.summary}`,
+                      '',
+                      '> Auto-generated by Codex. Review carefully before merging.',
+                    ].join('\n'),
+                    head: branch,
+                    base: 'main',
+                  });
+                  prUrl = pr.data.html_url;
+                }
+              } catch (e) {
+                console.error('Git/PR error:', e.message);
+              }
+            }
+
+            const body = [
+              `**Codex** finished.`,
+              '',
+              result.response,
+              prUrl ? `\nChanges: ${prUrl}` : (result.changes_made ? '\nChanges pushed to branch.' : ''),
+            ].filter(Boolean).join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ steps.ref.outputs.issue_number }},
+              body,
+            });
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
