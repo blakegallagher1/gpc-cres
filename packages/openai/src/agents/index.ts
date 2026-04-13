@@ -17,7 +17,7 @@ export { createEntitlementOSAgent } from "./entitlement-os.js";
  */
 export function createConfiguredCoordinator(options?: {
   intent?: QueryIntent;
-}): Agent<unknown, any> {
+}): ReturnType<typeof createEntitlementOSAgent> {
   initAgentsSentry();
 
   // Intent is preserved for analytics/logging but no longer used for routing

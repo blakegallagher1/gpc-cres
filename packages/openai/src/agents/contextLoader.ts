@@ -1,9 +1,9 @@
-import type { Agent } from "@openai/agents";
+import type { Agent, AgentOutputType } from "@openai/agents";
 import type { RunContext } from "@openai/agents";
 
 type LazyContextArgs<TContext = unknown> = {
   runContext?: RunContext<TContext>;
-  agent?: Agent<TContext, any>;
+  agent?: Agent<TContext, AgentOutputType>;
 };
 
 type LazyContextLoader<TContext = unknown> = (
