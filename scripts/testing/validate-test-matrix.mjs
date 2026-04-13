@@ -58,7 +58,7 @@ function discoverIds() {
     }
   }
   const toolIndex = fs.readFileSync(path.join(toolDir, "index.ts"), "utf8");
-  if (/export const\s+webSearchPreviewTool\s*=\s*\{/.test(toolIndex)) {
+  if (/export const\s+webSearchPreviewTool\s*=/.test(toolIndex)) {
     ids.push("tool:webSearchPreviewTool");
   }
 

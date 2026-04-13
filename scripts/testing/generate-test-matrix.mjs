@@ -91,7 +91,7 @@ function discoverTools() {
 
   const toolIndexPath = path.join(toolDir, "index.ts");
   const toolIndex = fs.readFileSync(toolIndexPath, "utf8");
-  if (/export const\s+webSearchPreviewTool\s*=\s*\{/.test(toolIndex)) {
+  if (/export const\s+webSearchPreviewTool\s*=/.test(toolIndex)) {
     tools.push(
       withCommonFields({
         id: "tool:webSearchPreviewTool",

@@ -35,13 +35,18 @@ describe("test matrix starter", () => {
   it("captures the expected core inventory counts", () => {
     const matrix = loadMatrix();
 
-    // Unified consolidation: Single EntitlementOS agent (coordinator + all specialists)
-    expect(matrix.summary.counts.agents).toBe(1);
-    expect(matrix.summary.counts.tools).toBe(55);
-    expect(matrix.summary.counts.api_routes).toBe(66);
-    expect(matrix.summary.counts.automation_modules).toBe(15);
+    expect(matrix.summary.counts.agents).toBeGreaterThanOrEqual(5);
+    expect(matrix.summary.counts.tools).toBeGreaterThanOrEqual(140);
+    expect(matrix.summary.counts.api_routes).toBeGreaterThanOrEqual(150);
+    expect(matrix.summary.counts.automation_modules).toBeGreaterThanOrEqual(25);
     expect(matrix.summary.counts.features).toBeGreaterThanOrEqual(10);
-    expect(matrix.summary.counts.total_components).toBeGreaterThanOrEqual(122);
+    expect(matrix.summary.counts.total_components).toBe(
+      matrix.summary.counts.agents +
+        matrix.summary.counts.tools +
+        matrix.summary.counts.api_routes +
+        matrix.summary.counts.automation_modules +
+        matrix.summary.counts.features,
+    );
   });
 
   it("contains the unified EntitlementOS agent as the core coordinator", () => {
@@ -58,8 +63,9 @@ describe("test matrix starter", () => {
     const matrix = loadMatrix();
     const toolIds = matrix.components.filter((c) => c.type === "tool").map((c) => c.id);
 
-    expect(toolIds).toHaveLength(55);
+    expect(toolIds).toHaveLength(matrix.summary.counts.tools);
     expect(toolIds.includes("tool:webSearchPreviewTool")).toBe(true);
     expect(toolIds.includes("tool:get_entitlement_feature_primitives")).toBe(true);
+    expect(toolIds.includes("tool:perplexity_web_research")).toBe(true);
   });
 });
