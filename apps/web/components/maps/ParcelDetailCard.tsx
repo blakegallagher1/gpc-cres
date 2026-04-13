@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import type { MapPopupAction } from "./MapPopupPresenter";
 import type { MapParcel } from "./types";
 import { clampFloatingPanelPosition } from "./floatingPanelPosition";
+import { useParcelTruth, type ClientTruthView } from "@/hooks/useParcelTruth";
 
 const CARD_PANEL_SIZE = { width: 352, height: 284 };
 
@@ -70,7 +71,7 @@ export function ParcelDetailCard({
 }: ParcelDetailCardProps) {
   const reduceMotion = useReducedMotion();
   const cardRef = useRef<HTMLDivElement>(null);
-  const [activeTab, setActiveTab] = useState<"details" | "comps" | "deals">("details");
+  const [activeTab, setActiveTab] = useState<"details" | "comps" | "deals" | "intel">("details");
 
   useEffect(() => {
     if (!parcel) {
@@ -109,6 +110,8 @@ export function ParcelDetailCard({
     if (!parcel) return "";
     return `${parcel.lat.toFixed(6)},${parcel.lng.toFixed(6)}`;
   }, [parcel]);
+
+  const { truth } = useParcelTruth(parcel ? { propertyDbId: parcel.propertyDbId ?? undefined, parcelId: parcel.id, address: parcel.address } : null);
 
   if (!parcel || !point) {
     return null;
@@ -163,10 +166,11 @@ export function ParcelDetailCard({
 
       <div className="px-3 py-3">
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)}>
-          <TabsList className="grid h-8 w-full grid-cols-3 bg-map-surface-elevated text-[10px]">
+          <TabsList className="grid h-8 w-full grid-cols-4 bg-map-surface-elevated text-[10px]">
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="comps">Comps</TabsTrigger>
             <TabsTrigger value="deals">Deals</TabsTrigger>
+            <TabsTrigger value="intel">Intel</TabsTrigger>
           </TabsList>
 
           <TabsContent value="details" className="mt-3 space-y-3">
@@ -295,9 +299,67 @@ export function ParcelDetailCard({
               </div>
             </div>
           </TabsContent>
+
+          <TabsContent value="intel" className="mt-3 space-y-3">
+            {truth ? (
+              <SavedIntelSection truth={truth} />
+            ) : (
+              <div className="rounded-xl border border-map-border bg-map-surface/60 p-3 text-[10px] text-map-text-muted">
+                No saved intel for this parcel yet.
+              </div>
+            )}
+          </TabsContent>
         </Tabs>
       </div>
     </motion.div>
+  );
+}
+
+function SavedIntelSection({ truth }: { truth: ClientTruthView }) {
+  const COMP_FIELDS: { key: string; label: string; format?: (v: unknown) => string }[] = [
+    { key: "comp.sale_price", label: "Sale Price", format: (v) => v != null ? `$${Number(v).toLocaleString()}` : "" },
+    { key: "comp.sale_date", label: "Sale Date" },
+    { key: "comp.buyer", label: "Buyer" },
+    { key: "comp.seller", label: "Seller" },
+    { key: "comp.cap_rate", label: "Cap Rate", format: (v) => v != null ? `${Number(v).toFixed(2)}%` : "" },
+    { key: "comp.noi", label: "NOI", format: (v) => v != null ? `$${Number(v).toLocaleString()}` : "" },
+    { key: "comp.price_per_acre", label: "$/Acre", format: (v) => v != null ? `$${Number(v).toLocaleString()}` : "" },
+    { key: "comp.price_per_sf", label: "$/SF", format: (v) => v != null ? `$${Number(v).toFixed(2)}` : "" },
+  ];
+
+  const rows = COMP_FIELDS.flatMap(({ key, label, format }) => {
+    const entry = truth.currentValues[key];
+    if (!entry) return [];
+    const rawVal = entry.value;
+    const displayVal = format ? format(rawVal) : String(rawVal ?? "");
+    if (!displayVal) return [];
+    const hasConflict = truth.openConflicts.some((c) => c.key === key);
+    const wasCorrected = Boolean(entry.correctedBy);
+    return [{ key, label, displayVal, hasConflict, wasCorrected }];
+  });
+
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="rounded-xl border border-map-border bg-map-surface/60 p-2.5">
+      <div className="mb-2 text-[9px] uppercase tracking-[0.18em] text-map-text-muted">Saved Intel</div>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10px]">
+        {rows.map(({ key, label, displayVal, hasConflict, wasCorrected }) => (
+          <div key={key} className="flex flex-col gap-0.5">
+            <span className="text-map-text-muted">{label}</span>
+            <span className="flex items-center gap-1 font-medium text-map-text-primary">
+              {displayVal}
+              {hasConflict && (
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400" title="Conflicting values" />
+              )}
+              {wasCorrected && (
+                <span className="text-[9px] text-map-text-muted">(corrected)</span>
+              )}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

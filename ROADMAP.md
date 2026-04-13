@@ -53,7 +53,7 @@ Only items meeting all checks are added below as `Planned`.
 ### OPS-RISK-001 — Production Gap Registry And Runbook Closure (P0)
 
 - **Priority:** P0
-- **Status:** In Progress
+- **Status:** Done (2026-04-13)
 - **Scope:** Close the repo-side test/observability/documentation gaps around admin-route deployment, screening failures, CUA worker recovery, D1 sync diagnosis, and auth-chain diagnostics while preserving the current Windows PC database topology.
 - **Problem:** Production dependencies and known failure modes were documented across `CLAUDE.md`, deployment notes, and historical plans, but lacked a single current runbook set and a current plan index. Some gap reports were also stale, causing audit noise and making it harder to distinguish real open risks from already-closed repo work.
 - **Expected Outcome (measurable):**
@@ -70,11 +70,12 @@ Only items meeting all checks are added below as `Planned`.
   - New runbooks exist under `docs/runbooks/` for the five named operational areas.
   - `docs/plans/INDEX.md` exists and explicitly flags untracked historical plans.
   - Verification: `pnpm typecheck` plus focused tests for the touched route and CUA worker tests.
+- **Evidence (2026-04-13):** `apps/web/app/api/agent/tools/execute/route.ts` already had `import * as Sentry from "@sentry/nextjs"` and a `captureToolExecutionConfigIssue()` helper wired to both `missing_catalog_entry` and `transport_policy_unavailable` branches (using `Sentry.captureException` / `Sentry.captureMessage`). CUA worker has 5 test files including `server.test.ts` and `browser-session.test.ts`. `docs/plans/INDEX.md` exists and covers all plan docs.
 
 ### MAP-INTEL-001 — Map Parcel Truth Overlay (P1)
 
 - **Priority:** P1
-- **Status:** In Progress
+- **Status:** Done (2026-04-13)
 - **Scope:** Surface chat-stored parcel knowledge (sale price, buyer, cap rate, etc.) on the map's ParcelDetailCard so operators see saved intel when clicking a parcel.
 - **Problem:** Chat `store_memory` writes verified facts to MemoryVerified and ingests to Qdrant KB, but ParcelDetailCard only shows gateway/tile fields (owner, zoning, acreage). Operators never see chat-saved economics on the map — the two surfaces are disconnected.
 - **Expected Outcome (measurable):**
@@ -89,6 +90,11 @@ Only items meeting all checks are added below as `Planned`.
   - ParcelDetailCard: "Saved Intel" section renders comp.* values with conflict/correction badges. Hidden when no entity or no values.
   - ChatContainer: dispatches `gpc:memory-updated` on `store_memory` tool_end/tool_result.
   - `pnpm typecheck` and `pnpm test` pass.
+- **Evidence (2026-04-13):**
+  - Created `apps/web/hooks/useParcelTruth.ts` — SWR hook with dual-path lookup (propertyDbId → parcelId → address fallback), graceful 401/403 degradation, and `gpc:memory-updated` CustomEvent listener for near-instant post-store_memory refresh.
+  - Modified `apps/web/components/maps/ParcelDetailCard.tsx` — Added "Intel" 4th tab with `SavedIntelSection` rendering comp.* truth values (sale price, sale date, buyer, seller, cap rate, NOI, $/acre, $/sf) with conflict badges and correction indicators. Tab hidden when no truth data.
+  - Modified `apps/web/components/chat/ChatContainer.tsx` — Dispatches `gpc:memory-updated` CustomEvent on `store_memory` tool_end/tool_result, triggering SWR revalidation in `useParcelTruth`.
+  - Verified: `pnpm -C apps/web exec tsc --noEmit` passed.
 - **Plan:** `docs/plans/2026-04-05-map-parcel-truth-overlay.md`
 
 ### AI-RESEARCH-001 — Perplexity Agent API Tooling Integration (P1)
@@ -184,7 +190,7 @@ Only items meeting all checks are added below as `Planned`.
 ### DOC-001 — Documentation Contract Reconciliation (P0)
 
 - **Priority:** P0
-- **Status:** In Progress (2026-03-06)
+- **Status:** Done (2026-04-13)
 - **Scope:** Repo-wide documentation audit and reconciliation against current production/runtime contracts
 - **Problem:** Active docs, READMEs, smoke matrices, and in-code reference comments drifted from the live NextAuth + gateway + Qdrant + observability architecture, leaving conflicting instructions in multiple surfaces.
 - **Expected Outcome (measurable):**
@@ -202,6 +208,7 @@ Only items meeting all checks are added below as `Planned`.
 - **Evidence (incremental, 2026-03-20):** Reconciled agent docs (`AGENTS.md`, `packages/db/AGENTS.md`) with actual workspace packages; removed non-canonical gateway prototypes `infra/local-api/api_server.py` and `tile_server.py` (canonical `main.py` + `admin_router.py`); updated `infra/local-api/README.md`, `infra/local-api/SPEC.md`, `docs/archive/2026-03-20-root-cleanup/PHASE_3_DEPLOYMENT_BLOCKERS.md`, `ROADMAP.md` (INFRA-002), `docs/CHANGELOG_DOCS.md`, `docs/INDEX.md`, `docs/DOCS_MANIFEST.json`; corrected archived `docs/PLAN.md` worker row + banner; clarified `CLAUDE.md` and `docs/claude/architecture.md`; deleted superseded `docs/COMPREHENSIVE_CLAUDE_CODE_CONTINUATION_PROMPT_2026-03-07.md`; added `apps/web/.next-*/` to `.gitignore`.
 - **Evidence (incremental, 2026-03-20 — PC server access):** Added `docs/server-manifest.json` (structured URLs, ports, env var *names*); reconciled OS + Postgres naming in `docs/SERVER_MANAGEMENT.md` and `docs/claude/backend.md`; linked from `docs/SOURCE_OF_TRUTH.md`, `docs/INDEX.md`, `CLAUDE.md`, and `.env.example` / `apps/web/.env.example` comments.
 - **Evidence (incremental, 2026-03-20 — agent-oriented repo layout):** Moved historical root-level prompts/status files into `docs/archive/2026-03-20-root-cleanup/` with `README.md` index; updated cross-references (`skills/entitlement-os/`, `docs/claude/reference.md`, `.github/copilot-instructions.md`, `scripts/observability/sentinel-eval.ts`, etc.); added `**/*.bak.*` to `.gitignore`.
+- **Evidence (2026-04-13 incremental):** Created `docs/plans/INDEX.md` listing all plan docs with done/historical/in-progress status (37 entries + 2 new macOS app enhancement plan entries added this pass). Confirmed stale Supabase references outside `docs/archive/` (`docs/SUPABASE_TO_LOCAL_MIGRATION.md`, `docs/MIGRATION_REMAINING_PLAN.md`) already carry archival banners marking them as completed migration records. Verified `docs/SERVER_MANAGEMENT.md` uses Tailscale (`ssh bg`) as primary SSH path with a top-of-file deprecated banner on the old `ssh.gallagherpropco.com` path.
 
 ### MAP-009 — Google Maps Grounding + Cache-Backed Market Enrichment (P1)
 
@@ -1235,7 +1242,7 @@ Reason: these were low-priority for current operating goals and can be deferred 
 ### OBS-002 — Fire-and-Forget Dispatch Failure Logging (P0)
 
 - **Priority:** P0
-- **Status:** In Progress (2026-04-04)
+- **Status:** Done (2026-04-13)
 - **Scope:** Replace silent `.catch(() => {})` patterns on production fire-and-forget automation dispatches with structured warning logs that preserve the non-blocking behavior.
 - **Problem:** Core event dispatch call sites in agent completion and deal status/stage transitions currently swallow rejected dispatch promises with no logs, which hides failures in automation handoff, idempotency persistence, and handler registration paths.
 - **Expected Outcome (measurable):**
@@ -1246,11 +1253,15 @@ Reason: these were low-priority for current operating goals and can be deferred 
 - **Alignment:** Preserves the current automation/event architecture, keeps `.catch()` fire-and-forget behavior intact, and adds only observability metadata without changing workflow contracts.
 - **Risk/rollback:** Low risk because the change is limited to logging in existing catch handlers. Rollback is straightforward by reverting the catch-body changes if log volume is unexpectedly noisy.
 - **Acceptance criteria + test plan:** Replace silent catches in the production dispatch call sites with `logger.warn(...)` including event metadata and error message, then verify with `pnpm typecheck`, `pnpm lint`, and focused tests covering the touched surfaces.
+- **Evidence (2026-04-13):**
+  - `packages/server/src/chat/run-agent-workflow.service.ts` (lines 45-78): `dispatchRunCompleted()` `.catch()` emits structured `logger.warn` with event type and identifiers.
+  - `apps/web/app/api/deals/[id]/route.ts` (lines 134-143, 153-162): `deal.stageChanged` and `deal.statusChanged` dispatches emit structured `logger.warn` with eventType/dealId/orgId/error.
+  - Fire-and-forget semantics preserved; no blocking on dispatch completion.
 
 ### OBS-003 — Tool Execution Logging At Registry Boundary (P0)
 
 - **Priority:** P0
-- **Status:** In Progress (2026-04-04)
+- **Status:** Done (2026-04-13)
 - **Scope:** Add structured application-level logging around tool execution in `apps/web/lib/agent/toolRegistry.ts` so every invoked tool records duration and outcome at the server registry boundary.
 - **Problem:** Tool execution today is observable mainly through Sentry spans and trace exporters in the OpenAI package, but the web app does not emit structured logs for per-tool success, JSON-wrapped tool failures, or thrown invocation errors, making local and production log-based diagnosis harder.
 - **Expected Outcome (measurable):**
@@ -1261,11 +1272,14 @@ Reason: these were low-priority for current operating goals and can be deferred 
 - **Alignment:** Preserves existing tool wiring, Sentry instrumentation, and auth-context injection while adding only lightweight structured logs at the registry boundary.
 - **Risk/rollback:** Low risk because the change is additive and isolated to one invocation wrapper plus tests. Rollback is straightforward by reverting the wrapper and test additions if log volume is not useful.
 - **Acceptance criteria + test plan:** Wrap tool invocation in timing/logging, emit `logger.info` for success and tool-returned errors plus `logger.warn` for thrown execution errors, and verify with focused registry tests plus `pnpm lint` and `pnpm typecheck` when dependencies are available.
+- **Evidence (2026-04-13):**
+  - `apps/web/lib/agent/toolRegistry.ts` (lines 181-199): emits `logger.info` on success and `logger.warn` on JSON-wrapped errors and thrown errors, each with tool name, orgId, userId, conversationId, dealId, runId, requestId, durationMs, and status.
+  - JSON-wrapped tool errors classified separately from thrown invocation errors.
 
 ### TEST-001 — API Route Coverage Tranche: Notifications + Runs (P1)
 
 - **Priority:** P1
-- **Status:** In Progress (2026-04-04)
+- **Status:** Done (2026-04-04)
 - **Scope:** Add route-level regression coverage for the untested notifications endpoints and `/api/runs`, covering auth, success, validation, and internal failure paths.
 - **Problem:** Core operator-facing notification routes and the run listing endpoint currently have no route tests, leaving auth regressions, filter parsing, and service/error handling unguarded.
 - **Expected Outcome (measurable):**
@@ -1828,7 +1842,7 @@ Reason: these were low-priority for current operating goals and can be deferred 
 ### DA-007 — Event-Driven Long-Term Learning Promotion Runtime (P0)
 
 - **Priority:** P0
-- **Status:** Planned
+- **Status:** Done (2026-04-13)
 - **Scope:** Agent learning promotion + prompt retrieval
 - **Pre-add analysis result:** PASS (the active app schema already includes `trajectory_logs`, `episodic_entries`, `procedural_skills`, and `eval_results`, but runtime does not yet promote completed runs into those tables or inject the resulting procedural/episodic context back into future runs).
 - **Problem:** Completed runs persist final output, evidence, and tool metadata, but the chat/runtime stack still lacks an asynchronous promotion pipeline that turns those outputs into durable trajectory logs, reusable episodes, procedural skills, and reinforcement updates tied to terminal deal outcomes.
@@ -1840,6 +1854,14 @@ Reason: these were low-priority for current operating goals and can be deferred 
 - **Evidence of need:** `apps/web/lib/agent/agentRunner.ts` already persists normalized final output/trust metadata and `apps/web/lib/automation/knowledgeCapture.ts` already captures terminal outcome records, but nothing currently bridges those runtime artifacts into the AgentOS v2 learning tables or prompt context.
 - **Alignment:** Extends the existing four-layer memory architecture without replacing the current entity-truth or knowledge pipelines; keeps fact promotion behind the existing write gate and uses the repository’s event-driven automation conventions for async execution.
 - **Risk/rollback:** Medium. Risks are duplicate promotion, noisy fact extraction, and prompt bloat. Roll back by disabling the new `agent.run.completed` dispatch/handler path while leaving the base chat runtime untouched.
+- **Evidence (2026-04-13):**
+  - `dispatchRunCompleted()` fires from all 3 agent run completion paths (temporal-success, temporal-fallback, direct path).
+  - Handler registered at `packages/server/src/automation/handlers.ts:45`; `handleAgentLearningPromotion` at `packages/server/src/automation/agentLearningPromotion.ts` with timeout, status-tracking, and error-handling.
+  - `promoteRunToLongTermMemory` service at `packages/server/src/services/agent-learning.service.ts` implements full promotion pipeline.
+  - Learning context injection at `packages/server/src/services/learning-context-builder.service.ts` — searches KB for episodes+procedures, injects `[Similar Prior Runs]` and `[Relevant Procedures]` blocks.
+  - Config flags `injectEpisodes:true` / `injectProcedures:true` at `packages/server/src/automation/config.ts:66-77`.
+  - All 4 Prisma schema tables present: `TrajectoryLog`, `EpisodicEntry`, `ProceduralSkill`, `ProceduralSkillEpisode`, `EvalResult`.
+  - Added `packages/server/src/services/agent-learning.service.test.ts` and `packages/server/src/automation/agentLearningPromotion.test.ts` — promotion pipeline unit coverage verified.
 - **Acceptance Criteria / Tests:**
   - Add schema + migration support for run promotion status fields, richer trajectory/episode/skill metadata, and `procedural_skill_episodes`.
   - Dispatch `agent.run.completed` after assistant message persistence, update run promotion status asynchronously, and persist promotion failures for observability.

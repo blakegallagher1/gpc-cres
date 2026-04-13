@@ -1,6 +1,6 @@
 # Plan Index
 
-Last reviewed: 2026-04-09
+Last reviewed: 2026-04-13
 
 ## Purpose
 
@@ -51,3 +51,5 @@ It exists because the repo has accumulated many plan/design/implementation docum
 | `2026-04-01-cua-self-teaching-design.md` | Deferred | Design reference only; not currently an approved roadmap item |
 | `2026-04-04-parcel-tile-speed-visual-upgrade.md` | Deferred | Historical performance/visual plan; not active roadmap work |
 | `2026-04-05-map-parcel-truth-overlay.md` | In Progress | Indexed in `ROADMAP.md` as `MAP-INTEL-001` |
+| `2026-04-11-macos-app-enhancement-design.md` | Done | macOS operator app enhancements merged to main (PR #202) |
+| `2026-04-11-macos-app-enhancement-implementation.md` | Done | macOS operator app enhancements merged to main (PR #202) |

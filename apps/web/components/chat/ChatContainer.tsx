@@ -566,6 +566,13 @@ export function ChatContainer() {
         }
       }
 
+      if (
+        (event.type === 'tool_end' || event.type === 'tool_result') &&
+        event.name === 'store_memory'
+      ) {
+        window.dispatchEvent(new CustomEvent('gpc:memory-updated', { detail: { timestamp: Date.now() } }));
+      }
+
       if (event.type === 'agent_switch') {
         setCurrentAgent(event.agentName);
       } else if (event.type === 'handoff') {
