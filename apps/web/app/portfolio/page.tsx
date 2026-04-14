@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { headers } from "next/headers";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EMPTY_CONCENTRATION_RESPONSE } from "@/lib/api/prismaSchemaFallback";
 import { SkuType } from "@/lib/data/portfolioConstants";
 import type {
   PortfolioSummary,
@@ -97,7 +98,7 @@ type BuyersResponse = {
 type PortfolioPageTab = "analytics" | "outcomes" | "buyers";
 
 type PortfolioRouteProps = {
-  searchParams?: SearchParams;
+  searchParams?: SearchParams | Promise<SearchParams>;
 };
 
 function getSearchParam(value: string | string[] | undefined): string | undefined {
@@ -267,8 +268,9 @@ function PortfolioFallback() {
   );
 }
 
-export default async function PortfolioRoute({ searchParams = {} }: PortfolioRouteProps) {
-  const tab = getSearchParam(searchParams?.tab);
+export default async function PortfolioRoute({ searchParams }: PortfolioRouteProps) {
+  const params = searchParams instanceof Promise ? await searchParams : searchParams ?? {};
+  const tab = getSearchParam(params?.tab);
   const activeTab: PortfolioPageTab =
     tab === "outcomes" ? "outcomes" : tab === "buyers" ? "buyers" : "analytics";
 
@@ -285,7 +287,10 @@ export default async function PortfolioRoute({ searchParams = {} }: PortfolioRou
       const concentrationPromise = fetchJson<ConcentrationAnalysis>(
         `${baseUrl}/api/portfolio/concentration`,
         cookie,
-      );
+      ).catch((error) => {
+        console.error("[Portfolio] Concentration analysis failed:", error);
+        return EMPTY_CONCENTRATION_RESPONSE;
+      });
       const debtMaturityPromise = fetchJson<DebtMaturityWallData>(
         `${baseUrl}/api/portfolio/debt-maturity`,
         cookie,

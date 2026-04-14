@@ -6,14 +6,19 @@ const {
   getConcentrationAnalysisMock,
   captureExceptionMock,
   isSchemaDriftErrorMock,
+  isAppRouteLocalBypassEnabledMock,
 } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
   getConcentrationAnalysisMock: vi.fn(),
   captureExceptionMock: vi.fn(),
   isSchemaDriftErrorMock: vi.fn(),
+  isAppRouteLocalBypassEnabledMock: vi.fn(() => false),
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({ resolveAuth: resolveAuthMock }));
+vi.mock("@/lib/auth/localDevBypass", () => ({
+  isAppRouteLocalBypassEnabled: isAppRouteLocalBypassEnabledMock,
+}));
 
 vi.mock("@/lib/services/portfolioAnalytics.service", () => ({
   getConcentrationAnalysis: getConcentrationAnalysisMock,
@@ -46,6 +51,8 @@ describe("GET /api/portfolio/concentration", () => {
     getConcentrationAnalysisMock.mockReset();
     captureExceptionMock.mockReset();
     isSchemaDriftErrorMock.mockReset();
+    isAppRouteLocalBypassEnabledMock.mockReset();
+    isAppRouteLocalBypassEnabledMock.mockReturnValue(false);
     isSchemaDriftErrorMock.mockReturnValue(false);
   });
 
@@ -96,6 +103,28 @@ describe("GET /api/portfolio/concentration", () => {
     const error = new Error("relation does not exist");
     getConcentrationAnalysisMock.mockRejectedValue(error);
     isSchemaDriftErrorMock.mockReturnValue(true);
+
+    const res = await GET(new NextRequest("http://localhost/api/portfolio/concentration"));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      geographic: [],
+      sku: [],
+      vintageYear: [],
+      riskTier: [],
+      lender: [],
+      hhi: {
+        parish: { value: 0, band: "green", top3: [] },
+        sku: { value: 0, band: "green", top3: [] },
+        lender: { value: 0, band: "green", top3: [] },
+        hasAlert: false,
+      },
+    });
+  });
+
+  it("returns the empty concentration fallback in local bypass mode when the backend fails", async () => {
+    resolveAuthMock.mockResolvedValue({ orgId: "org-1", userId: "user-1" });
+    getConcentrationAnalysisMock.mockRejectedValue(new Error("gateway failure"));
+    isAppRouteLocalBypassEnabledMock.mockReturnValue(true);
 
     const res = await GET(new NextRequest("http://localhost/api/portfolio/concentration"));
     expect(res.status).toBe(200);

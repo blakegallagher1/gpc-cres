@@ -6,6 +6,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { DealSummary } from "@/components/deals/DealCard";
 import DealsPage from "./page-client";
 import { auth } from "@/auth";
+import {
+  getLocalDevAuthResult,
+  isAppRouteLocalBypassEnabled,
+} from "@/lib/auth/localDevBypass";
 import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -126,8 +130,13 @@ function DealsFallback() {
 
 export default async function DealsRoute({ searchParams }: DealsRouteProps) {
   const session = await auth();
-  const userId = session?.user?.id;
-  const orgId = (session?.user as { orgId?: string | null } | undefined)?.orgId;
+  const localBypassAuth = isAppRouteLocalBypassEnabled()
+    ? getLocalDevAuthResult()
+    : null;
+  const userId = session?.user?.id ?? localBypassAuth?.userId;
+  const orgId =
+    (session?.user as { orgId?: string | null } | undefined)?.orgId ??
+    localBypassAuth?.orgId;
 
   if (!userId || !orgId) {
     redirect("/login");

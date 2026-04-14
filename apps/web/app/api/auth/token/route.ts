@@ -1,6 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken, encode } from "next-auth/jwt";
 import { getAuthSecret } from "@/lib/auth/authSecret";
+import {
+  getLocalDevAuthResult,
+  isAppRouteLocalBypassEnabled,
+} from "@/lib/auth/localDevBypass";
 
 /**
  * GET /api/auth/token
@@ -21,7 +25,19 @@ export async function GET(request: NextRequest) {
   const useSecureCookies =
     request.url.startsWith("https://") ||
     process.env.NODE_ENV === "production";
-  const token = await getToken({ req: request, secret, secureCookie: useSecureCookies });
+  const token =
+    (await getToken({ req: request, secret, secureCookie: useSecureCookies })) ??
+    (isAppRouteLocalBypassEnabled()
+      ? (() => {
+          const auth = getLocalDevAuthResult();
+          return {
+            sub: auth.userId,
+            userId: auth.userId,
+            orgId: auth.orgId,
+            email: "local-dev@gallagherpropco.com",
+          };
+        })()
+      : null);
   if (!token) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
+import { isAppRouteLocalBypassEnabled } from "@/lib/auth/localDevBypass";
 import { getConcentrationAnalysis } from "@/lib/services/portfolioAnalytics.service";
 import {
   EMPTY_CONCENTRATION_RESPONSE,
@@ -19,6 +20,9 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Concentration analysis error:", error);
     if (isSchemaDriftError(error)) {
+      return NextResponse.json(EMPTY_CONCENTRATION_RESPONSE);
+    }
+    if (isAppRouteLocalBypassEnabled()) {
       return NextResponse.json(EMPTY_CONCENTRATION_RESPONSE);
     }
     Sentry.captureException(error, {

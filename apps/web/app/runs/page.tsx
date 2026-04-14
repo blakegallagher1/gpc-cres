@@ -13,7 +13,7 @@ type RunsResponse = {
 };
 
 type RunsRouteProps = {
-  searchParams?: SearchParams;
+  searchParams?: SearchParams | Promise<SearchParams>;
 };
 
 type RunsPageTab = "history" | "intelligence";
@@ -123,8 +123,9 @@ function RunsFallback() {
   );
 }
 
-export default async function RunsRoute({ searchParams = {} }: RunsRouteProps) {
-  const activeTab = getSearchParam(searchParams?.tab) === "intelligence" ? "intelligence" : "history";
+export default async function RunsRoute({ searchParams }: RunsRouteProps) {
+  const params = searchParams instanceof Promise ? await searchParams : searchParams ?? {};
+  const activeTab = getSearchParam(params?.tab) === "intelligence" ? "intelligence" : "history";
 
   const baseUrl = await getApiBaseUrl();
   const cookie = await getCookieHeader();

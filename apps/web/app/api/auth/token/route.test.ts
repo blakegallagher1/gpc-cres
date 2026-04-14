@@ -57,4 +57,34 @@ describe("GET /api/auth/token", () => {
     expect(await response.json()).toEqual({ error: "Auth not configured" });
     expect(getTokenMock).not.toHaveBeenCalled();
   });
+
+  it("mints a local bypass token when NEXT_PUBLIC_DISABLE_AUTH=true and no session cookie exists", async () => {
+    process.env.AUTH_SECRET = "current-auth-secret";
+    process.env.NEXT_PUBLIC_DISABLE_AUTH = "true";
+    process.env.LOCAL_DEV_AUTH_USER_ID = "local-user-1";
+    process.env.LOCAL_DEV_AUTH_ORG_ID = "local-org-1";
+    getTokenMock.mockResolvedValue(null);
+    encodeMock.mockResolvedValue("local-bypass-token");
+
+    const { GET } = await import("./route");
+    const response = await GET(new NextRequest("http://localhost:3002/api/auth/token"));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ token: "local-bypass-token" });
+    expect(getTokenMock).toHaveBeenCalledWith({
+      req: expect.anything(),
+      secret: "current-auth-secret",
+      secureCookie: false,
+    });
+    expect(encodeMock).toHaveBeenCalledWith({
+      token: expect.objectContaining({
+        sub: "local-user-1",
+        userId: "local-user-1",
+        orgId: "local-org-1",
+        email: "local-dev@gallagherpropco.com",
+      }),
+      secret: "current-auth-secret",
+      salt: "authjs.session-token",
+    });
+  });
 });

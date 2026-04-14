@@ -7,6 +7,7 @@ import {
   MapWorkspaceService,
   MapWorkspaceUpsertSchema,
 } from "@gpc/server/services/map-workspace.service";
+import { isAppRouteLocalBypassEnabled } from "@/lib/auth/localDevBypass";
 
 const mapWorkspaceService = new MapWorkspaceService();
 
@@ -36,6 +37,10 @@ export async function GET(request: NextRequest) {
     Sentry.captureException(error, {
       tags: { route: "api.map.workspace", method: "GET" },
     });
+
+    if (isAppRouteLocalBypassEnabled()) {
+      return NextResponse.json({ workspace: null });
+    }
 
     return NextResponse.json(
       { error: "Failed to load map workspace" },

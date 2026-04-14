@@ -7,11 +7,13 @@ const {
   getActiveWorkspaceMock,
   buildWorkspaceBridgeRecordMock,
   saveWorkspaceMock,
+  isAppRouteLocalBypassEnabledMock,
 } = vi.hoisted(() => ({
   resolveAuthMock: vi.fn(),
   getActiveWorkspaceMock: vi.fn(),
   buildWorkspaceBridgeRecordMock: vi.fn(),
   saveWorkspaceMock: vi.fn(),
+  isAppRouteLocalBypassEnabledMock: vi.fn(() => false),
 }));
 
 vi.mock("@/lib/auth/resolveAuth", () => ({
@@ -61,6 +63,10 @@ vi.mock("@gpc/server/services/map-workspace.service", () => ({
   },
 }));
 
+vi.mock("@/lib/auth/localDevBypass", () => ({
+  isAppRouteLocalBypassEnabled: isAppRouteLocalBypassEnabledMock,
+}));
+
 import { GET, PUT } from "./route";
 
 describe("/api/map/workspace route", () => {
@@ -69,6 +75,8 @@ describe("/api/map/workspace route", () => {
     getActiveWorkspaceMock.mockReset();
     buildWorkspaceBridgeRecordMock.mockReset();
     saveWorkspaceMock.mockReset();
+    isAppRouteLocalBypassEnabledMock.mockReset();
+    isAppRouteLocalBypassEnabledMock.mockReturnValue(false);
     resolveAuthMock.mockResolvedValue({
       orgId: "11111111-1111-4111-8111-111111111111",
       userId: "22222222-2222-4222-8222-222222222222",
@@ -99,6 +107,16 @@ describe("/api/map/workspace route", () => {
       {},
     );
     expect(body.workspace.id).toBe("workspace-1");
+  });
+
+  it("returns an empty workspace in local bypass mode when the workspace load fails", async () => {
+    isAppRouteLocalBypassEnabledMock.mockReturnValue(true);
+    getActiveWorkspaceMock.mockRejectedValue(new Error("db unavailable"));
+
+    const response = await GET(new NextRequest("http://localhost/api/map/workspace"));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ workspace: null });
   });
 
   it("saves the shared workspace payload", async () => {

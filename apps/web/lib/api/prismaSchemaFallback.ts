@@ -52,7 +52,7 @@ export const EMPTY_PORTFOLIO_ANALYTICS_RESPONSE = {
   byJurisdiction: {},
 };
 
-export const EMPTY_CONCENTRATION_RESPONSE = {
+export const EMPTY_CONCENTRATION_RESPONSE: ConcentrationAnalysis = {
   geographic: [],
   sku: [],
   vintageYear: [],
@@ -73,3 +73,4 @@ export const EMPTY_DEBT_MATURITY_RESPONSE = {
   alert: false,
   quarters: [],
 };
+import type { ConcentrationAnalysis } from "@/lib/services/portfolioAnalytics.service";

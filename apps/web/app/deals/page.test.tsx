@@ -83,4 +83,37 @@ describe("DealsRoute", () => {
     );
     expect(redirectMock).not.toHaveBeenCalled();
   });
+
+  it("uses local bypass auth when enabled and no server session is available", async () => {
+    authMock.mockResolvedValue(null);
+    process.env.NEXT_PUBLIC_DISABLE_AUTH = "true";
+    process.env.LOCAL_DEV_AUTH_ORG_ID = "local-org-7";
+    process.env.LOCAL_DEV_AUTH_USER_ID = "local-user-7";
+
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        deals: [
+          {
+            id: "deal-7",
+            name: "Bypass Deal",
+            status: "INTAKE",
+          },
+        ],
+      }),
+    });
+
+    await DealsRoute({});
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.test/deals?org_id=local-org-7",
+      expect.objectContaining({
+        cache: "no-store",
+        headers: expect.objectContaining({
+          Authorization: "Bearer test-local-api-key",
+        }),
+      }),
+    );
+    expect(redirectMock).not.toHaveBeenCalled();
+  });
 });

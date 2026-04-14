@@ -3,6 +3,10 @@ import { getToken } from "next-auth/jwt";
 import type { NextRequest } from "next/server";
 import { prisma } from "@entitlement-os/db";
 import { getAuthSecret } from "@/lib/auth/authSecret";
+import {
+  getLocalDevAuthResult,
+  isAppRouteLocalBypassEnabled,
+} from "@/lib/auth/localDevBypass";
 
 /**
  * Server-derived route auth identity.
@@ -34,8 +38,6 @@ type ResolveRouteAuthOptions =
       localBypassEnabled: boolean;
     };
 
-const DEFAULT_LOCAL_DEV_AUTH_ORG_ID = "00000000-0000-0000-0000-000000000001";
-const DEFAULT_LOCAL_DEV_AUTH_USER_ID = "00000000-0000-0000-0000-000000000003";
 const MEMBERSHIP_CACHE_TTL_MS = 60_000;
 
 const membershipCache = new Map<string, { validUntil: number }>();
@@ -62,24 +64,6 @@ function buildAuthorizedState(auth: AuthResult): RouteAuthState {
     status: "authorized",
     auth,
   };
-}
-
-function getLocalDevAuthResult(): AuthResult {
-  const userId = process.env.LOCAL_DEV_AUTH_USER_ID?.trim() || DEFAULT_LOCAL_DEV_AUTH_USER_ID;
-  const orgId = process.env.LOCAL_DEV_AUTH_ORG_ID?.trim() || DEFAULT_LOCAL_DEV_AUTH_ORG_ID;
-  return { userId, orgId };
-}
-
-function isAppRouteLocalBypassEnabled(): boolean {
-  if (process.env.NEXT_PUBLIC_DISABLE_AUTH !== "true") {
-    return false;
-  }
-
-  if (process.env.NODE_ENV !== "production") {
-    return true;
-  }
-
-  return process.env.NEXT_PUBLIC_E2E === "true";
 }
 
 async function resolveCoordinatorToolAuth(request: Request): Promise<AuthResult | null> {

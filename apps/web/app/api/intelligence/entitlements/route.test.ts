@@ -60,7 +60,7 @@ describe("GET /api/intelligence/entitlements?view=kpi", () => {
     resolveAuthMock.mockResolvedValue({ userId: "user-1", orgId: ORG_ID });
 
     const req = new NextRequest(
-      "http://localhost/api/intelligence/entitlements?view=kpi&jurisdictionId=not-a-uuid",
+      "http://localhost/api/intelligence/entitlements?view=kpi&jurisdictionId=",
     );
     const res = await GET(req);
     const body = await res.json();

@@ -28,7 +28,7 @@ const optionalBooleanParam = z.preprocess((value) => {
 
 const getQuerySchema = z.object({
   view: z.enum(["graph", "predict", "features", "kpi", "recommend"]).default("predict"),
-  jurisdictionId: z.string().uuid(),
+  jurisdictionId: z.string().min(1),
   dealId: z.string().uuid().optional(),
   sku: skuSchema.optional(),
   applicationType: z.string().min(1).optional(),
@@ -48,7 +48,7 @@ const getQuerySchema = z.object({
 const postBodySchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("upsert_node"),
-    jurisdictionId: z.string().uuid(),
+    jurisdictionId: z.string().min(1),
     dealId: z.string().uuid().nullable().optional(),
     nodeType: z.string().min(1),
     nodeKey: z.string().min(1),
@@ -59,7 +59,7 @@ const postBodySchema = z.discriminatedUnion("action", [
   }),
   z.object({
     action: z.literal("upsert_edge"),
-    jurisdictionId: z.string().uuid(),
+    jurisdictionId: z.string().min(1),
     fromNodeId: z.string().uuid(),
     toNodeId: z.string().uuid(),
     edgeType: z.string().min(1),
@@ -68,7 +68,7 @@ const postBodySchema = z.discriminatedUnion("action", [
   }),
   z.object({
     action: z.literal("upsert_precedent"),
-    jurisdictionId: z.string().uuid(),
+    jurisdictionId: z.string().min(1),
     dealId: z.string().uuid().nullable().optional(),
     strategyNodeId: z.string().uuid().nullable().optional(),
     precedentKey: z.string().min(1),
@@ -95,7 +95,7 @@ const postBodySchema = z.discriminatedUnion("action", [
   }),
   z.object({
     action: z.literal("predict"),
-    jurisdictionId: z.string().uuid(),
+    jurisdictionId: z.string().min(1),
     dealId: z.string().uuid().nullable().optional(),
     sku: skuSchema.nullable().optional(),
     applicationType: z.string().nullable().optional(),
