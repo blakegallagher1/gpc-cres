@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import {
+  capturePropertyObservations,
   searchProspectsForRoute,
   updateProspectsForRoute,
 } from "@gpc/server";
@@ -29,6 +30,7 @@ export async function POST(req: NextRequest) {
     });
     return withRequestId(unauthorizedResponse);
   }
+  const auth = authorization.auth;
 
   let body: {
     polygon?: { coordinates?: number[][][] };
@@ -51,8 +53,8 @@ export async function POST(req: NextRequest) {
     );
     await logRequestOutcome(context, {
       status: 400,
-      orgId: authorization.auth.orgId,
-      userId: authorization.auth.userId,
+      orgId: auth.orgId,
+      userId: auth.userId,
       details: { action: "prospect-search", validationError: "invalid_json" },
     });
     return withRequestId(response);
@@ -66,8 +68,8 @@ export async function POST(req: NextRequest) {
 
   await logRequestOutcome(context, {
     status: result.status,
-    orgId: authorization.auth.orgId,
-    userId: authorization.auth.userId,
+    orgId: auth.orgId,
+    userId: auth.userId,
     upstream: result.upstream,
     resultCount: result.resultCount,
     details: {
@@ -75,6 +77,34 @@ export async function POST(req: NextRequest) {
       ...result.details,
     },
   });
+
+  if (
+    result.status === 200 &&
+    Array.isArray((result.body as { parcels?: unknown }).parcels) &&
+    (result.body as { parcels?: Array<Record<string, unknown>> }).parcels!.length > 0
+  ) {
+    void capturePropertyObservations(
+      (result.body as { parcels: Array<Record<string, unknown>> }).parcels.map((parcel) => ({
+        orgId: auth.orgId,
+        observationType: "prospect_match" as const,
+        parcelId:
+          typeof parcel.parcelUid === "string"
+            ? parcel.parcelUid
+            : typeof parcel.id === "string"
+              ? parcel.id
+              : "",
+        address: typeof parcel.address === "string" ? parcel.address : "",
+        parish: typeof parcel.parish === "string" ? parcel.parish : null,
+        owner: typeof parcel.owner === "string" ? parcel.owner : null,
+        zoning: typeof parcel.zoning === "string" ? parcel.zoning : null,
+        floodZone: typeof parcel.floodZone === "string" ? parcel.floodZone : null,
+        acreage: typeof parcel.acreage === "number" ? parcel.acreage : null,
+        lat: typeof parcel.lat === "number" ? parcel.lat : null,
+        lng: typeof parcel.lng === "number" ? parcel.lng : null,
+        sourceRoute: "/api/map/prospect",
+      })),
+    ).catch(() => {});
+  }
 
   return withRequestId(NextResponse.json(result.body, { status: result.status }));
 }
@@ -96,6 +126,7 @@ export async function PUT(req: NextRequest) {
     });
     return withRequestId(unauthorizedResponse);
   }
+  const auth = authorization.auth;
 
   try {
     const body = (await req.json()) as {
@@ -104,8 +135,8 @@ export async function PUT(req: NextRequest) {
       parcels?: unknown;
     };
     const result = await updateProspectsForRoute({
-      orgId: authorization.auth.orgId,
-      userId: authorization.auth.userId,
+      orgId: auth.orgId,
+      userId: auth.userId,
       action: body.action,
       parcelIds: body.parcelIds,
       parcels: body.parcels,
@@ -113,8 +144,8 @@ export async function PUT(req: NextRequest) {
 
     await logRequestOutcome(context, {
       status: result.status,
-      orgId: authorization.auth.orgId,
-      userId: authorization.auth.userId,
+      orgId: auth.orgId,
+      userId: auth.userId,
       upstream: result.upstream,
       resultCount: result.resultCount,
       details: result.details,
@@ -127,8 +158,8 @@ export async function PUT(req: NextRequest) {
     });
     await logRequestOutcome(context, {
       status: 500,
-      orgId: authorization.auth.orgId,
-      userId: authorization.auth.userId,
+      orgId: auth.orgId,
+      userId: auth.userId,
       upstream: "org",
       error,
       details: { action: "prospect-bulk" },
