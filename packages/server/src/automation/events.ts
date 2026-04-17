@@ -76,8 +76,8 @@ function computeIdempotencyKey(event: AutomationEvent): string {
     return `agent.run.completed:${event.orgId}:${event.runId}`;
   }
 
-  const parts = [event.type, event.orgId];
-  if ("dealId" in event) parts.push(event.dealId);
+  const parts: string[] = [event.type, event.orgId];
+  if ("dealId" in event && event.dealId) parts.push(event.dealId);
   if ("parcelId" in event) parts.push(event.parcelId);
   if ("taskId" in event) parts.push(event.taskId);
   if ("uploadId" in event) parts.push(event.uploadId);

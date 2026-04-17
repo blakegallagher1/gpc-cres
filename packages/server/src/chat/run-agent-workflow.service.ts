@@ -35,6 +35,10 @@ import { parseToolResultMapFeatures } from "@entitlement-os/shared/tool-result-w
 import type { MapFeature } from "@entitlement-os/shared/map-action-types";
 import { logger } from "./logger-adapter";
 import { dispatchEvent } from "../automation/events";
+import {
+  hydrateDealContext,
+  renderDealContextBlock,
+} from "../deals/deal-context-hydrator.service";
 import type { ResearchLaneSelection } from "@entitlement-os/shared/research-routing";
 import type { ExecuteAgentWorkflow } from "./agent-runtime-adapter";
 
@@ -965,20 +969,40 @@ export async function runAgentWorkflow(params: AgentRunInput) {
     }
   }
 
+  let dealContextBlock = "";
+  const effectiveDealId = contextDeal?.id ?? dealId ?? null;
+  if (effectiveDealId) {
+    try {
+      const hydrated = await hydrateDealContext(orgId, effectiveDealId);
+      if (hydrated) {
+        dealContextBlock = renderDealContextBlock(hydrated);
+      }
+    } catch (error) {
+      // Hydration is best-effort; fall back to the minimal block below.
+      logger.warn("Deal context hydration failed", {
+        dealId: effectiveDealId,
+        orgId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
   const systemContext = [
     buildSystemContext(orgId, userId, dealId, jurisdictionId, sku, preferenceContext),
     buildJurisdictionContext(jurisdictionContext),
-    contextDeal
-      ? [
-          "Current deal context:",
-          `Deal: ${contextDeal.name} (${contextDeal.status})`,
-          `Deal ID: ${contextDeal.id}`,
-          `Jurisdiction: ${contextDeal.jurisdiction?.name ?? "Unknown"}, ${
-            contextDeal.jurisdiction?.state ?? "LA"
-          }`,
-          `SKU: ${contextDeal.sku}`,
-        ].join("\n")
-      : "",
+    dealContextBlock
+      ? dealContextBlock
+      : contextDeal
+        ? [
+            "Current deal context:",
+            `Deal: ${contextDeal.name} (${contextDeal.status})`,
+            `Deal ID: ${contextDeal.id}`,
+            `Jurisdiction: ${contextDeal.jurisdiction?.name ?? "Unknown"}, ${
+              contextDeal.jurisdiction?.state ?? "LA"
+            }`,
+            `SKU: ${contextDeal.sku}`,
+          ].join("\n")
+        : "",
     memoryBlock,
     businessMemoryBlock,
     learningContextBlock,
