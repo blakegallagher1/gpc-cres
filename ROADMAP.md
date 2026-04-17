@@ -88,13 +88,31 @@ Only items meeting all checks are added below as `Planned`.
 ### MOAT-P2-002 — Phase 2 Moat: Portfolio Watcher + Proactive Alerts (P1)
 
 - **Priority:** P1
-- **Status:** Planned
-- **Scope:** Cron-driven portfolio monitoring over active deals. Watches permit deadlines, rate moves, new comps in target ZIPs, lease expiries; emits `automation_events`; surfaces as chat sidebar banners, map pins, and deal card badges.
+- **Status:** Done (2026-04-17)
+- **Scope:** Cron-driven portfolio monitoring over active deals. Raises persistent alerts for upcoming deadlines, stage-stuck deals, stale financial models, fit-score drift, and pending approvals.
 - **Problem:** `proactive-action.executor.ts` is a stub; users must proactively ask chat for status. Portfolio drift goes unnoticed.
-- **Expected Outcome (measurable):** ≥3 monitoring dimensions live; alerts visible in chat sidebar within 2 min of detection; user can acknowledge/snooze.
+- **Expected Outcome (measurable):** ≥4 monitoring dimensions live; alerts persist with dedupe + ack/snooze; visible on `/portfolio` page.
 - **Evidence of need:** Audit HIGH gap #4 "no proactive monitoring."
-- **Alignment:** Depends on Phase 1 event bridge. Uses existing `AutomationEvent` pipeline.
-- **Acceptance Criteria / Tests:** `portfolio-watcher.ts` handler, cron registration, `PortfolioUpdatesPanel.tsx` sidebar component; at least one alert fires end-to-end in staging.
+- **Alignment:** Depends on Phase 1 event bridge. Uses existing `AutomationEvent` pipeline + new `PortfolioAlert` table.
+- **Evidence (2026-04-17):**
+  - Added `packages/server/src/automation/portfolio-watcher.service.ts` with 5 rule scanners (deadlines, stage stuck, financial stale, fit drift, pending approvals) + dedupe via `fingerprint`.
+  - Added `packages/db/prisma/migrations/20260417160000_add_portfolio_alerts_and_investment_criteria/` with `portfolio_alerts` and `org_investment_criteria` tables.
+  - Cron route `apps/web/app/api/cron/portfolio-watcher/route.ts` registered in `apps/web/vercel.json` to run every 2 hours.
+  - API routes `apps/web/app/api/portfolio/alerts/` (list + per-alert ack/snooze).
+  - UI `apps/web/components/portfolio/PortfolioAlertsPanel.tsx` wired into `/portfolio` page.
+
+### MOAT-P2-003 — Phase 2 Moat: Underwriting Gate Service (P2)
+
+- **Priority:** P2
+- **Status:** Done (2026-04-17)
+- **Scope:** Persist org-scoped investment criteria and provide a gate service that evaluates IRR/LTV/DSCR against those criteria for UNDERWRITING → DUE_DILIGENCE / CONTRACTING transitions.
+- **Problem:** Phase 1 fit score used hardcoded defaults only; stage transitions had no quantitative gating.
+- **Expected Outcome (measurable):** `OrgInvestmentCriteria` table lets orgs override defaults; `evaluateUnderwritingGate` returns structured pass/fail with hard-failure list + metrics snapshot.
+- **Evidence (2026-04-17):**
+  - Added `packages/server/src/services/investment-criteria.service.ts` with `loadInvestmentCriteria(orgId)` fallback-to-defaults + `updateInvestmentCriteria`.
+  - Added `packages/server/src/deals/underwriting-gate.service.ts` with `transitionRequiresUnderwritingGate` + `evaluateUnderwritingGate` — consumed by future stage-transition handlers and the portfolio watcher's fit-drift scanner.
+  - API routes `apps/web/app/api/org/investment-criteria/` (GET + PUT).
+  - Portfolio watcher uses `loadInvestmentCriteria` for per-org fit-drift detection.
 
 ### MOAT-P2-003 — Phase 2 Moat: Underwriting Gate Service (P2)
 

@@ -343,6 +343,8 @@ model Org {
   generalizedScorecards          GeneralizedScorecard[]
   moduleStates                   ModuleState[]
   dealComments                   DealComment[]
+  portfolioAlerts                PortfolioAlert[]
+  investmentCriteria             OrgInvestmentCriteria?
   areaSummaryCaches              AreaSummaryCache[]
   poiDensityCaches               POIDensityCache[]
 
@@ -648,6 +650,50 @@ model DealComment {
   @@index([orgId, dealId, createdAt])
   @@index([parentCommentId])
   @@map("deal_comments")
+}
+
+model PortfolioAlert {
+  id             String    @id @default(uuid()) @db.Uuid
+  orgId          String    @map("org_id") @db.Uuid
+  dealId         String?   @map("deal_id") @db.Uuid
+  category       String    @db.Text
+  severity       String    @db.Text
+  title          String    @db.Text
+  summary        String    @db.Text
+  detail         Json      @default("{}") @db.JsonB
+  fingerprint    String    @db.Text
+  firstSeenAt    DateTime  @default(now()) @map("first_seen_at") @db.Timestamptz(6)
+  lastSeenAt     DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  acknowledgedAt DateTime? @map("acknowledged_at") @db.Timestamptz(6)
+  acknowledgedBy String?   @map("acknowledged_by") @db.Uuid
+  snoozedUntil   DateTime? @map("snoozed_until") @db.Timestamptz(6)
+  resolvedAt     DateTime? @map("resolved_at") @db.Timestamptz(6)
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, fingerprint])
+  @@index([orgId, firstSeenAt(sort: Desc)])
+  @@index([orgId, dealId])
+  @@map("portfolio_alerts")
+}
+
+model OrgInvestmentCriteria {
+  id                    String   @id @default(uuid()) @db.Uuid
+  orgId                 String   @unique @map("org_id") @db.Uuid
+  minIrrPct             Decimal? @map("min_irr_pct") @db.Decimal(5, 2)
+  maxLtvPct             Decimal? @map("max_ltv_pct") @db.Decimal(5, 2)
+  minDscr               Decimal? @map("min_dscr") @db.Decimal(5, 2)
+  preferredAssetClasses String[] @default([]) @map("preferred_asset_classes")
+  preferredStrategies   String[] @default([]) @map("preferred_strategies")
+  preferredStates       String[] @default([]) @map("preferred_states")
+  minAcreage            Decimal? @map("min_acreage") @db.Decimal(12, 4)
+  maxAcreage            Decimal? @map("max_acreage") @db.Decimal(12, 4)
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy             String?  @map("updated_by") @db.Uuid
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("org_investment_criteria")
 }
 
 model GeneralizedScorecard {

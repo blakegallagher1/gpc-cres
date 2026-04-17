@@ -30,6 +30,10 @@
     {
       "path": "/api/cron/stability-sentinel",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/portfolio-watcher",
+      "schedule": "0 */2 * * *"
     }
   ]
 }
