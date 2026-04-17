@@ -19,6 +19,10 @@ import { ParcelBoundaryLayer } from "./layers/ParcelBoundaryLayer";
 import { ParcelExtrusionLayer } from "./layers/ParcelExtrusionLayer";
 import { ZoningTileLayer } from "./layers/ZoningTileLayer";
 import { FluTileLayer } from "./layers/FluTileLayer";
+import { TruckRoutesLayer } from "./layers/TruckRoutesLayer";
+import { PortsLayer } from "./layers/PortsLayer";
+import { RailLayer } from "./layers/RailLayer";
+import { InterchangesLayer } from "./layers/InterchangesLayer";
 import { FloodZoneLayer } from "./layers/FloodZoneLayer";
 import { SoilsLayer } from "./layers/SoilsLayer";
 import { WetlandsLayer } from "./layers/WetlandsLayer";
@@ -226,6 +230,10 @@ export function MapContainerV2({
         />
         <ZoningTileLayer visible={overlays.showZoning} />
         <FluTileLayer visible={overlays.showFlu} />
+        <TruckRoutesLayer visible={overlays.showTruckRoutes} />
+        <PortsLayer visible={overlays.showPorts} />
+        <RailLayer visible={overlays.showRail} />
+        <InterchangesLayer visible={overlays.showInterchanges} />
         <FloodZoneLayer visible={overlays.showFlood} />
         <SoilsLayer visible={overlays.showSoils} />
         <WetlandsLayer visible={overlays.showWetlands} />

@@ -151,3 +151,43 @@ export function getZoningProxyTileUrl(): string {
 export function getFluProxyTileUrl(): string {
   return "/api/map/flu-tiles/{z}/{x}/{y}";
 }
+
+/**
+ * Returns same-origin truck-routes vector tile URL proxied through the app.
+ * The actual tile source is configured via TRUCK_ROUTES_TILE_ORIGIN +
+ * TRUCK_ROUTES_TILE_PATH env vars; the proxy returns 204 for tiles until a
+ * real source is wired. Scaffolded for the light-industrial / truck-parking
+ * last-mile accessibility overlay.
+ */
+export function getTruckRoutesProxyTileUrl(): string {
+  return "/api/map/truck-routes-tiles/{z}/{x}/{y}";
+}
+
+/**
+ * Returns same-origin ports / intermodal vector tile URL proxied through the
+ * app. The actual tile source is configured via PORTS_TILE_ORIGIN +
+ * PORTS_TILE_PATH env vars; the proxy returns 204 for tiles until a real
+ * source is wired.
+ */
+export function getPortsProxyTileUrl(): string {
+  return "/api/map/ports-tiles/{z}/{x}/{y}";
+}
+
+/**
+ * Returns same-origin freight-rail vector tile URL proxied through the app.
+ * The actual tile source is configured via RAIL_TILE_ORIGIN + RAIL_TILE_PATH
+ * env vars; the proxy returns 204 for tiles until a real source is wired.
+ */
+export function getRailProxyTileUrl(): string {
+  return "/api/map/rail-tiles/{z}/{x}/{y}";
+}
+
+/**
+ * Returns same-origin major-interchanges vector tile URL proxied through the
+ * app. The actual tile source is configured via INTERCHANGES_TILE_ORIGIN +
+ * INTERCHANGES_TILE_PATH env vars; the proxy returns 204 for tiles until a
+ * real source is wired.
+ */
+export function getInterchangesProxyTileUrl(): string {
+  return "/api/map/interchanges-tiles/{z}/{x}/{y}";
+}

@@ -640,6 +640,10 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   const [showParcelBoundaries, setShowParcelBoundaries] = useState<boolean>(() => getSavedOverlaysFallback().parcelBoundaries);
   const [showZoning, setShowZoning] = useState<boolean>(() => getSavedOverlaysFallback().zoning);
   const [showFlu, setShowFlu] = useState<boolean>(false);
+  const [showTruckRoutes, setShowTruckRoutes] = useState<boolean>(false);
+  const [showPorts, setShowPorts] = useState<boolean>(false);
+  const [showRail, setShowRail] = useState<boolean>(false);
+  const [showInterchanges, setShowInterchanges] = useState<boolean>(false);
   const [showFlood, setShowFlood] = useState<boolean>(() => getSavedOverlaysFallback().flood);
   const [showSoils, setShowSoils] = useState<boolean>(() => getSavedOverlaysFallback().soils);
   const [showWetlands, setShowWetlands] = useState<boolean>(() => getSavedOverlaysFallback().wetlands);
@@ -2416,6 +2420,14 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           setShowZoning={setShowZoning}
           showFlu={showFlu}
           setShowFlu={setShowFlu}
+          showTruckRoutes={showTruckRoutes}
+          setShowTruckRoutes={setShowTruckRoutes}
+          showPorts={showPorts}
+          setShowPorts={setShowPorts}
+          showRail={showRail}
+          setShowRail={setShowRail}
+          showInterchanges={showInterchanges}
+          setShowInterchanges={setShowInterchanges}
           showFlood={showFlood}
           setShowFlood={setShowFlood}
           showSoils={showSoils}

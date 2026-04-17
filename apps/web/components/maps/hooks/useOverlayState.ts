@@ -15,6 +15,11 @@ interface OverlayState {
   showRecentSales: boolean;
   showNewPermits: boolean;
   showZoningChanges: boolean;
+  showTruckRoutes: boolean;
+  showPorts: boolean;
+  showRail: boolean;
+  showInterchanges: boolean;
+  showIsochrone: boolean;
 }
 
 const STORAGE_KEY = "map-overlay-prefs-v2";
@@ -42,6 +47,11 @@ const DEFAULTS: OverlayState = {
   showRecentSales: false,
   showNewPermits: false,
   showZoningChanges: false,
+  showTruckRoutes: false,
+  showPorts: false,
+  showRail: false,
+  showInterchanges: false,
+  showIsochrone: false,
 };
 
 export function useOverlayState() {
