@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   registerHandlerMock,
+  registerChatAnalysisAuditHandlerMock,
   handleParcelCreatedMock,
   handleTriageReadinessMock,
   handleTaskCreatedMock,
@@ -22,6 +23,7 @@ const {
   handleAgentLearningOutcomeReinforcementMock,
 } = vi.hoisted(() => ({
   registerHandlerMock: vi.fn(),
+  registerChatAnalysisAuditHandlerMock: vi.fn(),
   handleParcelCreatedMock: vi.fn(),
   handleTriageReadinessMock: vi.fn(),
   handleTaskCreatedMock: vi.fn(),
@@ -107,6 +109,10 @@ vi.mock("@gpc/server/automation/agentLearningOutcomeReinforcement", () => ({
     handleAgentLearningOutcomeReinforcementMock,
 }));
 
+vi.mock("@gpc/server/automation/chat-bridge", () => ({
+  registerChatAnalysisAuditHandler: registerChatAnalysisAuditHandlerMock,
+}));
+
 async function loadModule() {
   return import("../handlers");
 }
@@ -115,6 +121,7 @@ describe("ensureHandlersRegistered", () => {
   beforeEach(() => {
     vi.resetModules();
     registerHandlerMock.mockReset();
+    registerChatAnalysisAuditHandlerMock.mockReset();
   });
 
   it("registers the expected handlers in order", async () => {
@@ -142,6 +149,7 @@ describe("ensureHandlersRegistered", () => {
       ["deal.stageChanged", handleAgentLearningOutcomeReinforcementMock],
       ["agent.run.completed", handleAgentLearningPromotionMock],
     ]);
+    expect(registerChatAnalysisAuditHandlerMock).toHaveBeenCalledTimes(1);
   });
 
   it("is idempotent across repeated calls", async () => {
@@ -151,5 +159,6 @@ describe("ensureHandlersRegistered", () => {
     ensureHandlersRegistered();
 
     expect(registerHandlerMock).toHaveBeenCalledTimes(18);
+    expect(registerChatAnalysisAuditHandlerMock).toHaveBeenCalledTimes(1);
   });
 });
