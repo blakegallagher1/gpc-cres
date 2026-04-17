@@ -343,6 +343,7 @@ model Org {
   generalizedScorecards          GeneralizedScorecard[]
   moduleStates                   ModuleState[]
   dealComments                   DealComment[]
+  dealContingencies              DealContingency[]
   portfolioAlerts                PortfolioAlert[]
   investmentCriteria             OrgInvestmentCriteria?
   workflowExecutions             WorkflowExecution[]
@@ -372,6 +373,7 @@ model User {
   toolExecutionMetrics     ToolExecutionMetric[]    @relation("tool_execution_metric_user")
   savedSearches            SavedSearch[]
   dealCommentsAuthored     DealComment[]            @relation("deal_comment_author")
+  dealContingenciesOwned   DealContingency[]        @relation("deal_contingency_owner")
 
   @@map("users")
 }
@@ -504,6 +506,7 @@ model Deal {
   generalizedScorecards          GeneralizedScorecard[]
   moduleStates                   ModuleState[]
   comments                       DealComment[]
+  contingencies                  DealContingency[]
 
   @@unique([id, orgId])
   @@index([orgId])
@@ -651,6 +654,32 @@ model DealComment {
   @@index([orgId, dealId, createdAt])
   @@index([parentCommentId])
   @@map("deal_comments")
+}
+
+model DealContingency {
+  id                          String    @id @default(uuid()) @db.Uuid
+  orgId                       String    @map("org_id") @db.Uuid
+  dealId                      String    @map("deal_id") @db.Uuid
+  category                    String    @db.Text // title|survey|environmental|appraisal|financing|inspection|hoa|zoning|utilities|other
+  title                       String    @db.Text
+  description                 String?   @db.Text
+  status                      String    @default("open") @db.Text // open|in_progress|satisfied|waived|failed
+  deadline                    DateTime? @db.Timestamptz(6)
+  ownerUserId                 String?   @map("owner_user_id") @db.Uuid
+  satisfiedAt                 DateTime? @map("satisfied_at") @db.Timestamptz(6)
+  satisfiedBy                 String?   @map("satisfied_by") @db.Uuid
+  satisfactionNotes           String?   @map("satisfaction_notes") @db.Text
+  noticeDaysBeforeDeadline    Int       @default(7) @map("notice_days_before_deadline")
+  createdAt                   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org   Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal  Deal @relation(fields: [dealId, orgId], references: [id, orgId], onDelete: Cascade)
+  owner User? @relation("deal_contingency_owner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, dealId, status])
+  @@index([orgId, deadline])
+  @@map("deal_contingencies")
 }
 
 model PortfolioAlert {

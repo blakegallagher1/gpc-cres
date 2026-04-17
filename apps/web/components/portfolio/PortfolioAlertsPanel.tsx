@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   BellOff,
   CheckCircle2,
+  ClipboardCheck,
   Clock,
   Loader2,
   TrendingDown,
@@ -21,7 +22,13 @@ interface PortfolioAlert {
   id: string;
   dealId: string | null;
   dealName: string | null;
-  category: "deadline" | "financial_stale" | "stage_stuck" | "fit_drift" | "approval_pending";
+  category:
+    | "deadline"
+    | "financial_stale"
+    | "stage_stuck"
+    | "fit_drift"
+    | "approval_pending"
+    | "contingency";
   severity: "info" | "warn" | "urgent";
   title: string;
   summary: string;
@@ -50,6 +57,7 @@ const CATEGORY_ICON: Record<PortfolioAlert["category"], typeof Clock> = {
   stage_stuck: Flag,
   fit_drift: AlertTriangle,
   approval_pending: Flag,
+  contingency: ClipboardCheck,
 };
 
 const SEVERITY_META: Record<PortfolioAlert["severity"], { className: string; label: string }> = {

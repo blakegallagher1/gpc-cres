@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DealOverviewWorkspace } from "@/components/deals/DealOverviewWorkspace";
 import { DealCommentsPanel } from "@/components/deals/DealCommentsPanel";
+import { DealContingenciesPanel } from "@/components/deals/DealContingenciesPanel";
 import { DealFitScoreCard } from "@/components/deals/DealFitScoreCard";
 import { DealWorkflowsPanel } from "@/components/deals/DealWorkflowsPanel";
 import { StatusBadge } from "@/components/deals/StatusBadge";
@@ -708,6 +709,9 @@ export function DealDetailPageClient() {
             <TabsTrigger value="artifacts" className="text-xs tracking-[0.08em]">
               Artifacts ({deal.artifacts.length})
             </TabsTrigger>
+            <TabsTrigger value="contingencies" className="text-xs tracking-[0.08em]">
+              Contingencies
+            </TabsTrigger>
             <TabsTrigger value="buyers" className="text-xs tracking-[0.08em]">Buyers</TabsTrigger>
             <TabsTrigger value="room" className="text-xs tracking-[0.08em]">Room</TabsTrigger>
           </TabsList>
@@ -940,6 +944,10 @@ export function DealDetailPageClient() {
                 />
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="contingencies">
+            <DealContingenciesPanel dealId={deal.id} />
           </TabsContent>
 
           <TabsContent value="buyers">
