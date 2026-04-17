@@ -348,6 +348,7 @@ model Org {
   workflowExecutions             WorkflowExecution[]
   areaSummaryCaches              AreaSummaryCache[]
   poiDensityCaches               POIDensityCache[]
+  inboundEmails                  InboundEmail[]
 
   @@map("orgs")
 }
@@ -722,6 +723,39 @@ model WorkflowExecution {
   @@index([orgId, dealId, startedAt(sort: Desc)])
   @@index([status])
   @@map("workflow_executions")
+}
+
+/// Inbound email audit log. Every email received by the email-to-deal webhook
+/// is persisted here, regardless of whether parsing/deal creation succeeds, so
+/// operators can inspect and re-parse historical submissions. The `parsedDealId`
+/// is an unlinked UUID pointer (not a FK relation) to keep the Deal model
+/// untouched; if the deal is later deleted the pointer becomes dangling, which
+/// is acceptable for an audit trail.
+model InboundEmail {
+  id            String    @id @default(uuid()) @db.Uuid
+  orgId         String?   @map("org_id") @db.Uuid
+  source        String    @db.Text
+  fromAddress   String    @map("from_address") @db.Text
+  toAddress     String    @map("to_address") @db.Text
+  subject       String    @db.Text
+  bodyText      String    @map("body_text") @db.Text
+  bodyHtml      String?   @map("body_html") @db.Text
+  messageId     String?   @map("message_id") @db.Text
+  receivedAt    DateTime  @default(now()) @map("received_at") @db.Timestamptz(6)
+  parsedAt      DateTime? @map("parsed_at") @db.Timestamptz(6)
+  parsedDealId  String?   @map("parsed_deal_id") @db.Uuid
+  parseStatus   String    @default("pending") @map("parse_status") @db.Text // pending|parsed|failed|skipped
+  parseError    String?   @map("parse_error") @db.Text
+  parsedFields  Json      @default("{}") @map("parsed_fields") @db.JsonB
+  rawHeaders    Json      @default("{}") @map("raw_headers") @db.JsonB
+
+  org Org? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+
+  @@unique([messageId])
+  @@index([orgId])
+  @@index([receivedAt(sort: Desc)])
+  @@index([parsedDealId])
+  @@map("inbound_emails")
 }
 
 model GeneralizedScorecard {
