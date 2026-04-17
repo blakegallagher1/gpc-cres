@@ -186,11 +186,17 @@ Only items meeting all checks are added below as `Planned`.
 ### MOAT-P4-002 — Phase 4 Moat: Due-Diligence Contingency Tracker (P2)
 
 - **Priority:** P2
-- **Status:** Planned
+- **Status:** Done (2026-04-17)
 - **Scope:** `DealContingency` model (category, deadline, status, notes, owner) with auto-alerts on deadline slip, linked to stage gates.
 - **Problem:** Deals slip past contingency deadlines silently. No `DealContingency` model exists today.
 - **Expected Outcome (measurable):** Contingency dashboard per deal + portfolio; alerts fire ≥72h before deadlines.
 - **Acceptance Criteria / Tests:** Schema migration, contingency service, ContingencyTracker UI component.
+- **Evidence:**
+  - Schema: migration `20260417220000_add_deal_contingencies` + Prisma `DealContingency` model with FKs to `orgs`/`deals`/`users`, indexes on `[orgId, dealId, status]` and `[orgId, deadline]`.
+  - Service: `packages/server/src/deals/deal-contingency.service.ts` exposes `createContingency`, `listContingencies`, `updateContingency`, `deleteContingency`, `countUpcomingContingencies` with category/status validation and auto-stamp of `satisfiedAt`/`satisfiedBy` on status transition.
+  - API: `apps/web/app/api/deals/[id]/contingencies/route.ts` (GET/POST) and `[contingencyId]/route.ts` (PATCH/DELETE) mirror the Phase 1 comment-route auth/error pattern.
+  - UI: `DealContingenciesPanel.tsx` with inline add form, per-row status select, deadline display (relative + absolute), satisfaction-notes prompt; wired into `DealDetailPageClient` under a new `Contingencies` tab.
+  - Portfolio watcher: `scanContingencyDeadlines` runs alongside `scanDeadlinesForDeal`; new `contingency` category in `PortfolioAlertCategory`; severity past-due/≤3d → urgent, ≤notice-window → warn; fingerprint `contingency:{id}:{yyyy-mm-dd}`. `PortfolioAlertsPanel` icon mapping includes `contingency` → `ClipboardCheck`.
 
 ### MOAT-P4-003 — Phase 4 Moat: Asset Management + Disposition Tracking (P2)
 

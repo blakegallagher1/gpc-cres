@@ -8,7 +8,8 @@ export type PortfolioAlertCategory =
   | "financial_stale"
   | "stage_stuck"
   | "fit_drift"
-  | "approval_pending";
+  | "approval_pending"
+  | "contingency";
 
 export type PortfolioAlertSeverity = "info" | "warn" | "urgent";
 
@@ -138,6 +139,69 @@ async function scanDeadlinesForDeal(deal: DealSummary, now: Date): Promise<Raise
         deal.targetCloseDate.toISOString(),
         "target-close",
       ),
+    });
+  }
+
+  return alerts;
+}
+
+async function scanContingencyDeadlines(
+  deal: DealSummary,
+  now: Date,
+): Promise<RaisedAlert[]> {
+  const alerts: RaisedAlert[] = [];
+
+  // Pull open contingencies that have a deadline. Filter in-memory by each
+  // row's own noticeDaysBeforeDeadline window (can vary per contingency).
+  const rows = await prisma.dealContingency.findMany({
+    where: {
+      orgId: deal.orgId,
+      dealId: deal.id,
+      status: { in: ["open", "in_progress"] },
+      deadline: { not: null },
+    },
+    select: {
+      id: true,
+      category: true,
+      title: true,
+      deadline: true,
+      noticeDaysBeforeDeadline: true,
+    },
+    take: 50,
+  });
+
+  for (const row of rows) {
+    if (!row.deadline) continue;
+    const noticeMs = row.noticeDaysBeforeDeadline * 24 * 60 * 60 * 1000;
+    const horizon = new Date(now.getTime() + noticeMs);
+    if (row.deadline > horizon) continue;
+
+    const days = daysBetween(row.deadline, now);
+    let severity: PortfolioAlertSeverity;
+    if (days < 0) {
+      severity = "urgent";
+    } else if (days <= DEADLINE_URGENT_DAYS) {
+      severity = "urgent";
+    } else {
+      severity = "warn";
+    }
+    const when =
+      days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? "due today" : `in ${days}d`;
+    const deadlineIso = row.deadline.toISOString();
+    alerts.push({
+      dealId: deal.id,
+      category: "contingency",
+      severity,
+      title: `Contingency ${when}: ${row.title}`,
+      summary: `Deal "${deal.name}" contingency (${row.category}) "${row.title}" is ${when}.`,
+      detail: {
+        contingencyId: row.id,
+        category: row.category,
+        deadline: deadlineIso,
+        days,
+        noticeDaysBeforeDeadline: row.noticeDaysBeforeDeadline,
+      },
+      fingerprint: `contingency:${row.id}:${deadlineIso.slice(0, 10)}`,
     });
   }
 
@@ -342,6 +406,7 @@ export async function runPortfolioWatcherForOrg(orgId: string): Promise<{
 
     const raised: RaisedAlert[] = [];
     raised.push(...(await scanDeadlinesForDeal(dealSummary, now)));
+    raised.push(...(await scanContingencyDeadlines(dealSummary, now)));
     const stageAlert = await scanStageStuck(dealSummary, now);
     if (stageAlert) raised.push(stageAlert);
     const staleAlert = scanFinancialStale(dealSummary, now);
