@@ -58,6 +58,8 @@ const DEAL_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
 const ORIGINAL_LOCAL_API_URL = process.env.LOCAL_API_URL;
 const ORIGINAL_LOCAL_API_KEY = process.env.LOCAL_API_KEY;
+const ORIGINAL_DATABASE_URL = process.env.DATABASE_URL;
+const ORIGINAL_VERCEL = process.env.VERCEL;
 
 describe("/api/deals route", () => {
   beforeEach(() => {
@@ -70,12 +72,16 @@ describe("/api/deals route", () => {
     process.env.NODE_ENV = "test";
     process.env.LOCAL_API_URL = "https://api.example.com";
     process.env.LOCAL_API_KEY = "test-gateway-key";
+    delete process.env.DATABASE_URL;
+    delete process.env.VERCEL;
   });
 
   afterEach(() => {
     process.env.NODE_ENV = ORIGINAL_NODE_ENV;
     process.env.LOCAL_API_URL = ORIGINAL_LOCAL_API_URL;
     process.env.LOCAL_API_KEY = ORIGINAL_LOCAL_API_KEY;
+    process.env.DATABASE_URL = ORIGINAL_DATABASE_URL;
+    process.env.VERCEL = ORIGINAL_VERCEL;
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -120,6 +126,30 @@ describe("/api/deals route", () => {
     expect(res.status).toBe(503);
     expect(body).toEqual({ error: "Failed to fetch deals from backend" });
     expect(sentryCaptureExceptionMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("prefers the direct app database over gateway config in local development", async () => {
+    process.env.NODE_ENV = "development";
+    process.env.DATABASE_URL =
+      "postgresql://postgres:postgres@127.0.0.1:54323/entitlement_os?schema=public";
+    resolveAuthMock.mockResolvedValue({ userId: USER_ID, orgId: ORG_ID });
+    listDealsMock.mockResolvedValue({ deals: [] });
+
+    const req = new NextRequest("http://localhost/api/deals?limit=200");
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toEqual({ deals: [] });
+    expect(listDealsMock).toHaveBeenCalledWith(
+      { userId: USER_ID, orgId: ORG_ID },
+      req.url,
+      expect.objectContaining({
+        localApiUrl: undefined,
+        localApiKey: undefined,
+        nodeEnv: "development",
+      }),
+    );
   });
 
   it("maps package route errors for POST", async () => {
