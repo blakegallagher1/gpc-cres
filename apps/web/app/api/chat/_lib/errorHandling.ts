@@ -7,8 +7,16 @@ export type ChatClientErrorPayload = {
   message: string;
 };
 
+function isGatewayPersistenceError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("Gateway DB proxy failed");
+}
+
 export function isChatPersistenceUnavailable(error: unknown): boolean {
-  return isSchemaDriftError(error) || isPrismaConnectivityError(error);
+  return (
+    isSchemaDriftError(error) ||
+    isPrismaConnectivityError(error) ||
+    isGatewayPersistenceError(error)
+  );
 }
 
 function isInternalFailureMessage(message: string): boolean {

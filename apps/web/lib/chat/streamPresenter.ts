@@ -21,6 +21,7 @@ export type StreamPresenterState = {
   lastAgentName: string | null;
   conversationId: string | null;
   pendingAssistantMapFeatures: MapFeature[];
+  lastAssistantDelta: string | null;
 };
 
 export type StreamPresenterResult = {
@@ -40,6 +41,7 @@ export function createStreamPresenterState(): StreamPresenterState {
     lastAgentName: null,
     conversationId: null,
     pendingAssistantMapFeatures: [],
+    lastAssistantDelta: null,
   };
 }
 
@@ -231,6 +233,12 @@ export function applyStreamingEvent(
   generateId: IdGenerator = defaultIdGenerator,
 ): StreamPresenterResult {
   if (event.type === "text_delta") {
+    if (event.content.length === 0 || event.content === state.lastAssistantDelta) {
+      return {
+        nextState: state,
+        nextMessages: messages,
+      };
+    }
     const assistantMessageId =
       state.assistantMessageId ?? generateId("chat-assistant");
     const assistantDraft = `${state.assistantDraft}${event.content}`;
@@ -252,6 +260,7 @@ export function applyStreamingEvent(
         ...state,
         assistantMessageId,
         assistantDraft,
+        lastAssistantDelta: event.content,
       },
       nextMessages: replaceMessageById(messages, assistantMessageId, assistantMessage),
     };

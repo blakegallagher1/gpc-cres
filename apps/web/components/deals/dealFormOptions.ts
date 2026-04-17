@@ -7,7 +7,7 @@ import {
   type DealStrategy,
   type SkuType,
   type WorkflowTemplateKey,
-} from "@entitlement-os/shared";
+} from "@entitlement-os/shared/enums";
 
 type Option<Value extends string> = {
   value: Value;

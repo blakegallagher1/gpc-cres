@@ -119,4 +119,31 @@ describe("viewportParcelData", () => {
       unauthorized: false,
     });
   });
+
+  it("surfaces structured gateway errors from viewport refresh responses", async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: false,
+      status: 503,
+      json: async () => ({
+        error: "Property database unavailable",
+        code: "GATEWAY_UNAVAILABLE",
+      }),
+    }));
+
+    const result = await requestViewportParcels({
+      bounds: {
+        west: -91.2,
+        south: 30.4,
+        east: -91.1,
+        north: 30.5,
+      },
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(result).toEqual({
+      parcels: [],
+      error: "Property database unavailable",
+      unauthorized: false,
+    });
+  });
 });

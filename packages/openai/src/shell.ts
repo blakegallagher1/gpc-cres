@@ -10,7 +10,7 @@ import {
 import { buildResponseCreateParams } from "./responses.js";
 
 const OPENAI_CLIENT_MAX_RETRIES = 0;
-const DEFAULT_SHELL_MODEL = process.env.OPENAI_SHELL_MODEL ?? "gpt-5-mini";
+const DEFAULT_SHELL_MODEL = process.env.OPENAI_SHELL_MODEL ?? "gpt-5.4-mini";
 const DEFAULT_EXEC_TIMEOUT_MS = 120_000;
 const DEFAULT_EXEC_MAX_OUTPUT_CHARS = 50_000;
 const DEFAULT_SHELL_PROMPT_CACHE_KEY = process.env.OPENAI_SHELL_PROMPT_CACHE_KEY ?? "entitlement-os-shell";

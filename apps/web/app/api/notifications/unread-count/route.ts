@@ -8,6 +8,14 @@ import * as Sentry from "@sentry/nextjs";
 
 const service = new NotificationService();
 
+function isNotificationGatewayUnavailableError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return error.message.includes("Gateway DB proxy failed");
+}
+
 // GET /api/notifications/unread-count — lightweight polling endpoint
 export async function GET(request: NextRequest) {
   try {
@@ -23,7 +31,11 @@ export async function GET(request: NextRequest) {
     const count = await service.getUnreadCount(auth.userId);
     return NextResponse.json({ count });
   } catch (error) {
-    if (isSchemaDriftError(error) || isPrismaConnectivityError(error)) {
+    if (
+      isSchemaDriftError(error) ||
+      isPrismaConnectivityError(error) ||
+      isNotificationGatewayUnavailableError(error)
+    ) {
       return NextResponse.json({ count: 0, degraded: true });
     }
     console.error("Error fetching unread count:", error);

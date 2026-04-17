@@ -144,8 +144,8 @@ function buildConfig(): AgentOsConfig {
     enabled,
     features,
     models: {
-      agent: process.env.AGENTOS_AGENT_MODEL?.trim() || "gpt-5.2",
-      critic: process.env.AGENTOS_CRITIC_MODEL?.trim() || "gpt-5.2",
+      agent: process.env.AGENTOS_AGENT_MODEL?.trim() || "gpt-5.4",
+      critic: process.env.AGENTOS_CRITIC_MODEL?.trim() || "gpt-5.4",
       embedding: process.env.OPENAI_EMBEDDING_MODEL?.trim() || "pplx-embed-v1-4b",
       embeddingDimensions: readNumber("OPENAI_EMBEDDING_DIMENSIONS", 2560, 1),
       reasoningEffort: readReasoningEffort("AGENTOS_REASONING_EFFORT", "low"),

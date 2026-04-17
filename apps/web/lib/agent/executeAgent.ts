@@ -1519,6 +1519,7 @@ export async function executeAgentWorkflow(
       retrievalContext = await buildRetrievalContext({
         runId: dbRun.id,
         orgId: params.orgId,
+        dealId: params.dealId ?? null,
         queryIntent,
         firstUserInput,
       });
@@ -2812,6 +2813,7 @@ export async function resumeSerializedAgentRun(params: {
 async function buildRetrievalContext(params: {
   runId: string;
   orgId: string;
+  dealId?: string | null;
   queryIntent?: string | null;
   firstUserInput?: string;
 }): Promise<DataAgentRetrievalContext | null> {
@@ -2826,8 +2828,48 @@ async function buildRetrievalContext(params: {
     return null;
   }
 
+  const scopedParcelIds = new Set<string>();
+  const scopedAddressSignatures = new Set<string>();
+
+  if (typeof params.firstUserInput === "string") {
+    const signature = extractAddressSignature(params.firstUserInput);
+    if (signature) {
+      scopedAddressSignatures.add(signature);
+    }
+  }
+
+  if (params.dealId) {
+    try {
+      const deal = await getDealReaderById(params.orgId, params.dealId);
+      const parcelNumber = deal?.primaryAsset?.parcelNumber?.trim();
+      if (parcelNumber) {
+        scopedParcelIds.add(parcelNumber);
+      }
+      const assetAddress = deal?.primaryAsset?.address;
+      if (assetAddress) {
+        const signature = extractAddressSignature(assetAddress);
+        if (signature) {
+          scopedAddressSignatures.add(signature);
+        }
+      }
+    } catch (error) {
+      logger.warn("Failed to build deal-scoped retrieval hints", {
+        runId: params.runId,
+        dealId: params.dealId,
+        error: String(error),
+      });
+    }
+  }
+
   try {
-    const retrievalResults = await unifiedRetrieval(query, params.runId, params.orgId);
+    const retrievalResults = await unifiedRetrieval(query, {
+      subjectId: params.runId,
+      orgId: params.orgId,
+      dealId: params.dealId ?? undefined,
+      parcelIds: [...scopedParcelIds],
+      addressSignatures: [...scopedAddressSignatures],
+      parish: extractRequestedParish(query) ?? undefined,
+    });
     const topResults = retrievalResults.slice(0, DATA_AGENT_RETRIEVAL_LIMIT);
     const sources = {
       semantic: 0,

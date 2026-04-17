@@ -34,23 +34,32 @@ function getLoginErrorMessage(searchParams: SearchParams): string | null {
 }
 
 interface SignInActionsProps {
+  googleDisabledLabel?: string;
   isBusy: boolean;
   onGoogleSignIn: () => Promise<void>;
   onPasswordAccess: () => void;
 }
 
-function SignInActions({ isBusy, onGoogleSignIn, onPasswordAccess }: SignInActionsProps) {
+function SignInActions({
+  googleDisabledLabel,
+  isBusy,
+  onGoogleSignIn,
+  onPasswordAccess,
+}: SignInActionsProps) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row">
       <Button
         className="h-12 min-w-[14rem] shadow-sm transition-shadow hover:shadow-md"
-        disabled={isBusy}
+        disabled={isBusy || Boolean(googleDisabledLabel)}
         onClick={() => {
+          if (googleDisabledLabel) {
+            return;
+          }
           void onGoogleSignIn();
         }}
         size="lg"
       >
-        Continue with Google
+        {googleDisabledLabel ?? "Continue with Google"}
         <ArrowRight className="ml-2 h-4 w-4" />
       </Button>
 
@@ -163,10 +172,14 @@ function CredentialAccess({
  */
 export function LoginForm() {
   const searchParams = useSearchParams();
+  const isLocalDevAuthMode = process.env.NEXT_PUBLIC_DISABLE_AUTH === "true";
+  const googleDisabledLabel = isLocalDevAuthMode
+    ? "Google OAuth unavailable on localhost"
+    : undefined;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(isLocalDevAuthMode);
   const [isCredentialSubmitting, setIsCredentialSubmitting] = useState(false);
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
 
@@ -219,6 +232,7 @@ export function LoginForm() {
   return (
     <div className="max-w-xl space-y-8">
       <SignInActions
+        googleDisabledLabel={googleDisabledLabel}
         isBusy={isBusy}
         onGoogleSignIn={handleGoogleSignIn}
         onPasswordAccess={revealPasswordAccess}

@@ -27,13 +27,13 @@ vi.mock("@/lib/hooks/useAgents", () => ({
       {
         id: "coordinator",
         name: "coordinator",
-        model: "gpt-5.2",
+        model: "gpt-5.4",
         description: "Routes work across the desk.",
       },
       {
         id: "finance",
         name: "finance",
-        model: "gpt-5.2",
+        model: "gpt-5.4",
         description: "Handles underwriting and capital structure.",
       },
     ],

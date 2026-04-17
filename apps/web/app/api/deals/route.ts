@@ -15,7 +15,11 @@ import {
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
 import { isSchemaDriftError } from "@/lib/api/prismaSchemaFallback";
-import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
+import {
+  isAppDatabaseConfigured,
+  isLocalAppRuntime,
+  shouldUseAppDatabaseDevFallback,
+} from "@/lib/server/appDbEnv";
 import { isPrismaConnectivityError } from "@/lib/server/devParcelFallback";
 
 const DealStatusSchema = z.enum([
@@ -88,9 +92,16 @@ function normalizeDealCreateRequestBody(body: Record<string, unknown>) {
 }
 
 function routeGatewayConfig(request: NextRequest) {
+  const preferDirectAppDatabase =
+    isLocalAppRuntime() && isAppDatabaseConfigured();
+
   return {
-    localApiUrl: process.env.LOCAL_API_URL?.trim(),
-    localApiKey: process.env.LOCAL_API_KEY?.trim(),
+    localApiUrl: preferDirectAppDatabase
+      ? undefined
+      : process.env.LOCAL_API_URL?.trim(),
+    localApiKey: preferDirectAppDatabase
+      ? undefined
+      : process.env.LOCAL_API_KEY?.trim(),
     cloudflareAccessHeaders: getCloudflareAccessHeadersFromEnv(),
     nodeEnv: process.env.NODE_ENV,
     useAppDatabaseDevFallback: shouldUseAppDatabaseDevFallback(),

@@ -72,7 +72,10 @@ function isString(value: unknown): value is string {
 }
 
 function normalizeConversationId(value: unknown): string | null {
-  return isString(value) && value.length > 0 ? value : null;
+  if (!isString(value) || value.length === 0) {
+    return null;
+  }
+  return value === "agent-run" ? null : value;
 }
 
 function readRecentConversationIds(): string[] {
@@ -443,7 +446,8 @@ export function ChatContainer() {
 
   const loadConversation = useCallback(
     async (id: string | null) => {
-      if (!id) {
+      const normalizedRequestedId = normalizeConversationId(id);
+      if (!normalizedRequestedId) {
         setConversationState(null);
         setTransportSessionState(WS_ENABLED ? crypto.randomUUID() : null);
         setCurrentAgent(null);
@@ -456,19 +460,19 @@ export function ChatContainer() {
         return;
       }
 
-      setConversationState(id);
-      setTransportSessionState(id);
+      setConversationState(normalizedRequestedId);
+      setTransportSessionState(normalizedRequestedId);
       setCurrentAgent(null);
       setAgentSummary(null);
 
       const resetState = createStreamPresenterState();
-      resetState.conversationId = id;
+      resetState.conversationId = normalizedRequestedId;
       presenterRef.current = resetState;
       setPresenterState(resetState);
       setMessages([]);
 
       try {
-        const response = await fetch(`/api/chat/conversations/${id}`);
+        const response = await fetch(`/api/chat/conversations/${normalizedRequestedId}`);
         if (!response.ok) {
           return;
         }

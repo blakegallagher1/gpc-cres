@@ -116,6 +116,7 @@ export {
   type UpsertProceduralSkillsFromEpisodeInput,
   type UpsertProceduralSkillsFromEpisodeResult,
 } from "./services/procedural-skill.service";
+export * from "./services/property-observation.service";
 export * from "./services/portfolio-summary.service";
 export * from "./services/prompt-optimization.service";
 export * from "./services/prompt-versioning.service";

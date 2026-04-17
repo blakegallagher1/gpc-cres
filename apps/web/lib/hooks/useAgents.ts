@@ -266,7 +266,7 @@ const STATIC_AGENTS: Agent[] = [
   {
     id: "coordinator",
     name: "EntitlementOS Cartographer",
-    model: "gpt-5.2",
+    model: "gpt-5.4",
     description:
       "Unified operator for entitlements, underwriting, and cartographer-grade spatial analysis across parcels, assemblage, and site planning.",
     handoffs: [],

@@ -60,7 +60,7 @@ describe("agentos config", () => {
     const config = getAgentOsConfig({ refresh: true });
 
     expect(config.enabled).toBe(false);
-    expect(config.models.agent).toBe("gpt-5.2");
+    expect(config.models.agent).toBe("gpt-5.4");
     expect(config.models.embedding).toBe("pplx-embed-v1-4b");
     expect(config.models.embeddingDimensions).toBe(2560);
     expect(config.models.reasoningEffort).toBe("low");

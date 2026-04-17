@@ -77,4 +77,22 @@ describe("GET /api/notifications/unread-count", () => {
     expect(body).toEqual({ count: 0, degraded: true });
     expect(captureExceptionMock).not.toHaveBeenCalled();
   });
+
+  it("degrades to zero when the gateway DB proxy is unavailable", async () => {
+    resolveAuthMock.mockResolvedValue({
+      userId: "99999999-9999-4999-8999-999999999999",
+      orgId: "11111111-1111-4111-8111-111111111111",
+    });
+    getUnreadCountMock.mockRejectedValue(
+      new Error('Gateway DB proxy failed across 1 target(s): gateway-proxy (https://gateway.gallagherpropco.com) gateway DB proxy error (530): "error code: 1033"'),
+    );
+
+    const req = new NextRequest("http://localhost/api/notifications/unread-count");
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toEqual({ count: 0, degraded: true });
+    expect(captureExceptionMock).not.toHaveBeenCalled();
+  });
 });

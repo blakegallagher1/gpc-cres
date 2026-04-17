@@ -154,6 +154,26 @@ describe("packages/db client gateway config", () => {
     expect(constructorArgs).toHaveLength(2);
   });
 
+  it("prefers direct DATABASE_URL over gateway targets in local development", async () => {
+    process.env.NODE_ENV = "development";
+    process.env.DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/entitlement_os";
+    process.env.GATEWAY_DATABASE_URL = "https://api.gallagherpropco.com";
+    process.env.LOCAL_API_KEY = "local-api-key";
+
+    await import("../src/client.js");
+
+    expect(mockCreateGatewayAdapterFactory).not.toHaveBeenCalled();
+    expect(constructorArgs).toHaveLength(2);
+    expect(constructorArgs[0]).toEqual({
+      datasources: {
+        db: {
+          url: "postgresql://postgres:postgres@localhost:5432/entitlement_os",
+        },
+      },
+      log: ["error", "warn"],
+    });
+  });
+
   it("adds LOCAL_API_URL as the final hosted gateway fallback when a key is available", async () => {
     process.env.NODE_ENV = "production";
     process.env.LOCAL_API_URL = "https://api.gallagherpropco.com";

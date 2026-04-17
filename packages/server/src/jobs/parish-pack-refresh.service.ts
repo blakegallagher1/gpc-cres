@@ -27,7 +27,7 @@ const SKUS: SkuType[] = ["SMALL_BAY_FLEX", "OUTDOOR_STORAGE", "TRUCK_PARKING"];
 const STALE_DAYS = 7;
 const EVIDENCE_TIMEOUT_MS = 30_000;
 const EVIDENCE_RETRIES = 2;
-const PARISH_PACK_MODEL = process.env.OPENAI_PARISH_PACK_MODEL || "gpt-4.1";
+const PARISH_PACK_MODEL = process.env.OPENAI_PARISH_PACK_MODEL || "gpt-5.4";
 const OFFICIAL_ONLY = true;
 
 const parishPackJsonSchema = zodToOpenAiJsonSchema("parish_pack", ParishPackSchema);

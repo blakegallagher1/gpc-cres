@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  capturePropertyObservations,
   searchParcelsForRoute,
 } from "@gpc/server";
 import {
@@ -38,17 +39,18 @@ export async function GET(request: NextRequest) {
     });
     return withRequestId(unauthorizedResponse);
   }
+  const auth = authorization.auth;
 
   const result = await searchParcelsForRoute({
-    orgId: authorization.auth.orgId,
+    orgId: auth.orgId,
     hasCoords,
     searchText,
   });
 
   await logRequestOutcome(context, {
     status: result.status,
-    orgId: authorization.auth.orgId,
-    userId: authorization.auth.userId,
+    orgId: auth.orgId,
+    userId: auth.userId,
     upstream: result.upstream,
     resultCount: result.resultCount,
     details: result.details,
@@ -58,5 +60,39 @@ export async function GET(request: NextRequest) {
   if (result.cacheControl) {
     response.headers.set("Cache-Control", result.cacheControl);
   }
+
+  if (
+    result.status === 200 &&
+    Array.isArray((result.body as { parcels?: unknown }).parcels) &&
+    (result.body as { parcels?: Array<Record<string, unknown>> }).parcels!.length > 0
+  ) {
+    void capturePropertyObservations(
+      (result.body as { parcels: Array<Record<string, unknown>> }).parcels.map((parcel) => ({
+        orgId: auth.orgId,
+        observationType: "parcel_lookup" as const,
+        parcelId:
+          typeof parcel.parcelId === "string"
+            ? parcel.parcelId
+            : typeof parcel.id === "string"
+              ? parcel.id
+              : "",
+        address: typeof parcel.address === "string" ? parcel.address : "",
+        parish: typeof parcel.parish === "string" ? parcel.parish : null,
+        owner: typeof parcel.owner === "string" ? parcel.owner : null,
+        zoning:
+          typeof parcel.currentZoning === "string"
+            ? parcel.currentZoning
+            : typeof parcel.zoning === "string"
+              ? parcel.zoning
+              : null,
+        floodZone: typeof parcel.floodZone === "string" ? parcel.floodZone : null,
+        acreage: typeof parcel.acreage === "number" ? parcel.acreage : null,
+        lat: typeof parcel.lat === "number" ? parcel.lat : null,
+        lng: typeof parcel.lng === "number" ? parcel.lng : null,
+        sourceRoute: "/api/parcels",
+      })),
+    ).catch(() => {});
+  }
+
   return withRequestId(response);
 }

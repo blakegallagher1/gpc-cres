@@ -301,4 +301,25 @@ describe("ChatContainer", () => {
     },
     CHAT_CONTAINER_TEST_TIMEOUT_MS,
   );
+
+  it(
+    "ignores the ephemeral agent-run conversation placeholder in the URL",
+    async () => {
+      window.history.replaceState({}, "", "/chat?conversationId=agent-run");
+      const { ChatContainer } = await import("@/components/chat/ChatContainer");
+
+      render(<ChatContainer />);
+
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledWith("/api/auth/token");
+        expect(fetchMock).toHaveBeenCalledWith("/api/chat/conversations");
+      });
+
+      const fetchedUrls = fetchMock.mock.calls.map(([input]) => String(input));
+      expect(fetchedUrls).not.toContain("/api/chat/conversations/agent-run");
+      expect(window.location.search).toBe("");
+      expect(screen.getByText("Ask Harvey anything.")).toBeInTheDocument();
+    },
+    CHAT_CONTAINER_TEST_TIMEOUT_MS,
+  );
 });

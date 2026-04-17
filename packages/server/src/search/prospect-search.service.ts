@@ -207,7 +207,7 @@ export async function searchProspectsForRoute(input: {
       minAssessedValue: input.filters?.minAssessedValue,
       maxAssessedValue: input.filters?.maxAssessedValue,
     });
-    const raw = await requestPropertyDbGateway({
+    const gatewayResponse = await requestPropertyDbGateway({
       routeTag: "/api/map/prospect",
       path: "/tools/parcels.sql",
       method: "POST",
@@ -217,7 +217,29 @@ export async function searchProspectsForRoute(input: {
       includeApiKey: true,
       internalScope: "map.read",
       maxRetries: 1,
-    }).then((response) => response.json());
+    });
+
+    if (!gatewayResponse.ok) {
+      const errorBody = await gatewayResponse.text().catch(() => "");
+      throw new PropertyDbGatewayError(
+        `[prospect] gateway /tools/parcels.sql upstream ${gatewayResponse.status}: ${errorBody.slice(0, 200)}`,
+        "GATEWAY_UNAVAILABLE",
+        503,
+      );
+    }
+
+    let raw: unknown;
+    try {
+      raw = await gatewayResponse.json();
+    } catch (error) {
+      throw new PropertyDbGatewayError(
+        `[prospect] gateway /tools/parcels.sql invalid JSON: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        "GATEWAY_UNAVAILABLE",
+        503,
+      );
+    }
 
     const gatewayError = extractProspectGatewayError(raw);
     if (gatewayError) {

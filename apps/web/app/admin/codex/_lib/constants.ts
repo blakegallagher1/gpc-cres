@@ -7,7 +7,7 @@ export const DEFAULT_ADMIN_CWD =
   configuredDefaultCwd && configuredDefaultCwd.length > 0 ? configuredDefaultCwd : null;
 
 export const DEFAULT_THREAD_START_CONFIG = {
-  model: "gpt-5.2-codex",
+  model: "gpt-5.4",
   cwd: DEFAULT_ADMIN_CWD,
   approvalPolicy: "on-request" as const,
   sandboxPolicy: DEFAULT_ADMIN_CWD

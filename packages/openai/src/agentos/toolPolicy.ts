@@ -58,6 +58,8 @@ export const WEB_ADDITIONAL_TOOL_ALLOWLIST = [
   "record_memory_event",
   "lookup_entity_by_address",
   "ingest_comps",
+  "recall_property_intelligence",
+  "store_property_finding",
 ] as const;
 
 const TOOL_POLICY_BY_INTENT: Record<string, ToolPolicyDefinition> = {

@@ -73,6 +73,7 @@ function dedupeGatewayTargets(targets: GatewayTarget[]): GatewayTarget[] {
 }
 
 function getGatewayTargets(): GatewayTarget[] {
+  const runtimeDatabaseUrl = normalizeDbUrl(process.env.DATABASE_URL);
   const proxyUrl = normalizeDbUrl(process.env.GATEWAY_PROXY_URL);
   const directGatewayKey = getFirstConfiguredGatewayKey();
   const proxyKey = process.env.GATEWAY_PROXY_TOKEN?.trim() || directGatewayKey;
@@ -82,6 +83,10 @@ function getGatewayTargets(): GatewayTarget[] {
     process.env.NODE_ENV === "production" ||
     process.env.VERCEL === "1" ||
     Boolean(process.env.VERCEL_ENV?.trim());
+
+  if (!isHostedRuntime && runtimeDatabaseUrl) {
+    return [];
+  }
 
   pushGatewayTarget(targets, proxyUrl, proxyKey, "gateway-proxy");
 

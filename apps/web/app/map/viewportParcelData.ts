@@ -24,6 +24,7 @@ export interface ProspectApiResponse {
   parcels: ProspectApiParcel[];
   total: number;
   error?: string;
+  code?: string;
 }
 
 /**
@@ -110,12 +111,18 @@ export async function requestProspectParcels(params: {
   });
 
   if (!response.ok) {
+    let apiError: ProspectApiResponse | null = null;
+    try {
+      apiError = (await response.json()) as ProspectApiResponse;
+    } catch {
+      apiError = null;
+    }
     return {
       parcels: [],
       error:
         response.status === 401
           ? "You must be signed in to use polygon search."
-          : "Polygon search failed. Please try again.",
+          : apiError?.error?.trim() || "Polygon search failed. Please try again.",
       unauthorized: response.status === 401,
     };
   }

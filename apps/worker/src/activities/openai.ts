@@ -693,8 +693,8 @@ function buildVerificationSteps(missingEvidence: string[]): string[] {
   return steps;
 }
 
-const PARISH_PACK_MODEL = process.env.OPENAI_FLAGSHIP_MODEL || "gpt-5.2";
-const TRIAGE_MODEL = process.env.OPENAI_STANDARD_MODEL || "gpt-5.2";
+const PARISH_PACK_MODEL = process.env.OPENAI_FLAGSHIP_MODEL || "gpt-5.4";
+const TRIAGE_MODEL = process.env.OPENAI_STANDARD_MODEL || "gpt-5.4";
 
 /**
  * Generate a parish pack JSON from extracted evidence texts using OpenAI.

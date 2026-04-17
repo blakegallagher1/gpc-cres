@@ -33,7 +33,7 @@ vi.mock("@/lib/hooks/useAgents", () => ({
         name: "Harvey",
         description: "Unified operator for research, evidence, and underwriting work.",
         status: "active",
-        model: "gpt-5.2",
+        model: "gpt-5.4",
         color: "#2563eb",
         run_count: 14,
         handoffs: [{ agent: "finance" }],

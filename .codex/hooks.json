@@ -1,0 +1,29 @@
+{
+  "hooks": [
+    {
+      "event": "PreToolUse",
+      "matchers": [{ "tool": "bash", "pattern": "git push.*--force.*main|git reset --hard|drop table|DROP TABLE" }],
+      "handler": {
+        "type": "command",
+        "command": "echo '{\"decision\":\"block\",\"reason\":\"Destructive operation on main branch or database blocked. Use a feature branch or get explicit approval.\"}'"
+      }
+    },
+    {
+      "event": "PostToolUse",
+      "matchers": [{ "tool": "write_file", "pattern": "\\.(ts|tsx)$" }],
+      "handler": {
+        "type": "command",
+        "async": true,
+        "command": "cd /Users/gallagherpropertycompany/Documents/gallagher-cres && pnpm tsc --noEmit 2>&1 | tail -20"
+      }
+    },
+    {
+      "event": "UserPromptSubmit",
+      "matchers": [{ "pattern": "(?i)(sk-|ghp_|AKIA|xoxb-|xoxp-|AIzaSy|-----BEGIN|NEXTAUTH_SECRET|AUTH_SECRET)" }],
+      "handler": {
+        "type": "command",
+        "command": "echo '{\"decision\":\"block\",\"reason\":\"Prompt contains what looks like a secret or credential. Remove it before sending.\"}'"
+      }
+    }
+  ]
+}
