@@ -54,6 +54,7 @@ import type {
 import { formatCurrency, timeAgo } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { PortfolioAlertsPanel } from "@/components/portfolio/PortfolioAlertsPanel";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -1228,6 +1229,10 @@ function PortfolioPageContent({
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <PortfolioTrendCards trend={portfolioTrend} />
         <DealAgingDepthPanel deals={activeDeals} />
+      </div>
+
+      <div className="mt-6">
+        <PortfolioAlertsPanel title="Active alerts" limit={50} maxHeightClassName="max-h-[600px]" />
       </div>
 
       <Tabs defaultValue="concentration" className="mt-6">
