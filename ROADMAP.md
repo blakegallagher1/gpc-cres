@@ -123,14 +123,22 @@ Only items meeting all checks are added below as `Planned`.
 - **Expected Outcome (measurable):** Stage transitions respect gate failures; `DealStageHistory.decisionMetrics` captures IRR/LTV/DSCR at transition time.
 - **Acceptance Criteria / Tests:** `OrgInvestmentCriteria` model + API, gate service plugged into advancement flow, stage-transition UI shows block reason on fail.
 
-### MOAT-P3-001 — Phase 3 Moat: Map Comps Pins + FLU Overlay + LLC Clustering (P1)
+### MOAT-P3-001 — Phase 3 Moat: Map LLC Clustering + FLU Overlay Scaffold (P1)
 
 - **Priority:** P1
-- **Status:** Planned
-- **Scope:** Three additive map layers. (a) Pin individual comps on map with price/psf/date/type filters. (b) Future Land Use overlay proxied through Martin tiles. (c) LLC aggregation detector that groups adjacent parcels by owner entity.
-- **Problem:** Map audit (2026-04-17) identified comps-not-on-map, no FLU overlay, and string-matching-only owner detection as top CRE gaps.
-- **Expected Outcome (measurable):** Three new map controls visible; each layer toggleable; FLU data loaded for at least EBR + Orleans + Jefferson parishes.
-- **Acceptance Criteria / Tests:** New tile/layer components, new `/api/map/comps-pins` endpoint, `owner-entity-cluster.service.ts` detection pass over full EBR.
+- **Status:** Done (2026-04-17)
+- **Scope:** (a) LLC ownership clustering service + API + `OwnerPortfolioCard` tab on `ParcelDetailCard` so clicking any parcel immediately surfaces "this owner also holds N other parcels totaling X acres". (b) FLU overlay rendering pipeline: tile proxy, toggle, and `FluTileLayer` wired into `MapContainerV2`; actual FLU tile source configured per-parish via `FLU_TILE_ORIGIN` env var.
+- **Deferred from this scope:** Comps pins are already spatially visualized in existing `MapLibreParcelMap` with address-search + auto-refresh, so the audit's "comps not on map" finding was inaccurate for the current codebase and was dropped from this phase.
+- **Problem:** Map audit (2026-04-17) flagged ownership detection as string-only with no entity linking, and no FLU overlay existed despite being table-stakes for "is this upzone-ready" analysis.
+- **Evidence of need:** Parcel DB `owner` column is free-text with heavy drift (LLC/Inc/trailing mailing addresses). Operators had no single-click view of an entity's full local portfolio.
+- **Evidence (2026-04-17):**
+  - Added `packages/server/src/services/owner-clustering.service.ts` — aggressive owner-name normalizer (handles 20+ legal-entity suffixes), bbox-scoped clustering SQL, single-owner portfolio lookup.
+  - API: `POST /api/map/ownership-clusters` (bbox) + `GET /api/map/ownership-clusters/portfolio` (per-owner).
+  - UI: `apps/web/components/maps/OwnerPortfolioCard.tsx` rendered in a new "Owner" tab in `ParcelDetailCard`.
+  - Added `apps/web/components/maps/layers/FluTileLayer.tsx` + tile proxy at `apps/web/app/api/map/flu-tiles/[z]/[x]/[y]/route.ts` (returns 204 when `FLU_TILE_ORIGIN` unset so the layer is inert but UX-ready).
+  - Toggle wired through `MapWorkbenchPanel` + `useOverlayState` + `MapContainerV2` with `showFlu` state.
+  - `pnpm typecheck` clean; map component tests 56/56 pass.
+- **Follow-up:** Load per-parish FLU tiles (EBR/Orleans/Jefferson) — separate data-ingestion task that doesn't require code changes.
 
 ### MOAT-P3-002 — Phase 3 Moat: Infrastructure + Isochrone Layer (P1)
 

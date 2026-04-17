@@ -18,6 +18,7 @@ import { useOverlayState } from "./hooks/useOverlayState";
 import { ParcelBoundaryLayer } from "./layers/ParcelBoundaryLayer";
 import { ParcelExtrusionLayer } from "./layers/ParcelExtrusionLayer";
 import { ZoningTileLayer } from "./layers/ZoningTileLayer";
+import { FluTileLayer } from "./layers/FluTileLayer";
 import { FloodZoneLayer } from "./layers/FloodZoneLayer";
 import { SoilsLayer } from "./layers/SoilsLayer";
 import { WetlandsLayer } from "./layers/WetlandsLayer";
@@ -224,6 +225,7 @@ export function MapContainerV2({
           dimmed={overlays.showZoning}
         />
         <ZoningTileLayer visible={overlays.showZoning} />
+        <FluTileLayer visible={overlays.showFlu} />
         <FloodZoneLayer visible={overlays.showFlood} />
         <SoilsLayer visible={overlays.showSoils} />
         <WetlandsLayer visible={overlays.showWetlands} />

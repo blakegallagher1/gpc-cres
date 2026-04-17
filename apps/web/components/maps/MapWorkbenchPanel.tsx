@@ -51,6 +51,8 @@ interface MapWorkbenchPanelProps {
   setShowParcelBoundaries: (value: boolean) => void;
   showZoning: boolean;
   setShowZoning: (value: boolean) => void;
+  showFlu?: boolean;
+  setShowFlu?: (value: boolean) => void;
   showFlood: boolean;
   setShowFlood: (value: boolean) => void;
   showSoils: boolean;
@@ -311,6 +313,8 @@ export function MapWorkbenchPanel({
   setShowParcelBoundaries,
   showZoning,
   setShowZoning,
+  showFlu,
+  setShowFlu,
   showFlood,
   setShowFlood,
   showSoils,
@@ -696,6 +700,14 @@ export function MapWorkbenchPanel({
                     description="Parcel zoning fills for code-pressure scans."
                     onClick={() => setShowZoning(!showZoning)}
                   />
+                  {setShowFlu && (
+                    <LayerActionButton
+                      active={Boolean(showFlu)}
+                      title="Future land use"
+                      description="FLU overlay — identifies upzone-ready parcels (requires per-parish tile source)."
+                      onClick={() => setShowFlu(!showFlu)}
+                    />
+                  )}
                   <LayerActionButton
                     active={showFlood}
                     title="Flood zones"

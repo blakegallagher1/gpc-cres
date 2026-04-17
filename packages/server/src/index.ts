@@ -26,6 +26,7 @@ export * from "./deals/underwriting-gate.service";
 export * from "./deals/opportunity-phase-compatibility";
 export * from "./automation/portfolio-watcher.service";
 export * from "./services/investment-criteria.service";
+export * from "./services/owner-clustering.service";
 export * from "./automation/proactive-action.service";
 export * from "./automation/automation-event.service";
 export * from "./automation/events";

@@ -140,3 +140,14 @@ export function getParcelTileUrl(): string {
 export function getZoningProxyTileUrl(): string {
   return "/api/map/zoning-tiles/{z}/{x}/{y}";
 }
+
+/**
+ * Returns same-origin Future Land Use (FLU) vector tile URL proxied through
+ * the app. The actual tile source is configured via FLU_TILE_ORIGIN +
+ * FLU_TILE_PATH env vars; the proxy returns 404 for tiles until a parish
+ * FLU source is wired. This lets us ship the layer toggle + rendering
+ * pipeline without blocking on GIS data ingestion.
+ */
+export function getFluProxyTileUrl(): string {
+  return "/api/map/flu-tiles/{z}/{x}/{y}";
+}
