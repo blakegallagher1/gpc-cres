@@ -201,11 +201,18 @@ Only items meeting all checks are added below as `Planned`.
 ### MOAT-P4-003 — Phase 4 Moat: Asset Management + Disposition Tracking (P2)
 
 - **Priority:** P2
-- **Status:** Planned
+- **Status:** Done (2026-04-17)
 - **Scope:** Post-close performance tracking (rent collection, capex, tenant turnover, sale comps) linked to DealOutcome.
 - **Problem:** `DealOutcome` only has `exitDate` + `notes`; entire post-close lifecycle is a stub.
 - **Expected Outcome (measurable):** Users can record rent actuals vs underwritten, capex items, tenant changes; disposition-ready signal surfaces when hold-period + market conditions align.
 - **Acceptance Criteria / Tests:** New models (`AssetPerformance`, `CapExItem`, `RentCollection`), AM dashboard tab, integration with existing `AssumptionActual`.
+- **Evidence (2026-04-17):**
+  - Migration `packages/db/prisma/migrations/20260417230000_add_asset_management/migration.sql` adds 3 tables: `asset_performance_periods`, `capex_items`, `tenant_change_events`. All scoped by `(org_id, deal_id)` with composite FK to deals and unique/index constraints per spec.
+  - Service `packages/server/src/deals/deal-asset-performance.service.ts` (named to avoid clashing with the existing `services/asset-management.service.ts`) implements CRUD + `getAssetPerformanceSummary` (T12 rent, vacancy, NOI trend, capex totals) + `computeDispositionReadiness` (heuristic 0-100 score across collection health, vacancy, capex backlog, hold period; `ready` at >= 70). Exported from `packages/server/src/index.ts`.
+  - API routes: `apps/web/app/api/deals/[id]/performance/route.ts` (GET/POST upsert), `.../performance/summary/route.ts` (GET summary+readiness), `.../capex/route.ts` + `.../capex/[itemId]/route.ts`, `.../tenant-events/route.ts`. All use `resolveAuth`, Sentry, Zod with `.nullable().optional()` pattern.
+  - UI `apps/web/components/deals/DealAssetManagementPanel.tsx` has 3 sub-tabs (Performance / CapEx / Tenant events) with quick-entry forms, matching `DealCommentsPanel` visual density (ShadCN Card + Badge + Button + Tabs + Input, SWR-driven).
+  - Wired into `apps/web/app/deals/[id]/DealDetailPageClient.tsx` as new "Asset Mgmt" tab next to "Room"; tab always visible, content shows pre-population hint when `deal.currentStageKey !== "ASSET_MANAGEMENT"`.
+  - Verification: `pnpm -C packages/db prisma generate` clean, `pnpm -r --filter './packages/**' build` clean, `pnpm -C apps/web exec tsc --noEmit` zero errors.
 
 ### INFRA-CP-001 — Control Plane Extraction (P0)
 
