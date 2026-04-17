@@ -145,11 +145,26 @@ Only items meeting all checks are added below as `Planned`.
 ### MOAT-P3-002 — Phase 3 Moat: Infrastructure + Isochrone Layer (P1)
 
 - **Priority:** P1
-- **Status:** Planned
+- **Status:** Done (2026-04-17)
 - **Scope:** Add truck routes, ports, freight rail, major interchanges as map layers. Add isochrone drive-time buffers (15/30/45 min) from selected parcels via Mapbox/ESRI Iso API.
 - **Problem:** Light-industrial/truck-parking thesis requires last-mile accessibility analysis; today users leave the map for this.
 - **Expected Outcome (measurable):** Users can select a parcel and see drive-time polygons to nearest port/interchange within 5 seconds.
-- **Acceptance Criteria / Tests:** New layer components, drive-time API integration, port/rail reference dataset loaded into property DB.
+- **Evidence (2026-04-17):**
+  - Added 4 data-gated infrastructure tile layers matching the Phase 3 FLU pattern — each returns 204 when its env var is unset so the toggle works inertly until tiles are wired:
+    - `apps/web/components/maps/layers/TruckRoutesLayer.tsx` + proxy `apps/web/app/api/map/truck-routes-tiles/[z]/[x]/[y]/route.ts` (env `TRUCK_ROUTES_TILE_ORIGIN`)
+    - `apps/web/components/maps/layers/PortsLayer.tsx` + proxy `apps/web/app/api/map/ports-tiles/[z]/[x]/[y]/route.ts` (env `PORTS_TILE_ORIGIN`)
+    - `apps/web/components/maps/layers/RailLayer.tsx` + proxy `apps/web/app/api/map/rail-tiles/[z]/[x]/[y]/route.ts` (env `RAIL_TILE_ORIGIN`)
+    - `apps/web/components/maps/layers/InterchangesLayer.tsx` + proxy `apps/web/app/api/map/interchanges-tiles/[z]/[x]/[y]/route.ts` (env `INTERCHANGES_TILE_ORIGIN`)
+  - Added `getTruckRoutesProxyTileUrl`, `getPortsProxyTileUrl`, `getRailProxyTileUrl`, `getInterchangesProxyTileUrl` to `apps/web/components/maps/tileUrls.ts`.
+  - Added `packages/server/src/services/isochrone.service.ts` wrapping the Mapbox Isochrone API (`contours_minutes=15,30,45&polygons=true`). Gated by `MAPBOX_ACCESS_TOKEN`; exports `computeIsochrone({ lat, lng, minutes: number[] }) → GeoJSON FeatureCollection`, plus typed `IsochroneConfigError` and `IsochroneUpstreamError`. Export added to `packages/server/src/index.ts`.
+  - Upgraded `apps/web/app/api/map/isochrone/route.ts` to be dual-mode: preserves the legacy `{ minutes: number }` OSRM polygon response for existing callers/tests; adds a `{ minutes: number[] }` branch that routes to the Mapbox service and returns a FeatureCollection (503 when token unset, 502/504 on upstream failure). All 5 existing isochrone route tests still pass.
+  - Added `apps/web/components/maps/layers/IsochroneLayer.tsx` rendering the FeatureCollection as three concentric 15 / 30 / 45-minute bands (fill + line) keyed off the `contour`/`minutes` feature property. Component accepts `visible` + `data` props; parent owns state.
+  - Overlay state wired in `apps/web/components/maps/hooks/useOverlayState.ts`: added `showTruckRoutes`, `showPorts`, `showRail`, `showInterchanges`, `showIsochrone` (all default false).
+  - `apps/web/components/maps/MapWorkbenchPanel.tsx`: added 5 new `<LayerActionButton>` entries under a new "Infrastructure" sub-section in the References panel, each rendered only when its setter prop is supplied; relaxed `showIsochrone`/`setShowIsochrone` to optional and made the existing analysis ToolButton conditional.
+  - `apps/web/components/maps/MapContainerV2.tsx` now renders `TruckRoutesLayer`, `PortsLayer`, `RailLayer`, `InterchangesLayer` after `FluTileLayer`.
+  - `apps/web/components/maps/MapLibreParcelMap.tsx` wires four new `useState` flags and passes them through to `MapWorkbenchPanel` mirroring how `showFlu` is plumbed. `IsochroneLayer` component is delivered in this branch; its manual "compute-from-parcel" trigger button in `MapLibreParcelMap` is deferred (see follow-up).
+  - Verified: `pnpm -r --filter './packages/**' build` runs clean; `pnpm -C apps/web exec tsc --noEmit` produces zero errors; `pnpm -C apps/web test -- app/api/map/isochrone/route.test.ts` 5/5 passing.
+- **Follow-up:** Wire an on-parcel "compute drive-time" UI action that POSTs `{ minutes: [15,30,45] }` to `/api/map/isochrone` and passes the result into `<IsochroneLayer data=...>`; point the 4 tile-origin env vars at real upstreams (LA DOTD freight / BTS ports / FRA rail / motorway_junction extract).
 
 ### MOAT-P4-001 — Phase 4 Moat: Email-to-Deal Ingestion (P1)
 

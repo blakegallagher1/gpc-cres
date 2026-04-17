@@ -69,6 +69,14 @@ interface MapWorkbenchPanelProps {
   setShowNewPermits: (value: boolean) => void;
   showZoningChanges: boolean;
   setShowZoningChanges: (value: boolean) => void;
+  showTruckRoutes?: boolean;
+  setShowTruckRoutes?: (value: boolean) => void;
+  showPorts?: boolean;
+  setShowPorts?: (value: boolean) => void;
+  showRail?: boolean;
+  setShowRail?: (value: boolean) => void;
+  showInterchanges?: boolean;
+  setShowInterchanges?: (value: boolean) => void;
   showTools: boolean;
   showComps: boolean;
   setShowComps: (value: boolean | ((value: boolean) => boolean)) => void;
@@ -76,8 +84,8 @@ interface MapWorkbenchPanelProps {
   setShowHeatmap: (value: boolean | ((value: boolean) => boolean)) => void;
   activeHeatmapPreset: HeatmapPresetKey;
   setActiveHeatmapPreset: (key: HeatmapPresetKey) => void;
-  showIsochrone: boolean;
-  setShowIsochrone: (value: boolean | ((value: boolean) => boolean)) => void;
+  showIsochrone?: boolean;
+  setShowIsochrone?: (value: boolean | ((value: boolean) => boolean)) => void;
   measureMode: "off" | "distance" | "area";
   setMeasureMode: (mode: "off" | "distance" | "area") => void;
   drawing: boolean;
@@ -331,6 +339,14 @@ export function MapWorkbenchPanel({
   setShowNewPermits,
   showZoningChanges,
   setShowZoningChanges,
+  showTruckRoutes,
+  setShowTruckRoutes,
+  showPorts,
+  setShowPorts,
+  showRail,
+  setShowRail,
+  showInterchanges,
+  setShowInterchanges,
   showTools,
   showComps,
   setShowComps,
@@ -739,6 +755,59 @@ export function MapWorkbenchPanel({
                     onClick={() => setShowMobileHomePark(!showMobileHomePark)}
                   />
                 </div>
+                {(setShowTruckRoutes ||
+                  setShowPorts ||
+                  setShowRail ||
+                  setShowInterchanges ||
+                  setShowIsochrone) ? (
+                  <div className="mt-4">
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-map-text-muted">
+                      Infrastructure
+                    </p>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      {setShowTruckRoutes ? (
+                        <LayerActionButton
+                          active={Boolean(showTruckRoutes)}
+                          title="Truck routes"
+                          description="Designated freight corridors — last-mile accessibility for industrial / truck parking."
+                          onClick={() => setShowTruckRoutes(!showTruckRoutes)}
+                        />
+                      ) : null}
+                      {setShowPorts ? (
+                        <LayerActionButton
+                          active={Boolean(showPorts)}
+                          title="Ports"
+                          description="Deep-water ports, barge terminals, and intermodal facilities."
+                          onClick={() => setShowPorts(!showPorts)}
+                        />
+                      ) : null}
+                      {setShowRail ? (
+                        <LayerActionButton
+                          active={Boolean(showRail)}
+                          title="Freight rail"
+                          description="Class I and short-line track plus intermodal yards."
+                          onClick={() => setShowRail(!showRail)}
+                        />
+                      ) : null}
+                      {setShowInterchanges ? (
+                        <LayerActionButton
+                          active={Boolean(showInterchanges)}
+                          title="Interchanges"
+                          description="Major interstate and state-highway interchanges with exit numbers."
+                          onClick={() => setShowInterchanges(!showInterchanges)}
+                        />
+                      ) : null}
+                      {setShowIsochrone ? (
+                        <LayerActionButton
+                          active={Boolean(showIsochrone)}
+                          title="Drive-time bands"
+                          description="15 / 30 / 45-minute isochrone polygons from selected parcel (requires Mapbox token)."
+                          onClick={() => setShowIsochrone((value) => !value)}
+                        />
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
                 <div className="mt-4">
                   <p className="text-[10px] uppercase tracking-[0.16em] text-map-text-muted">
                     What Changed (12 mo)
@@ -836,12 +905,14 @@ export function MapWorkbenchPanel({
                       onClick={() => setShowHeatmap((value) => !value)}
                       icon={<Sparkles className="h-4 w-4" />}
                     />
-                    <ToolButton
-                      active={showIsochrone}
-                      label="Drive time"
-                      onClick={() => setShowIsochrone((value) => !value)}
-                      icon={<Route className="h-4 w-4" />}
-                    />
+                    {setShowIsochrone ? (
+                      <ToolButton
+                        active={Boolean(showIsochrone)}
+                        label="Drive time"
+                        onClick={() => setShowIsochrone((value) => !value)}
+                        icon={<Route className="h-4 w-4" />}
+                      />
+                    ) : null}
                   </div>
                   {showHeatmap ? (
                     <div className="mt-3 flex flex-col gap-2">
