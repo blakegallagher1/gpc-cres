@@ -350,6 +350,9 @@ model Org {
   areaSummaryCaches              AreaSummaryCache[]
   poiDensityCaches               POIDensityCache[]
   inboundEmails                  InboundEmail[]
+  assetPerformancePeriods        AssetPerformancePeriod[]
+  capExItems                     CapExItem[]
+  tenantChangeEvents             TenantChangeEvent[]
 
   @@map("orgs")
 }
@@ -375,6 +378,7 @@ model User {
   savedSearches            SavedSearch[]
   dealCommentsAuthored     DealComment[]            @relation("deal_comment_author")
   dealContingenciesOwned   DealContingency[]        @relation("deal_contingency_owner")
+  assetPerformanceCaptured AssetPerformancePeriod[] @relation("asset_performance_captured_by")
 
   @@map("users")
 }
@@ -508,6 +512,9 @@ model Deal {
   moduleStates                   ModuleState[]
   comments                       DealComment[]
   contingencies                  DealContingency[]
+  assetPerformancePeriods        AssetPerformancePeriod[]
+  capExItems                     CapExItem[]
+  tenantChangeEvents             TenantChangeEvent[]
 
   @@unique([id, orgId])
   @@index([orgId])
@@ -2731,4 +2738,84 @@ model PublicMhcOwnerSubmission {
   @@index([createdAt], map: "idx_public_mhc_owner_submissions_created_at")
   @@index([email], map: "idx_public_mhc_owner_submissions_email")
   @@map("public_mhc_owner_submissions")
+}
+
+// MOAT Phase 4 — Asset Management + Disposition Tracking
+// Post-close performance tracking: monthly snapshots of rent/vacancy/NOI per
+// deal, scoped by org. `capturedBy` is a nullable user FK so the audit trail
+// survives if the capturing user is removed.
+model AssetPerformancePeriod {
+  id                 String   @id @default(uuid()) @db.Uuid
+  orgId              String   @map("org_id") @db.Uuid
+  dealId             String   @map("deal_id") @db.Uuid
+  periodYear         Int      @map("period_year")
+  periodMonth        Int      @map("period_month")
+  rentBilled         Decimal? @map("rent_billed") @db.Decimal(14, 2)
+  rentCollected      Decimal? @map("rent_collected") @db.Decimal(14, 2)
+  vacancyUnits       Int?     @map("vacancy_units")
+  totalUnits         Int?     @map("total_units")
+  operatingExpense   Decimal? @map("operating_expense") @db.Decimal(14, 2)
+  netOperatingIncome Decimal? @map("net_operating_income") @db.Decimal(14, 2)
+  notes              String?  @db.Text
+  capturedBy         String?  @map("captured_by") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org     Org   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal    Deal  @relation(fields: [dealId, orgId], references: [id, orgId], onDelete: Cascade)
+  capturer User? @relation("asset_performance_captured_by", fields: [capturedBy], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, dealId, periodYear, periodMonth])
+  @@index([orgId, dealId, periodYear(sort: Desc), periodMonth(sort: Desc)])
+  @@map("asset_performance_periods")
+}
+
+// MOAT Phase 4 — One-off capital expenditures tracked against a deal in
+// asset-management mode. `status` lifecycle is planned -> in_progress ->
+// completed (or canceled). `estimatedCost` vs `actualCost` lets users track
+// budget overruns.
+model CapExItem {
+  id            String    @id @default(uuid()) @db.Uuid
+  orgId         String    @map("org_id") @db.Uuid
+  dealId        String    @map("deal_id") @db.Uuid
+  category      String    @db.Text // roof|hvac|paving|plumbing|electrical|landscaping|tenant_improvement|other
+  description   String    @db.Text
+  estimatedCost Decimal?  @map("estimated_cost") @db.Decimal(14, 2)
+  actualCost    Decimal?  @map("actual_cost") @db.Decimal(14, 2)
+  plannedFor    DateTime? @map("planned_for") @db.Date
+  completedAt   DateTime? @map("completed_at") @db.Date
+  status        String    @default("planned") @db.Text // planned|in_progress|completed|canceled
+  vendor        String?   @db.Text
+  notes         String?   @db.Text
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal Deal @relation(fields: [dealId, orgId], references: [id, orgId], onDelete: Cascade)
+
+  @@index([orgId, dealId, status])
+  @@map("capex_items")
+}
+
+// MOAT Phase 4 — Tenant lifecycle events (move-in/out, renewal, default).
+// `tenantId` is intentionally nullable (no FK relation) so Tenant removals
+// don't cascade-delete history and we avoid back-relation churn on the
+// existing Tenant model.
+model TenantChangeEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  orgId      String   @map("org_id") @db.Uuid
+  dealId     String   @map("deal_id") @db.Uuid
+  tenantId   String?  @map("tenant_id") @db.Uuid
+  eventType  String   @map("event_type") @db.Text // move_in|move_out|renewal|default|eviction|other
+  eventDate  DateTime @map("event_date") @db.Date
+  rentDelta  Decimal? @map("rent_delta") @db.Decimal(14, 2)
+  notes      String?  @db.Text
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal Deal @relation(fields: [dealId, orgId], references: [id, orgId], onDelete: Cascade)
+
+  @@index([orgId, dealId, eventDate(sort: Desc)])
+  @@map("tenant_change_events")
 }

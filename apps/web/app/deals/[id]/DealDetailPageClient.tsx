@@ -25,6 +25,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DealOverviewWorkspace } from "@/components/deals/DealOverviewWorkspace";
 import { DealCommentsPanel } from "@/components/deals/DealCommentsPanel";
 import { DealContingenciesPanel } from "@/components/deals/DealContingenciesPanel";
+import { DealAssetManagementPanel } from "@/components/deals/DealAssetManagementPanel";
 import { DealFitScoreCard } from "@/components/deals/DealFitScoreCard";
 import { DealWorkflowsPanel } from "@/components/deals/DealWorkflowsPanel";
 import { StatusBadge } from "@/components/deals/StatusBadge";
@@ -733,6 +734,7 @@ export function DealDetailPageClient() {
             </TabsTrigger>
             <TabsTrigger value="buyers" className="text-xs tracking-[0.08em]">Buyers</TabsTrigger>
             <TabsTrigger value="room" className="text-xs tracking-[0.08em]">Room</TabsTrigger>
+            <TabsTrigger value="asset-mgmt" className="text-xs tracking-[0.08em]">Asset Mgmt</TabsTrigger>
           </TabsList>
         </section>
 
@@ -1083,6 +1085,21 @@ export function DealDetailPageClient() {
                 <DealWorkflowsPanel dealId={deal.id} />
               </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="asset-mgmt">
+            {deal.currentStageKey !== "ASSET_MANAGEMENT" && (
+              <Card className="mb-4">
+                <CardContent className="py-3 text-xs text-muted-foreground">
+                  This deal is in stage{" "}
+                  <span className="font-mono">{deal.currentStageKey ?? "—"}</span>. Asset-management
+                  tracking is most useful after the deal reaches{" "}
+                  <span className="font-mono">ASSET_MANAGEMENT</span>, but you can pre-populate
+                  performance history here.
+                </CardContent>
+              </Card>
+            )}
+            <DealAssetManagementPanel dealId={deal.id} />
           </TabsContent>
 
         </Tabs>

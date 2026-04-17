@@ -24,6 +24,7 @@ export * from "./deals/deal-fit-score.service";
 export * from "./deals/deal-stage-history.service";
 export * from "./deals/deal-comment.service";
 export * from "./deals/deal-contingency.service";
+export * from "./deals/deal-asset-performance.service";
 export * from "./deals/underwriting-gate.service";
 export * from "./deals/opportunity-phase-compatibility";
 export * from "./automation/portfolio-watcher.service";
