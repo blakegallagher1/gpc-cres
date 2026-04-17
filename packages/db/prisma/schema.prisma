@@ -345,6 +345,7 @@ model Org {
   dealComments                   DealComment[]
   portfolioAlerts                PortfolioAlert[]
   investmentCriteria             OrgInvestmentCriteria?
+  workflowExecutions             WorkflowExecution[]
   areaSummaryCaches              AreaSummaryCache[]
   poiDensityCaches               POIDensityCache[]
 
@@ -694,6 +695,33 @@ model OrgInvestmentCriteria {
   org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@map("org_investment_criteria")
+}
+
+model WorkflowExecution {
+  id              String    @id @default(uuid()) @db.Uuid
+  orgId           String    @map("org_id") @db.Uuid
+  dealId          String?   @map("deal_id") @db.Uuid
+  templateKey     String    @map("template_key") @db.Text
+  status          String    @default("pending") @db.Text // pending|running|completed|failed|canceled
+  currentStepKey  String?   @map("current_step_key") @db.Text
+  stepsTotal      Int       @default(0) @map("steps_total")
+  stepsCompleted  Int       @default(0) @map("steps_completed")
+  input           Json      @default("{}") @db.JsonB
+  output          Json      @default("{}") @db.JsonB
+  stepResults     Json      @default("[]") @map("step_results") @db.JsonB
+  error           String?   @db.Text
+  errorStepKey    String?   @map("error_step_key") @db.Text
+  startedBy       String?   @map("started_by") @db.Uuid
+  startedAt       DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  completedAt     DateTime? @map("completed_at") @db.Timestamptz(6)
+  durationMs      Int?      @map("duration_ms")
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, startedAt(sort: Desc)])
+  @@index([orgId, dealId, startedAt(sort: Desc)])
+  @@index([status])
+  @@map("workflow_executions")
 }
 
 model GeneralizedScorecard {

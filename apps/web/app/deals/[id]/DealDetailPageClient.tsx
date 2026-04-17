@@ -25,6 +25,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DealOverviewWorkspace } from "@/components/deals/DealOverviewWorkspace";
 import { DealCommentsPanel } from "@/components/deals/DealCommentsPanel";
 import { DealFitScoreCard } from "@/components/deals/DealFitScoreCard";
+import { DealWorkflowsPanel } from "@/components/deals/DealWorkflowsPanel";
 import { StatusBadge } from "@/components/deals/StatusBadge";
 import { SkuBadge } from "@/components/deals/SkuBadge";
 import { TriageIndicator } from "@/components/deals/TriageIndicator";
@@ -1052,6 +1053,7 @@ export function DealDetailPageClient() {
               </div>
               <div className="space-y-4">
                 <DealFitScoreCard dealId={deal.id} />
+                <DealWorkflowsPanel dealId={deal.id} />
               </div>
             </div>
           </TabsContent>
