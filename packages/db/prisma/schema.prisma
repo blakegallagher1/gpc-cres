@@ -342,6 +342,7 @@ model Org {
   dealStageHistories             DealStageHistory[]
   generalizedScorecards          GeneralizedScorecard[]
   moduleStates                   ModuleState[]
+  dealComments                   DealComment[]
   areaSummaryCaches              AreaSummaryCache[]
   poiDensityCaches               POIDensityCache[]
 
@@ -367,6 +368,7 @@ model User {
   proactiveActionsAssigned ProactiveAction[]        @relation("proactive_action_user")
   toolExecutionMetrics     ToolExecutionMetric[]    @relation("tool_execution_metric_user")
   savedSearches            SavedSearch[]
+  dealCommentsAuthored     DealComment[]            @relation("deal_comment_author")
 
   @@map("users")
 }
@@ -498,6 +500,7 @@ model Deal {
   stageHistory                   DealStageHistory[]
   generalizedScorecards          GeneralizedScorecard[]
   moduleStates                   ModuleState[]
+  comments                       DealComment[]
 
   @@unique([id, orgId])
   @@index([orgId])
@@ -601,14 +604,18 @@ model WorkflowStage {
 }
 
 model DealStageHistory {
-  id           String          @id @default(uuid()) @db.Uuid
-  dealId       String          @map("deal_id") @db.Uuid
-  orgId        String          @map("org_id") @db.Uuid
-  fromStageKey deal_stage_key? @map("from_stage_key")
-  toStageKey   deal_stage_key  @map("to_stage_key")
-  changedBy    String?         @map("changed_by") @db.Uuid
-  changedAt    DateTime        @default(now()) @map("changed_at") @db.Timestamptz(6)
-  note         String?         @db.Text
+  id                String          @id @default(uuid()) @db.Uuid
+  dealId            String          @map("deal_id") @db.Uuid
+  orgId             String          @map("org_id") @db.Uuid
+  fromStageKey      deal_stage_key? @map("from_stage_key")
+  toStageKey        deal_stage_key  @map("to_stage_key")
+  changedBy         String?         @map("changed_by") @db.Uuid
+  changedAt         DateTime        @default(now()) @map("changed_at") @db.Timestamptz(6)
+  note              String?         @db.Text
+  decisionCriteria  Json?           @map("decision_criteria") @db.JsonB
+  decisionMetrics   Json?           @map("decision_metrics") @db.JsonB
+  decisionRationale String?         @map("decision_rationale") @db.Text
+  approvalRequestId String?         @map("approval_request_id") @db.Uuid
 
   deal Deal @relation(fields: [dealId, orgId], references: [id, orgId], onDelete: Cascade)
   org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -617,6 +624,30 @@ model DealStageHistory {
   @@index([orgId, dealId])
   @@index([toStageKey])
   @@map("deal_stage_history")
+}
+
+model DealComment {
+  id              String    @id @default(uuid()) @db.Uuid
+  orgId           String    @map("org_id") @db.Uuid
+  dealId          String    @map("deal_id") @db.Uuid
+  authorUserId    String    @map("author_user_id") @db.Uuid
+  parentCommentId String?   @map("parent_comment_id") @db.Uuid
+  body            String    @db.Text
+  mentions        String[]  @default([]) @map("mentions") @db.Uuid
+  pinned          Boolean   @default(false)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  org    Org          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal   Deal         @relation(fields: [dealId, orgId], references: [id, orgId], onDelete: Cascade)
+  author User         @relation("deal_comment_author", fields: [authorUserId], references: [id], onDelete: Restrict)
+  parent DealComment? @relation("DealCommentThread", fields: [parentCommentId], references: [id], onDelete: SetNull)
+  replies DealComment[] @relation("DealCommentThread")
+
+  @@index([orgId, dealId, createdAt])
+  @@index([parentCommentId])
+  @@map("deal_comments")
 }
 
 model GeneralizedScorecard {

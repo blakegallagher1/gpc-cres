@@ -1,4 +1,5 @@
 import { registerHandler } from "./types";
+import { registerChatAnalysisAuditHandler } from "./chat-bridge";
 import { handleAdvancement, handleStatusChangeReminder } from "./advancement.service";
 import {
   handleAgentLearningOutcomeReinforcement,
@@ -43,4 +44,6 @@ export function ensureHandlersRegistered(): void {
   registerHandler("deal.stageChanged", handleOutcomeCapture);
   registerHandler("deal.stageChanged", handleAgentLearningOutcomeReinforcement);
   registerHandler("agent.run.completed", handleAgentLearningPromotion);
+
+  registerChatAnalysisAuditHandler();
 }

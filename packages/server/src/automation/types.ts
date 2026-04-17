@@ -25,6 +25,18 @@ export type AutomationEvent =
       status: "succeeded" | "failed" | "canceled";
       inputPreview?: string | null;
       queryIntent?: string | null;
+    }
+  | {
+      type: "chat.analysis.completed";
+      runId: string;
+      orgId: string;
+      userId: string;
+      conversationId: string | null;
+      dealId: string | null;
+      finalTextPreview: string;
+      toolsInvoked: string[];
+      confidence: number;
+      intent: string | null;
     };
 
 /**

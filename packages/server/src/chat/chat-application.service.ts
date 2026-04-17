@@ -13,6 +13,7 @@ import { runAgentWorkflow, isDatabaseConnectivityError } from "./run-agent-workf
 import type { ResearchLaneSelection } from "@entitlement-os/shared/research-routing";
 import type { ExecuteAgentWorkflow } from "./agent-runtime-adapter";
 import { extractAndMergeConversationPreferences } from "../services/preference-extraction.service";
+import { dispatchEvent } from "../automation/events";
 import {
   getPropertyDbScopeHeaders,
   type PropertyDbGatewayScope,
@@ -342,6 +343,24 @@ export async function runChatApplication(
         error instanceof Error ? error.message : String(error),
       );
     });
+  }
+
+  const result = workflow.result;
+  if (result && result.status === "succeeded") {
+    void dispatchEvent({
+      type: "chat.analysis.completed",
+      runId: result.runId,
+      orgId: params.orgId,
+      userId: params.userId,
+      conversationId: workflow.conversationId ?? null,
+      dealId: params.dealId ?? null,
+      finalTextPreview:
+        typeof result.finalOutput === "string" ? result.finalOutput.slice(0, 500) : "",
+      toolsInvoked: result.toolsInvoked ?? [],
+      confidence:
+        typeof result.trust?.confidence === "number" ? result.trust.confidence : 0,
+      intent: params.intent ?? null,
+    }).catch(() => {});
   }
 
   return workflow;

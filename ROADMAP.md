@@ -42,6 +42,114 @@ Only items meeting all checks are added below as `Planned`.
 
 ## Active Roadmap (Prioritized)
 
+### MOAT-P1-001 — Phase 1 Moat Foundation: Deal Context, Collaboration, Fit Score (P1)
+
+- **Priority:** P1
+- **Status:** Done (2026-04-17)
+- **Scope:** Foundational layer that unlocks Phases 2–4. Adds (a) Deal Context Hydrator service + chat injection, (b) chat → automation event bridge with audit trail, (c) DealComment model + threaded UI, (d) structured `DealStageHistory` decision rationale/criteria/metrics columns, (e) Deal Fit Score service + UI card.
+- **Problem:** Audit (2026-04-17) found chat amnesia (every conversation re-fetched deal context), chat analyses not flowing to automation handlers, no persistent team discussion on deals, stage transitions only carrying free-text notes, and no 30-second go/no-go signal against investment criteria. All four identified gaps block Phase 2 orchestrator work.
+- **Expected Outcome (measurable):**
+  - Every chat request with a `dealId` gets a rich hydrated context block (triage, financials, parcels, recent stage history, recent automation events).
+  - Every successful chat run emits a `chat.analysis.completed` automation event, written to `automation_events` for audit.
+  - Deal detail page has a live comment thread (pin, reply, soft-delete) and an "Investment fit" card with score + verdict + gap list.
+  - `DealStageHistory` rows can carry `decisionCriteria`, `decisionMetrics`, `decisionRationale`, `approvalRequestId`.
+- **Evidence of need:** Chat audit flagged deal-amnesia as CRITICAL, loose chat↔automation wiring as HIGH, no collaboration layer as CRITICAL for deals. See the 2026-04-17 moat audit in session transcript.
+- **Alignment:** Additive. Uses existing Prisma + SWR + dispatch-event patterns. No breaking changes.
+- **Risk/rollback:** Low; all new files + additive schema columns with a single migration. Rollback = revert migration and code changes.
+- **Acceptance Criteria / Tests:**
+  - `packages/server/src/deals/deal-context-hydrator.service.ts` exports `hydrateDealContext` and `renderDealContextBlock`; referenced from `run-agent-workflow.service.ts`.
+  - `packages/server/src/automation/chat-bridge.ts` registers a `chat.analysis.completed` audit handler.
+  - Migration `20260417120000_add_deal_comments_and_stage_rationale` applies cleanly and adds `deal_comments` table + 4 new columns on `deal_stage_history`.
+  - API routes live at `/api/deals/[id]/comments`, `/api/deals/[id]/comments/[commentId]`, `/api/deals/[id]/stage-history`, `/api/deals/[id]/fit-score`, `/api/deals/[id]/context`.
+  - `DealCommentsPanel` and `DealFitScoreCard` render inside the deal detail page (Overview + Room tabs).
+  - `pnpm typecheck` on `apps/web` produces no new errors attributable to this change.
+- **Evidence (2026-04-17):**
+  - Added: `packages/server/src/deals/deal-context-hydrator.service.ts`, `deal-comment.service.ts`, `deal-stage-history.service.ts`, `deal-fit-score.service.ts`, `packages/server/src/automation/chat-bridge.ts`.
+  - Added migration `packages/db/prisma/migrations/20260417120000_add_deal_comments_and_stage_rationale/migration.sql` + schema updates to `DealComment`, `DealStageHistory`, `Deal.comments`, `Org.dealComments`, `User.dealCommentsAuthored`.
+  - Wired `hydrateDealContext` into `packages/server/src/chat/run-agent-workflow.service.ts` (replaces the 5-line deal-context stub with a full hydrated block).
+  - `chat.analysis.completed` event dispatched from `packages/server/src/chat/chat-application.service.ts` on successful runs; registered in `packages/server/src/automation/handlers.ts`.
+  - UI: `apps/web/components/deals/DealCommentsPanel.tsx`, `DealFitScoreCard.tsx`; wired into `apps/web/app/deals/[id]/DealDetailPageClient.tsx` (Overview + Room tabs).
+
+### MOAT-P2-001 — Phase 2 Moat: Deal Workflow Orchestrator (P1)
+
+- **Priority:** P1
+- **Status:** Planned
+- **Scope:** Multi-step deal automation. Define workflow DAG templates (QUICK_SCREEN, ACQUISITION_PATH, MARKET_BRIEF) that chain triage → underwriting-gate → artifact generation with persistent state, progress events, and structured completion.
+- **Problem:** Chat today runs one tool at a time. User must manually chain triage → underwriting → memo. The "14-agent coordinator" language in prompts isn't backed by real orchestration.
+- **Expected Outcome (measurable):**
+  - A user can say "Process deal X end-to-end" and the system runs 3+ tools in sequence with progress reported in chat.
+  - Workflow state persisted across process restarts.
+  - Each workflow emits a single `chat.analysis.completed` summary event.
+- **Evidence of need:** Audit (2026-04-17) CRITICAL gap #2 — "no multi-step autonomy."
+- **Alignment:** Builds on Phase 1 context hydrator + event bridge. Likely uses Temporal (already in repo).
+- **Risk/rollback:** Medium. Can ship behind a feature flag; default-off.
+- **Acceptance Criteria / Tests:** New `execute_workflow` tool, `workflow_executions` table, UI progress card, at least 1 template runs end-to-end in dev.
+
+### MOAT-P2-002 — Phase 2 Moat: Portfolio Watcher + Proactive Alerts (P1)
+
+- **Priority:** P1
+- **Status:** Planned
+- **Scope:** Cron-driven portfolio monitoring over active deals. Watches permit deadlines, rate moves, new comps in target ZIPs, lease expiries; emits `automation_events`; surfaces as chat sidebar banners, map pins, and deal card badges.
+- **Problem:** `proactive-action.executor.ts` is a stub; users must proactively ask chat for status. Portfolio drift goes unnoticed.
+- **Expected Outcome (measurable):** ≥3 monitoring dimensions live; alerts visible in chat sidebar within 2 min of detection; user can acknowledge/snooze.
+- **Evidence of need:** Audit HIGH gap #4 "no proactive monitoring."
+- **Alignment:** Depends on Phase 1 event bridge. Uses existing `AutomationEvent` pipeline.
+- **Acceptance Criteria / Tests:** `portfolio-watcher.ts` handler, cron registration, `PortfolioUpdatesPanel.tsx` sidebar component; at least one alert fires end-to-end in staging.
+
+### MOAT-P2-003 — Phase 2 Moat: Underwriting Gate Service (P2)
+
+- **Priority:** P2
+- **Status:** Planned
+- **Scope:** Persist org-scoped investment criteria and enforce hard gates (IRR/LTV/DSCR) on UNDERWRITING → DUE_DILIGENCE stage transitions. Extends Phase 1 fit score from in-memory defaults to persisted per-org rules.
+- **Problem:** Phase 1 fit score uses hardcoded defaults; stage transitions don't block on gate failure.
+- **Expected Outcome (measurable):** Stage transitions respect gate failures; `DealStageHistory.decisionMetrics` captures IRR/LTV/DSCR at transition time.
+- **Acceptance Criteria / Tests:** `OrgInvestmentCriteria` model + API, gate service plugged into advancement flow, stage-transition UI shows block reason on fail.
+
+### MOAT-P3-001 — Phase 3 Moat: Map Comps Pins + FLU Overlay + LLC Clustering (P1)
+
+- **Priority:** P1
+- **Status:** Planned
+- **Scope:** Three additive map layers. (a) Pin individual comps on map with price/psf/date/type filters. (b) Future Land Use overlay proxied through Martin tiles. (c) LLC aggregation detector that groups adjacent parcels by owner entity.
+- **Problem:** Map audit (2026-04-17) identified comps-not-on-map, no FLU overlay, and string-matching-only owner detection as top CRE gaps.
+- **Expected Outcome (measurable):** Three new map controls visible; each layer toggleable; FLU data loaded for at least EBR + Orleans + Jefferson parishes.
+- **Acceptance Criteria / Tests:** New tile/layer components, new `/api/map/comps-pins` endpoint, `owner-entity-cluster.service.ts` detection pass over full EBR.
+
+### MOAT-P3-002 — Phase 3 Moat: Infrastructure + Isochrone Layer (P1)
+
+- **Priority:** P1
+- **Status:** Planned
+- **Scope:** Add truck routes, ports, freight rail, major interchanges as map layers. Add isochrone drive-time buffers (15/30/45 min) from selected parcels via Mapbox/ESRI Iso API.
+- **Problem:** Light-industrial/truck-parking thesis requires last-mile accessibility analysis; today users leave the map for this.
+- **Expected Outcome (measurable):** Users can select a parcel and see drive-time polygons to nearest port/interchange within 5 seconds.
+- **Acceptance Criteria / Tests:** New layer components, drive-time API integration, port/rail reference dataset loaded into property DB.
+
+### MOAT-P4-001 — Phase 4 Moat: Email-to-Deal Ingestion (P1)
+
+- **Priority:** P1
+- **Status:** Planned
+- **Scope:** Inbound email webhook (SendGrid/Mailgun) that parses broker deal-submission patterns, creates skeleton Deal row, attaches email as source doc, routes to analyst queue.
+- **Problem:** Every deal is manual data entry. `dealSourceType` enum exists but isn't populated from real inbound flow.
+- **Expected Outcome (measurable):** ≥50% of inbound broker emails auto-parse into a deal with ≥3 fields pre-filled (property address, ask, broker contact).
+- **Acceptance Criteria / Tests:** `/api/email-webhook` route, parser service, DealSourcePanel UI, staging test with 10 sample emails.
+
+### MOAT-P4-002 — Phase 4 Moat: Due-Diligence Contingency Tracker (P2)
+
+- **Priority:** P2
+- **Status:** Planned
+- **Scope:** `DealContingency` model (category, deadline, status, notes, owner) with auto-alerts on deadline slip, linked to stage gates.
+- **Problem:** Deals slip past contingency deadlines silently. No `DealContingency` model exists today.
+- **Expected Outcome (measurable):** Contingency dashboard per deal + portfolio; alerts fire ≥72h before deadlines.
+- **Acceptance Criteria / Tests:** Schema migration, contingency service, ContingencyTracker UI component.
+
+### MOAT-P4-003 — Phase 4 Moat: Asset Management + Disposition Tracking (P2)
+
+- **Priority:** P2
+- **Status:** Planned
+- **Scope:** Post-close performance tracking (rent collection, capex, tenant turnover, sale comps) linked to DealOutcome.
+- **Problem:** `DealOutcome` only has `exitDate` + `notes`; entire post-close lifecycle is a stub.
+- **Expected Outcome (measurable):** Users can record rent actuals vs underwritten, capex items, tenant changes; disposition-ready signal surfaces when hold-period + market conditions align.
+- **Acceptance Criteria / Tests:** New models (`AssetPerformance`, `CapExItem`, `RentCollection`), AM dashboard tab, integration with existing `AssumptionActual`.
+
 ### INFRA-CP-001 — Control Plane Extraction (P0)
 
 - **Priority:** P0

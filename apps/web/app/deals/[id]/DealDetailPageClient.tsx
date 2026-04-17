@@ -23,6 +23,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DealOverviewWorkspace } from "@/components/deals/DealOverviewWorkspace";
+import { DealCommentsPanel } from "@/components/deals/DealCommentsPanel";
+import { DealFitScoreCard } from "@/components/deals/DealFitScoreCard";
 import { StatusBadge } from "@/components/deals/StatusBadge";
 import { SkuBadge } from "@/components/deals/SkuBadge";
 import { TriageIndicator } from "@/components/deals/TriageIndicator";
@@ -710,7 +712,8 @@ export function DealDetailPageClient() {
           </TabsList>
         </section>
 
-        <TabsContent value="overview" className="mt-0">
+        <TabsContent value="overview" className="mt-0 space-y-4">
+          <DealFitScoreCard dealId={deal.id} />
           <DealOverviewWorkspace
             deal={deal}
             terms={terms}
@@ -1028,26 +1031,29 @@ export function DealDetailPageClient() {
           </TabsContent>
 
           <TabsContent value="room">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Deal Room</CardTitle>
-                <CardDescription>
-                  Messaging, shared documents, and team coordination workspace.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    Shared notes and collaboration feed for this deal.
-                  </p>
-                  <CollaborativeMemo
-                    roomId={deal.id}
-                    artifactId={deal.id}
-                    initialContent={`# ${deal.name} Collaboration Room`}
-                  />
-                </div>
-              </CardContent>
-            </Card>
+            <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+              <div className="space-y-4">
+                <DealCommentsPanel dealId={deal.id} />
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Collaboration canvas</CardTitle>
+                    <CardDescription>
+                      Shared notes and document-style collaboration for this deal.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <CollaborativeMemo
+                      roomId={deal.id}
+                      artifactId={deal.id}
+                      initialContent={`# ${deal.name} Collaboration Room`}
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="space-y-4">
+                <DealFitScoreCard dealId={deal.id} />
+              </div>
+            </div>
           </TabsContent>
 
         </Tabs>
