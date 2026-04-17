@@ -4,6 +4,7 @@ export * from "./chat/run-state";
 export * from "./errors";
 export * from "./request-context";
 export * from "./workflows/temporal-client";
+export * from "./workflows/workflow-orchestrator.service";
 export * from "./deals/deal-activity.service";
 export * from "./deals/deal-artifact-route.service";
 export * from "./deals/deal-artifact-delivery.service";
