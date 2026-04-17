@@ -16,6 +16,16 @@ export type RetrievalRecord = {
   metadata: Record<string, unknown>;
 };
 
+export type RetrievalSubjectScope = {
+  subjectId?: string;
+  orgId?: string;
+  dealId?: string | null;
+  parcelIds?: string[];
+  entityIds?: string[];
+  addressSignatures?: string[];
+  parish?: string | null;
+};
+
 const WEB_RUNTIME_EXCLUDED_TOOLS = ["query_property_db"] as const;
 const MEMORY_TOOL_NAMES = [
   "store_memory",
@@ -23,6 +33,8 @@ const MEMORY_TOOL_NAMES = [
   "get_entity_memory",
   "record_memory_event",
   "lookup_entity_by_address",
+  "recall_property_intelligence",
+  "store_property_finding",
 ] as const;
 
 /**
@@ -35,12 +47,43 @@ export type AgentToolPolicySummary = {
   missingMemoryTools: string[];
 };
 
+function normalizeRetrievalScope(
+  subjectIdOrScope?: string | RetrievalSubjectScope,
+  orgId?: string,
+): RetrievalSubjectScope {
+  if (typeof subjectIdOrScope === "string" || typeof subjectIdOrScope === "undefined") {
+    return {
+      subjectId: subjectIdOrScope,
+      orgId,
+    };
+  }
+
+  return subjectIdOrScope;
+}
+
 export async function unifiedRetrieval(
   query: string,
   subjectId?: string,
   orgId?: string,
+): Promise<RetrievalRecord[]>;
+export async function unifiedRetrieval(
+  query: string,
+  scope?: RetrievalSubjectScope,
+): Promise<RetrievalRecord[]>;
+export async function unifiedRetrieval(
+  query: string,
+  subjectIdOrScope?: string | RetrievalSubjectScope,
+  orgId?: string,
 ): Promise<RetrievalRecord[]> {
-  const context = await buildDataAgentRetrievalContext(query, subjectId, { orgId });
+  const scope = normalizeRetrievalScope(subjectIdOrScope, orgId);
+  const context = await buildDataAgentRetrievalContext(query, scope.subjectId, {
+    orgId: scope.orgId,
+    dealId: scope.dealId ?? undefined,
+    parcelIds: scope.parcelIds,
+    entityIds: scope.entityIds,
+    addressSignatures: scope.addressSignatures,
+    parish: scope.parish ?? undefined,
+  });
   return context.results.map((item) => ({
     id: item.id,
     source: item.source,

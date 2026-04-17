@@ -15,6 +15,7 @@ import LoginPage from "./page";
 describe("LoginPage", () => {
   beforeEach(() => {
     signInMock.mockReset();
+    process.env.NEXT_PUBLIC_DISABLE_AUTH = "true";
   });
 
   it("renders sign-in as the primary surface on the public shell", () => {
@@ -24,20 +25,23 @@ describe("LoginPage", () => {
     expect(
       screen.getByRole("link", { name: "Gallagher Property Company" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Continue with Google" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Google OAuth unavailable on localhost" }),
+    ).toBeDisabled();
     expect(
       screen.getByRole("button", { name: "Use company credentials" }),
     ).toBeInTheDocument();
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
+    expect(screen.getByLabelText("Password")).toBeInTheDocument();
   });
 
-  it("reveals credential access when password sign-in is requested", async () => {
+  it("does not invoke Google sign-in from localhost", async () => {
     const user = userEvent.setup();
 
     render(<LoginPage />);
 
-    await user.click(screen.getByRole("button", { name: "Use company credentials" }));
+    await user.click(screen.getByRole("button", { name: "Google OAuth unavailable on localhost" }));
 
-    expect(await screen.findByLabelText("Email")).toBeInTheDocument();
-    expect(screen.getByLabelText("Password")).toBeInTheDocument();
+    expect(signInMock).not.toHaveBeenCalled();
   });
 });

@@ -19,7 +19,7 @@ import instructions from "./generated/instructions.json";
 
 // Cloudflare Workers fetch() uses https:// for WebSocket upgrade, not wss://
 const OPENAI_WS_URL = "https://api.openai.com/v1/responses";
-const MODEL = "gpt-4.1";
+const MODEL = "gpt-5.4";
 const RECONNECT_BEFORE_EXPIRY_MS = 5 * 60 * 1000; // reconnect at 55min
 const MAX_RECONNECT_ATTEMPTS = 2;
 const MAP_FEATURES_KEY = "__mapFeatures";

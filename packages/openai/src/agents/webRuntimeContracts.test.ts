@@ -50,7 +50,15 @@ describe("webRuntimeContracts", () => {
       ],
     });
 
-    await expect(unifiedRetrieval("permit review", "run-1", "org-1")).resolves.toEqual([
+    await expect(
+      unifiedRetrieval("permit review", {
+        subjectId: "run-1",
+        orgId: "org-1",
+        dealId: "deal-1",
+        parcelIds: ["parcel-1"],
+        addressSignatures: ["123 main street"],
+      }),
+    ).resolves.toEqual([
       {
         id: "r1",
         source: "sparse",
@@ -62,7 +70,14 @@ describe("webRuntimeContracts", () => {
     expect(buildDataAgentRetrievalContextMock).toHaveBeenCalledWith(
       "permit review",
       "run-1",
-      { orgId: "org-1" },
+      {
+        orgId: "org-1",
+        dealId: "deal-1",
+        parcelIds: ["parcel-1"],
+        entityIds: undefined,
+        addressSignatures: ["123 main street"],
+        parish: undefined,
+      },
     );
   });
 
@@ -104,6 +119,8 @@ describe("webRuntimeContracts", () => {
           "get_entity_memory",
           "record_memory_event",
           "lookup_entity_by_address",
+          "recall_property_intelligence",
+          "store_property_finding",
         ]),
         allowFallback: true,
         allowNamelessTools: false,
@@ -118,6 +135,8 @@ describe("webRuntimeContracts", () => {
         "get_entity_memory",
         "record_memory_event",
         "lookup_entity_by_address",
+        "recall_property_intelligence",
+        "store_property_finding",
       ],
     });
     expect(coordinator.tools).toEqual([

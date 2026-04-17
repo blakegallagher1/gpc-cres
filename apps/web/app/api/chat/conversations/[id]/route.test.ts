@@ -148,6 +148,26 @@ describe("/api/chat/conversations/[id]", () => {
     expect(await res.json()).toEqual({ conversation: null, degraded: true });
   });
 
+  it("degrades GET when the gateway DB proxy is unavailable", async () => {
+    authorizeApiRouteMock.mockResolvedValue({
+      ok: true,
+      auth: { orgId: "org-1", userId: "user-1" },
+    });
+    getConversationForOrgMock.mockRejectedValue(
+      new Error('Gateway DB proxy failed across 1 target(s): gateway-proxy (https://gateway.gallagherpropco.com) gateway DB proxy error (530): "error code: 1033"'),
+    );
+
+    const req = new NextRequest(
+      `http://localhost/api/chat/conversations/${CONVERSATION_ID}`,
+    );
+    const res = await GET(req, {
+      params: Promise.resolve({ id: CONVERSATION_ID }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ conversation: null, degraded: true });
+  });
+
   it("short-circuits GET before service access when dev fallback is active", async () => {
     authorizeApiRouteMock.mockResolvedValue({
       ok: true,

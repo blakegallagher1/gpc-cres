@@ -53,3 +53,4 @@ It exists because the repo has accumulated many plan/design/implementation docum
 | `2026-04-05-map-parcel-truth-overlay.md` | In Progress | Indexed in `ROADMAP.md` as `MAP-INTEL-001` |
 | `2026-04-11-macos-app-enhancement-design.md` | Done | macOS operator app enhancements merged to main (PR #202) |
 | `2026-04-11-macos-app-enhancement-implementation.md` | Done | macOS operator app enhancements merged to main (PR #202) |
+| `2026-04-14-property-brain-implementation-roadmap.md` | Deferred | New property-centric learning roadmap; not yet activated in `ROADMAP.md` |

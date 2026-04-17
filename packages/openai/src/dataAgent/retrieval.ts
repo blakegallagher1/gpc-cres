@@ -49,6 +49,11 @@ type RankedCandidate = {
 
 export type DataAgentRetrievalOptions = {
   orgId?: string;
+  dealId?: string;
+  entityIds?: string[];
+  parcelIds?: string[];
+  addressSignatures?: string[];
+  parish?: string;
 };
 
 const DEFAULT_RETRIEVAL_LIMIT = 20;
@@ -107,6 +112,18 @@ function buildLikePatterns(query: string): string[] {
     patterns.add(`%${token}%`);
   }
   return Array.from(patterns);
+}
+
+function uniqueStrings(values: Array<string | null | undefined>): string[] {
+  return [...new Set(values.filter((value): value is string => typeof value === "string" && value.trim().length > 0).map((value) => value.trim()))];
+}
+
+function normalizeAddressSignature(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[.,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function metadataString(metadata: JsonRecord): string {
@@ -279,6 +296,75 @@ async function exactSearch(
       return left.id.localeCompare(right.id);
     })
     .slice(0, MAX_RAW_RESULTS);
+}
+
+async function propertyVerifiedSearch(
+  query: string,
+  options?: DataAgentRetrievalOptions,
+): Promise<DataAgentRetrievalItem[]> {
+  if (!options?.orgId) {
+    return [];
+  }
+
+  const entityIds = uniqueStrings(options.entityIds ?? []);
+  const parcelIds = uniqueStrings(options.parcelIds ?? []);
+  const addressSignatures = uniqueStrings(options.addressSignatures ?? []).map(normalizeAddressSignature);
+
+  if (entityIds.length === 0 && parcelIds.length === 0 && addressSignatures.length === 0) {
+    return [];
+  }
+
+  const entityAddressFilters = addressSignatures.map((address) => ({
+    canonicalAddress: address,
+  }));
+
+  const rows = await prisma.memoryVerified.findMany({
+    where: {
+      orgId: options.orgId,
+      OR: [
+        ...(entityIds.length > 0 ? [{ entityId: { in: entityIds } }] : []),
+        ...(parcelIds.length > 0 ? [{ entity: { parcelId: { in: parcelIds } } }] : []),
+        ...(entityAddressFilters.length > 0
+          ? [{ entity: { OR: entityAddressFilters } }]
+          : []),
+      ],
+    },
+    include: {
+      entity: {
+        select: {
+          id: true,
+          parcelId: true,
+          canonicalAddress: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 24,
+  });
+
+  const queryTerms = tokenizeQuery(query);
+
+  return rows.map((row) => {
+    const payloadText = JSON.stringify(row.payloadJson);
+    const text = `${row.factType}: ${payloadText}`;
+    const lowerText = text.toLowerCase();
+    const matchedTerms = queryTerms.filter((term) => lowerText.includes(term));
+    const termCoverage = queryTerms.length > 0 ? matchedTerms.length / queryTerms.length : 0;
+    const recency = recencyScore(row.createdAt);
+    const confidence = clamp01(0.72 + recency * 0.16 + termCoverage * 0.12);
+
+    return makeItem("sparse", row.id, text, confidence, {
+      entityId: row.entityId,
+      parcelId: row.entity.parcelId,
+      canonicalAddress: row.entity.canonicalAddress,
+      factType: row.factType,
+      retrieval: {
+        mode: "property-verified-memory",
+        matchedTerms,
+        recencyScore: recency,
+      },
+    });
+  });
 }
 
 async function graphSearch(
@@ -528,16 +614,17 @@ export async function buildDataAgentRetrievalContext(
   }
 
   const preciseQuery = isPreciseQuery(normalizedQuery);
-  const [exact, graph] = await Promise.all([
+  const [exact, graph, propertyExact] = await Promise.all([
     exactSearch(normalizedQuery, subjectId, options?.orgId),
     graphSearch(normalizedQuery, subjectId, options?.orgId),
+    propertyVerifiedSearch(normalizedQuery, options),
   ]);
 
   const semanticNeeded =
     canUseQdrantHybridRetrieval() &&
     shouldUseSemanticAugmentation({
       query: normalizedQuery,
-      exactResults: [...exact, ...graph]
+      exactResults: [...exact, ...graph, ...propertyExact]
         .sort((left, right) => right.score - left.score)
         .slice(0, MAX_RAW_RESULTS),
     });
@@ -546,8 +633,8 @@ export async function buildDataAgentRetrievalContext(
     ? await qdrantHybridSearch(normalizedQuery, subjectId, options)
     : [];
 
-  const sourceStats = coerceSources(semantic.length, exact.length, graph.length);
-  const results = mergeAndRank(exact, graph, semantic, preciseQuery);
+  const sourceStats = coerceSources(semantic.length, exact.length + propertyExact.length, graph.length);
+  const results = mergeAndRank([...exact, ...propertyExact], graph, semantic, preciseQuery);
 
   recordDataAgentRetrieval({
     query: normalizedQuery,

@@ -8,7 +8,7 @@ import {
   type DealStrategy,
   type SkuType,
   type WorkflowTemplateKey,
-} from "@entitlement-os/shared";
+} from "@entitlement-os/shared/enums";
 import { ArrowLeft, Loader2, PencilLine } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardShell } from "@/components/layout/DashboardShell";

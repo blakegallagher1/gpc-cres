@@ -213,7 +213,7 @@ exports[`AgentsPage > surfaces the configured tool catalog in the roster 1`] = `
                 <p
                   class="text-sm text-muted-foreground"
                 >
-                  gpt-5.2
+                  gpt-5.4
                 </p>
               </div>
             </div>

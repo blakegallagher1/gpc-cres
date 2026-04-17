@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { authorizeApiRouteMock, searchParcelsForRouteMock } = vi.hoisted(() => ({
+const { authorizeApiRouteMock, searchParcelsForRouteMock, capturePropertyObservationsMock } = vi.hoisted(() => ({
   authorizeApiRouteMock: vi.fn(),
   searchParcelsForRouteMock: vi.fn(),
+  capturePropertyObservationsMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/authorizeApiRoute", () => ({
@@ -12,6 +13,7 @@ vi.mock("@/lib/auth/authorizeApiRoute", () => ({
 
 vi.mock("@gpc/server", () => ({
   searchParcelsForRoute: searchParcelsForRouteMock,
+  capturePropertyObservations: capturePropertyObservationsMock,
 }));
 
 import { GET } from "./route";
@@ -20,6 +22,8 @@ describe("GET /api/parcels", () => {
   beforeEach(() => {
     authorizeApiRouteMock.mockReset();
     searchParcelsForRouteMock.mockReset();
+    capturePropertyObservationsMock.mockReset();
+    capturePropertyObservationsMock.mockResolvedValue({ captured: 1 });
   });
 
   it("returns 401 when unauthorized", async () => {
@@ -65,6 +69,15 @@ describe("GET /api/parcels", () => {
       hasCoords: false,
       searchText: "",
     });
+    expect(capturePropertyObservationsMock).toHaveBeenCalledWith([
+      expect.objectContaining({
+        orgId: "org-1",
+        observationType: "parcel_lookup",
+        parcelId: "UID1",
+        address: "123 Main St",
+        sourceRoute: "/api/parcels",
+      }),
+    ]);
   });
 
   it("preserves degraded gateway fallback responses", async () => {
@@ -98,6 +111,7 @@ describe("GET /api/parcels", () => {
       hasCoords: true,
       searchText: "river",
     });
+    expect(capturePropertyObservationsMock).toHaveBeenCalled();
   });
 
   it("preserves explicit service errors", async () => {
@@ -121,5 +135,6 @@ describe("GET /api/parcels", () => {
       error: "Property database unavailable",
       code: "GATEWAY_UNAVAILABLE",
     });
+    expect(capturePropertyObservationsMock).not.toHaveBeenCalled();
   });
 });

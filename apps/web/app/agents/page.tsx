@@ -126,8 +126,8 @@ export default function AgentsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Models</SelectItem>
-              <SelectItem value="gpt-5.2">GPT-5.2</SelectItem>
-              <SelectItem value="gpt-5.1">GPT-5.1</SelectItem>
+              <SelectItem value="gpt-5.4">GPT-5.4</SelectItem>
+              <SelectItem value="gpt-5.4-mini">GPT-5.4 mini</SelectItem>
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>

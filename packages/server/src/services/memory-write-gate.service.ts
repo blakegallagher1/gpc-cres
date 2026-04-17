@@ -32,7 +32,7 @@ export interface WriteGateResult {
   recordId?: string;
 }
 
-const MEMORY_WRITE_GATE_MODEL = "gpt-5-mini";
+const MEMORY_WRITE_GATE_MODEL = "gpt-5.4-mini";
 
 function addReason(reasons: string[], reason: string) {
   reasons.push(reason);

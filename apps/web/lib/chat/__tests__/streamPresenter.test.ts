@@ -138,6 +138,31 @@ describe("streamPresenter", () => {
     expect(result.nextState.conversationId).toBe("conv-1");
   });
 
+  it("collapses repeated assistant text artifacts while streaming", () => {
+    const events: ChatStreamEvent[] = [
+      { type: "text_delta", content: "OPEN" },
+      { type: "text_delta", content: "OPEN" },
+      { type: "text_delta", content: "AI_OK" },
+      { type: "text_delta", content: "AI_OK" },
+    ];
+
+    const result = applyStreamingEvents(
+      createStreamPresenterState(),
+      [],
+      events,
+      () => "2026-02-15T12:00:00.000Z",
+      () => "id-dedupe",
+    );
+
+    expect(result.nextMessages).toHaveLength(1);
+    expect(result.nextMessages[0]).toMatchObject({
+      role: "assistant",
+      eventKind: "assistant",
+      content: "OPENAI_OK",
+    });
+    expect(result.nextState.assistantDraft).toBe("OPENAI_OK");
+  });
+
   it("maps tool approval requested events into approval system messages", () => {
     const events: ChatStreamEvent[] = [
       {

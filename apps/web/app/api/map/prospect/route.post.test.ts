@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { authorizeApiRouteMock, searchProspectsForRouteMock } = vi.hoisted(() => ({
+const { authorizeApiRouteMock, searchProspectsForRouteMock, capturePropertyObservationsMock } = vi.hoisted(() => ({
   authorizeApiRouteMock: vi.fn(),
   searchProspectsForRouteMock: vi.fn(),
+  capturePropertyObservationsMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/authorizeApiRoute", () => ({
@@ -13,6 +14,7 @@ vi.mock("@/lib/auth/authorizeApiRoute", () => ({
 vi.mock("@gpc/server", () => ({
   searchProspectsForRoute: searchProspectsForRouteMock,
   updateProspectsForRoute: vi.fn(),
+  capturePropertyObservations: capturePropertyObservationsMock,
 }));
 
 import { POST } from "./route";
@@ -21,6 +23,8 @@ describe("POST /api/map/prospect", () => {
   beforeEach(() => {
     authorizeApiRouteMock.mockReset();
     searchProspectsForRouteMock.mockReset();
+    capturePropertyObservationsMock.mockReset();
+    capturePropertyObservationsMock.mockResolvedValue({ captured: 1 });
   });
 
   it("returns 401 when unauthorized", async () => {
@@ -91,6 +95,15 @@ describe("POST /api/map/prospect", () => {
       total: 1,
     });
     expect(searchProspectsForRouteMock).toHaveBeenCalledTimes(1);
+    expect(capturePropertyObservationsMock).toHaveBeenCalledWith([
+      expect.objectContaining({
+        orgId: "org-1",
+        observationType: "prospect_match",
+        parcelId: "p-1",
+        address: "123 Main St",
+        sourceRoute: "/api/map/prospect",
+      }),
+    ]);
   });
 
   it("passes gateway failure responses through from the package seam", async () => {
@@ -126,5 +139,6 @@ describe("POST /api/map/prospect", () => {
       error: "Property database unavailable",
       code: "GATEWAY_UNAVAILABLE",
     });
+    expect(capturePropertyObservationsMock).not.toHaveBeenCalled();
   });
 });
