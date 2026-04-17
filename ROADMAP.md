@@ -169,11 +169,19 @@ Only items meeting all checks are added below as `Planned`.
 ### MOAT-P4-001 — Phase 4 Moat: Email-to-Deal Ingestion (P1)
 
 - **Priority:** P1
-- **Status:** Planned
+- **Status:** Done (2026-04-17)
 - **Scope:** Inbound email webhook (SendGrid/Mailgun) that parses broker deal-submission patterns, creates skeleton Deal row, attaches email as source doc, routes to analyst queue.
 - **Problem:** Every deal is manual data entry. `dealSourceType` enum exists but isn't populated from real inbound flow.
 - **Expected Outcome (measurable):** ≥50% of inbound broker emails auto-parse into a deal with ≥3 fields pre-filled (property address, ask, broker contact).
 - **Acceptance Criteria / Tests:** `/api/email-webhook` route, parser service, DealSourcePanel UI, staging test with 10 sample emails.
+- **Evidence (2026-04-17):**
+  - Migration `20260417210000_add_inbound_emails` — new `inbound_emails` audit table with `parsed_deal_id` soft-pointer, `message_id` partial unique index, `parse_status` text column, FK to `orgs` with `ON DELETE SET NULL` so emails survive org deletion for compliance.
+  - `packages/server/src/services/email-parser.service.ts` — deterministic regex parser extracting `propertyAddress`, `askPrice` ($1.25M / $1,250,000 / $500K patterns), `acreage`, `brokerName`/`brokerCompany`/`brokerEmail`/`brokerPhone` from signature block, `dealSourceHint`.
+  - `packages/server/src/services/email-ingest.service.ts` — `ingestInboundEmail`, `reparseInboundEmail`, `listInboundEmails`, `findInboundEmailByDealId`, `resolveOrgFromRecipient` (domain-match against `jurisdictions.official_domains`). Skeleton Deal creation is direct Prisma insert (not via `deal.service`) because ingestion has no authenticated user.
+  - API routes: `apps/web/app/api/email-webhook/route.ts` (POST, `EMAIL_WEBHOOK_TOKEN` bearer w/ timingSafeEqual), `apps/web/app/api/admin/inbound-emails/route.ts` (GET, status/limit filters), `apps/web/app/api/admin/inbound-emails/[id]/reparse/route.ts` (POST), `apps/web/app/api/deals/[id]/inbound-email/route.ts` (GET).
+  - UI: `apps/web/components/admin/InboundEmailsPanel.tsx` (SWR, status filter chips, reparse button), wired into `apps/web/app/portfolio/page-client.tsx` in a 2-col grid alongside `PortfolioAlertsPanel`.
+  - Deal detail: `apps/web/app/deals/[id]/DealDetailPageClient.tsx` renders "Originated from email" badge when `dealSourceType === "BROKER"` and a linked `InboundEmail` row exists.
+  - Services exported from `packages/server/src/index.ts`. `pnpm -C packages/db prisma generate` runs clean.
 
 ### MOAT-P4-002 — Phase 4 Moat: Due-Diligence Contingency Tracker (P2)
 

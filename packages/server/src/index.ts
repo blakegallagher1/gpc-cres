@@ -29,6 +29,8 @@ export * from "./automation/portfolio-watcher.service";
 export * from "./services/investment-criteria.service";
 export * from "./services/isochrone.service";
 export * from "./services/owner-clustering.service";
+export * from "./services/email-parser.service";
+export * from "./services/email-ingest.service";
 export * from "./automation/proactive-action.service";
 export * from "./automation/automation-event.service";
 export * from "./automation/events";

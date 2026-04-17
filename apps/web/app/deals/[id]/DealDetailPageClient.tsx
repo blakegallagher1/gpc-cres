@@ -87,6 +87,7 @@ interface DealDetail {
   targetCloseDate?: string | null;
   createdAt: string;
   updatedAt: string;
+  dealSourceType?: string | null;
   triageTier?: string | null;
   triageOutput?: Record<string, unknown> | null;
   workflowTemplate?: {
@@ -275,6 +276,14 @@ export function DealDetailPageClient() {
   const entitlementPath = entitlementFetcher.data?.entitlementPath ?? null;
   const propertyTitle = propertyTitleFetcher.data?.propertyTitle ?? null;
   const propertySurvey = propertySurveyFetcher.data?.propertySurvey ?? null;
+
+  const inboundEmailFetcher = useSWR<{ email: { id: string; subject: string; fromAddress: string; receivedAt: string } | null }>(
+    id && deal?.dealSourceType === "BROKER"
+      ? `/api/deals/${id}/inbound-email`
+      : null,
+    fetcher,
+  );
+  const linkedInboundEmail = inboundEmailFetcher.data?.email ?? null;
 
   const formatCurrencyValue = (value: string | number | null | undefined) => {
     if (value === null || value === undefined) return "—";
@@ -565,6 +574,16 @@ export function DealDetailPageClient() {
                         : deal.packContext.isStale
                           ? "Parish pack stale"
                           : "Parish pack current"}
+                    </Badge>
+                  ) : null}
+                  {deal.dealSourceType === "BROKER" && linkedInboundEmail ? (
+                    <Badge
+                      variant="outline"
+                      className="gap-1 border-primary/40 text-primary"
+                      title={`From: ${linkedInboundEmail.fromAddress}\nSubject: ${linkedInboundEmail.subject}`}
+                    >
+                      <MessageSquare className="h-3 w-3" />
+                      Originated from email
                     </Badge>
                   ) : null}
                 </div>
