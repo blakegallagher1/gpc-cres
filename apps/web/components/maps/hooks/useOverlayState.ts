@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 interface OverlayState {
   showParcelBoundaries: boolean;
   showZoning: boolean;
+  showFlu: boolean;
   showFlood: boolean;
   showSoils: boolean;
   showWetlands: boolean;
@@ -31,6 +32,7 @@ function loadSavedState(): Partial<OverlayState> {
 const DEFAULTS: OverlayState = {
   showParcelBoundaries: true,
   showZoning: false,
+  showFlu: false,
   showFlood: false,
   showSoils: false,
   showWetlands: false,

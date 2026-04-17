@@ -639,6 +639,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   const [baseLayer, setBaseLayer] = useState<string>(() => getSavedBaseLayer());
   const [showParcelBoundaries, setShowParcelBoundaries] = useState<boolean>(() => getSavedOverlaysFallback().parcelBoundaries);
   const [showZoning, setShowZoning] = useState<boolean>(() => getSavedOverlaysFallback().zoning);
+  const [showFlu, setShowFlu] = useState<boolean>(false);
   const [showFlood, setShowFlood] = useState<boolean>(() => getSavedOverlaysFallback().flood);
   const [showSoils, setShowSoils] = useState<boolean>(() => getSavedOverlaysFallback().soils);
   const [showWetlands, setShowWetlands] = useState<boolean>(() => getSavedOverlaysFallback().wetlands);
@@ -2413,6 +2414,8 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           setShowParcelBoundaries={setShowParcelBoundaries}
           showZoning={showZoning}
           setShowZoning={setShowZoning}
+          showFlu={showFlu}
+          setShowFlu={setShowFlu}
           showFlood={showFlood}
           setShowFlood={setShowFlood}
           showSoils={showSoils}

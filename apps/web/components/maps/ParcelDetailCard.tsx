@@ -10,6 +10,7 @@ import type { MapPopupAction } from "./MapPopupPresenter";
 import type { MapParcel } from "./types";
 import { clampFloatingPanelPosition } from "./floatingPanelPosition";
 import { useParcelTruth, type ClientTruthView } from "@/hooks/useParcelTruth";
+import { OwnerPortfolioCard } from "./OwnerPortfolioCard";
 
 const CARD_PANEL_SIZE = { width: 352, height: 284 };
 
@@ -71,7 +72,9 @@ export function ParcelDetailCard({
 }: ParcelDetailCardProps) {
   const reduceMotion = useReducedMotion();
   const cardRef = useRef<HTMLDivElement>(null);
-  const [activeTab, setActiveTab] = useState<"details" | "comps" | "deals" | "intel">("details");
+  const [activeTab, setActiveTab] = useState<"details" | "comps" | "owner" | "deals" | "intel">(
+    "details",
+  );
 
   useEffect(() => {
     if (!parcel) {
@@ -166,9 +169,10 @@ export function ParcelDetailCard({
 
       <div className="px-3 py-3">
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)}>
-          <TabsList className="grid h-8 w-full grid-cols-4 bg-map-surface-elevated text-[10px]">
+          <TabsList className="grid h-8 w-full grid-cols-5 bg-map-surface-elevated text-[10px]">
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="comps">Comps</TabsTrigger>
+            <TabsTrigger value="owner">Owner</TabsTrigger>
             <TabsTrigger value="deals">Deals</TabsTrigger>
             <TabsTrigger value="intel">Intel</TabsTrigger>
           </TabsList>
@@ -259,6 +263,13 @@ export function ParcelDetailCard({
                 View Comps
               </Button>
             </div>
+          </TabsContent>
+
+          <TabsContent value="owner" className="mt-3 space-y-3">
+            <OwnerPortfolioCard
+              ownerName={parcel.owner ?? null}
+              currentParcelId={parcel.propertyDbId ?? parcel.id}
+            />
           </TabsContent>
 
           <TabsContent value="deals" className="mt-3 space-y-3">
