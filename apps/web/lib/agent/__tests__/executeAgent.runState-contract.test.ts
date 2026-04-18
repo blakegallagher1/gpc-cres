@@ -97,6 +97,11 @@ vi.mock("../loggerAdapter", () => ({
   },
   recordDataAgentAutoFeed: vi.fn(),
 }));
+vi.mock("../toolRegistry", () => ({
+  toolRegistry: {
+    search_parcels: vi.fn(),
+  },
+}));
 
 import {
   AGENT_RUN_STATE_KEYS,
@@ -1339,5 +1344,107 @@ describe("executeAgentWorkflow", () => {
     );
     expect(events.map((event) => event.content).join(" ")).toContain(enforcedReply);
     expect(events.map((event) => event.content).join(" ")).not.toContain("closest adjacent parcel");
+  });
+
+  it("falls back to parcel search when memory lookup misses an exact address", async () => {
+    const { prisma } = await vi.importMock("@entitlement-os/db");
+    const openAiAgents = await vi.importMock("@openai/agents");
+    const { toolRegistry } = await vi.importMock("../toolRegistry");
+    const { run } = openAiAgents as {
+      run: ReturnType<typeof vi.fn>;
+      user: ReturnType<typeof vi.fn>;
+      assistant: ReturnType<typeof vi.fn>;
+    };
+    const searchParcelsMock = toolRegistry.search_parcels as ReturnType<typeof vi.fn>;
+    const requestedAddress = "3154 College Drive, Baton Rouge, LA 70808";
+
+    prisma.run.findFirst.mockResolvedValue(null);
+    prisma.run.upsert.mockResolvedValue({
+      id: NORMALIZED_RUN_ID,
+      status: "running",
+      inputHash: "input-hash",
+      outputJson: null,
+      openaiResponseId: null,
+      startedAt: new Date("2025-01-01T00:00:00.000Z"),
+      finishedAt: null,
+    });
+    (run as ReturnType<typeof vi.fn>).mockResolvedValue(
+      makeAsyncEventStream([
+        {
+          type: "run_item_stream_event",
+          item: {
+            type: "tool_called",
+            name: "tool_called",
+            raw_item: {
+              type: "function_call",
+              name: "lookup_entity_by_address",
+              arguments: JSON.stringify({ address: requestedAddress }),
+              call_id: "call-lookup-miss",
+            },
+          },
+        },
+        {
+          type: "run_item_stream_event",
+          item: {
+            type: "tool_output",
+            name: "tool_output",
+            output: { found: false },
+            raw_item: {
+              type: "function_call_output",
+              name: "lookup_entity_by_address",
+              call_id: "call-lookup-miss",
+            },
+          },
+        },
+        {
+          type: "raw_model_stream_event",
+          data: { delta: `${requestedAddress} is not on file.` },
+        },
+      ]),
+    );
+    searchParcelsMock.mockResolvedValue({
+      parcels: [
+        {
+          parcel_id: "007-3915-4",
+          address: requestedAddress,
+          owner: "3154 College Drive LLC",
+          zoning: "C2",
+          acreage: 1.17,
+          floodZone: "X",
+        },
+      ],
+    });
+    prisma.run.update.mockResolvedValue({ status: "succeeded" });
+
+    const result = await executeAgentWorkflow({
+      orgId: "org-test",
+      userId: "user-test",
+      conversationId: "conversation-test",
+      runId: SOURCE_RUN_ID,
+      input: [{ role: "user", content: `Tell me about ${requestedAddress}.` }],
+      runType: "ENRICHMENT",
+      correlationId: "corr-address-parcel-fallback",
+    });
+
+    expect(searchParcelsMock).toHaveBeenCalledWith(
+      { search_text: requestedAddress, limit_rows: 5 },
+      expect.objectContaining({
+        orgId: "org-test",
+        userId: "user-test",
+        conversationId: "conversation-test",
+        runId: NORMALIZED_RUN_ID,
+      }),
+    );
+    expect(result.status).toBe("succeeded");
+    expect(result.finalOutput).toContain("does not have saved property intelligence yet");
+    expect(result.finalOutput).toContain("Parcel database match");
+    expect(result.finalOutput).toContain("007-3915-4");
+    expect(result.finalOutput).toContain("3154 College Drive LLC");
+
+    const updateCall = prisma.run.update.mock.calls[0][0];
+    const outputJson = updateCall.data.outputJson as Record<string, unknown>;
+    expect(outputJson.toolsInvoked).toEqual(
+      expect.arrayContaining(["lookup_entity_by_address", "search_parcels"]),
+    );
   });
 });

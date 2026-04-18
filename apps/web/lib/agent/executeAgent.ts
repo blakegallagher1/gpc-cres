@@ -58,6 +58,7 @@ import { isSchemaDriftError } from "@/lib/api/prismaSchemaFallback";
 import { isLocalAppRuntime } from "@/lib/server/appDbEnv";
 import { getDealReaderById } from "@/lib/services/deal-reader";
 import { logger } from "./loggerAdapter";
+import { toolRegistry } from "./toolRegistry";
 import { runAgentPostRunEffects } from "./agentPostRunEffects";
 import { applyAgentToolPolicy } from "./agentToolPolicy";
 import {
@@ -138,6 +139,7 @@ type ToolEventState = {
   hadOutputText: boolean;
   didEmitTextDelta: boolean;
   memoryConflictSummaries: string[];
+  addressLookupMisses: string[];
   parcelAddressMismatchSummaries: string[];
   browserTaskSuccessCount: number;
   browserTaskVerifiedDataLaneCount: number;
@@ -165,6 +167,7 @@ function summarizeToolEventState(state: ToolEventState) {
     toolFailureCount: state.toolErrorMessages.length,
     missingEvidenceCount: state.missingEvidence.size,
     memoryConflictCount: state.memoryConflictSummaries.length,
+    addressLookupMissCount: state.addressLookupMisses.length,
     addressMismatchCount: state.parcelAddressMismatchSummaries.length,
     browserTaskServiceUnavailableCount: state.browserTaskServiceUnavailableCount,
     parishTieredQueryObserved: state.parishTieredQueryObserved,
@@ -870,6 +873,18 @@ function collectToolOutputSignals(
     }
   }
 
+  if (toolName === "lookup_entity_by_address") {
+    const requestedAddress =
+      args && typeof args.address === "string" ? args.address.trim() : "";
+    if (
+      requestedAddress.length > 0 &&
+      asRecord.found === false &&
+      typeof asRecord.error !== "string"
+    ) {
+      state.addressLookupMisses.push(requestedAddress);
+    }
+  }
+
   if (toolName === "search_parcels") {
     const requestedAddress =
       args && typeof args.search_text === "string"
@@ -1026,6 +1041,113 @@ function hasAddressMemoryLookup(state: ToolEventState): boolean {
     state.toolsInvoked.has("get_entity_truth") ||
     state.toolsInvoked.has("get_entity_memory")
   );
+}
+
+function toToolResultRows(value: unknown): Record<string, unknown>[] {
+  const normalized = normalizeJsonLikeValue(value);
+  if (Array.isArray(normalized)) {
+    return normalized.filter((entry): entry is Record<string, unknown> => isRecord(entry));
+  }
+  if (!isRecord(normalized)) {
+    return [];
+  }
+
+  const candidates = [normalized.parcels, normalized.rows, normalized.results, normalized.text];
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      return candidate.filter((entry): entry is Record<string, unknown> => isRecord(entry));
+    }
+  }
+
+  return [];
+}
+
+function getStringField(record: Record<string, unknown>, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+function getNumberField(record: Record<string, unknown>, keys: string[]): number | null {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === "string" && value.trim().length > 0) {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+  return null;
+}
+
+function buildAddressParcelFallbackOutput(requestedAddress: string, value: unknown): string | null {
+  const rows = toToolResultRows(value);
+  if (rows.length === 0) {
+    return null;
+  }
+
+  const exactMatch = rows.find((row) => {
+    const candidateAddress = getStringField(row, ["address", "site_addr", "siteAddr"]);
+    return (
+      candidateAddress !== null &&
+      !isMaterialAddressMismatch(requestedAddress, candidateAddress)
+    );
+  });
+  const parcel = exactMatch ?? rows[0];
+  const parcelAddress = getStringField(parcel, ["address", "site_addr", "siteAddr"]);
+  if (
+    parcelAddress &&
+    isMaterialAddressMismatch(requestedAddress, parcelAddress)
+  ) {
+    return null;
+  }
+
+  const mapFeatureParcelId = (() => {
+    try {
+      return parseToolResultMapFeatures(value)[0]?.parcelId ?? null;
+    } catch {
+      return null;
+    }
+  })();
+  const parcelId =
+    getStringField(parcel, ["parcel_id", "parcelId", "id"]) ?? mapFeatureParcelId;
+  const owner = getStringField(parcel, ["owner", "owner_name", "ownerName"]);
+  const zoning = getStringField(parcel, ["currentZoning", "zoning", "zoning_type", "zoningType"]);
+  const floodZone = getStringField(parcel, ["floodZone", "flood_zone"]);
+  const acreage = getNumberField(parcel, ["acreage", "acres", "area_acres"]);
+  const acreageText = acreage !== null ? acreage.toFixed(2).replace(/\.00$/, "") : null;
+
+  const details = [
+    parcelId ? `Parcel database match: ${parcelId}.` : null,
+    owner ? `Owner: ${owner}.` : null,
+    zoning ? `Zoning: ${zoning}.` : null,
+    acreageText ? `Acreage: ${acreageText}.` : null,
+    floodZone ? `Flood zone: ${floodZone}.` : null,
+  ].filter((valuePart): valuePart is string => valuePart !== null);
+
+  return [
+    `${requestedAddress} does not have saved property intelligence yet, but the parcel database returned a live match.`,
+    ...details,
+    "I can use this parcel context even when saved intel has not been created yet.",
+  ].join(" ");
+}
+
+function extractRequestedAddressFromText(value: string): string | null {
+  const match = value.match(
+    /\b\d+\s+[a-z0-9.#'-]+(?:\s+[a-z0-9.#'-]+){0,6}\s+(?:street|st|road|rd|drive|dr|lane|ln|avenue|ave|boulevard|blvd|court|ct|highway|hwy|way|parkway|pkwy)\b(?:,\s*[a-z0-9.' -]+){0,3}(?:\s+\d{5})?/i,
+  );
+  if (!match) {
+    return null;
+  }
+  return match[0]?.replace(/[.,!?]+$/, "").trim() ?? null;
 }
 
 function buildFallbackOutput(
@@ -1373,6 +1495,7 @@ export async function executeAgentWorkflow(
     hadOutputText: false,
     didEmitTextDelta: false,
     memoryConflictSummaries: [],
+    addressLookupMisses: [],
     parcelAddressMismatchSummaries: [],
     browserTaskSuccessCount: 0,
     browserTaskVerifiedDataLaneCount: 0,
@@ -1507,6 +1630,70 @@ export async function executeAgentWorkflow(
           },
         });
       }
+    }
+  };
+
+  const runAddressParcelFallback = async (): Promise<string | null> => {
+    const requestedAddress =
+      state.addressLookupMisses[0]?.trim() ??
+      extractRequestedAddressFromText(firstUserInput);
+    if (!requestedAddress || state.toolsInvoked.has("search_parcels")) {
+      return null;
+    }
+
+    const searchParcels = toolRegistry.search_parcels;
+    if (!searchParcels) {
+      return null;
+    }
+
+    const toolCallId = `fallback-search-parcels-${crypto.randomUUID()}`;
+    emitToolStart(emit, { name: "search_parcels", toolCallId });
+    try {
+      const result = await searchParcels(
+        { search_text: requestedAddress, limit_rows: 5 },
+        {
+          orgId: params.orgId,
+          userId: params.userId,
+          conversationId: params.conversationId ?? dbRun.id,
+          ...(params.dealId ? { dealId: params.dealId } : {}),
+          runId: dbRun.id,
+          ...(params.correlationId ? { requestId: params.correlationId } : {}),
+        },
+      );
+      const normalizedResult = normalizeJsonLikeValue(result);
+      state.toolsInvoked.add("search_parcels");
+      collectToolOutputSignals(
+        "search_parcels",
+        normalizedResult,
+        state,
+        { search_text: requestedAddress },
+      );
+      emitMapActionsFromToolResult(emit, {
+        toolName: "search_parcels",
+        result: normalizedResult,
+        toolCallId,
+      });
+      emitToolEnd(emit, {
+        name: "search_parcels",
+        status: "completed",
+        toolCallId,
+      });
+      await persistCheckpoint({
+        kind: "tool_completion",
+        toolName: "search_parcels",
+        toolCallId,
+        partialOutput: finalText,
+      });
+      return buildAddressParcelFallbackOutput(requestedAddress, normalizedResult);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      state.toolErrorMessages.push(`search_parcels: ${message}`);
+      emitToolEnd(emit, {
+        name: "search_parcels",
+        status: "failed",
+        toolCallId,
+      });
+      return null;
     }
   };
 
@@ -2091,6 +2278,23 @@ export async function executeAgentWorkflow(
         finalOutputRaw = enforcementResult.finalOutputRaw;
         finalText = enforcementResult.finalText;
         pendingApprovalState = enforcementResult.pendingApprovalState;
+      }
+
+      if (
+        !pendingApprovalState &&
+        requireAddressMemoryLookup &&
+        (
+          state.addressLookupMisses.length > 0 ||
+          extractRequestedAddressFromText(firstUserInput) !== null
+        ) &&
+        !state.toolsInvoked.has("search_parcels") &&
+        !state.toolsInvoked.has("get_parcel_details")
+      ) {
+        const parcelFallbackOutput = await runAddressParcelFallback();
+        if (parcelFallbackOutput) {
+          finalText = parcelFallbackOutput;
+          finalOutputRaw = parcelFallbackOutput;
+        }
       }
     }
 
