@@ -58,7 +58,6 @@ import { isSchemaDriftError } from "@/lib/api/prismaSchemaFallback";
 import { isLocalAppRuntime } from "@/lib/server/appDbEnv";
 import { getDealReaderById } from "@/lib/services/deal-reader";
 import { logger } from "./loggerAdapter";
-import { toolRegistry } from "./toolRegistry";
 import { runAgentPostRunEffects } from "./agentPostRunEffects";
 import { applyAgentToolPolicy } from "./agentToolPolicy";
 import {
@@ -877,7 +876,6 @@ function collectToolOutputSignals(
     const requestedAddress =
       args && typeof args.address === "string" ? args.address.trim() : "";
     if (
-      requestedAddress.length > 0 &&
       asRecord.found === false &&
       typeof asRecord.error !== "string"
     ) {
@@ -1112,7 +1110,8 @@ function buildAddressParcelFallbackOutput(requestedAddress: string, value: unkno
 
   const mapFeatureParcelId = (() => {
     try {
-      return parseToolResultMapFeatures(value)[0]?.parcelId ?? null;
+      const features = parseToolResultMapFeatures(value) ?? [];
+      return features[0]?.parcelId ?? null;
     } catch {
       return null;
     }
@@ -1635,12 +1634,15 @@ export async function executeAgentWorkflow(
 
   const runAddressParcelFallback = async (): Promise<string | null> => {
     const requestedAddress =
-      state.addressLookupMisses[0]?.trim() ??
-      extractRequestedAddressFromText(firstUserInput);
+      state.addressLookupMisses[0]?.trim() ||
+      (typeof firstUserInput === "string"
+        ? extractRequestedAddressFromText(firstUserInput)
+        : null);
     if (!requestedAddress || state.toolsInvoked.has("search_parcels")) {
       return null;
     }
 
+    const { toolRegistry } = await import("./toolRegistry");
     const searchParcels = toolRegistry.search_parcels;
     if (!searchParcels) {
       return null;
@@ -2283,10 +2285,7 @@ export async function executeAgentWorkflow(
       if (
         !pendingApprovalState &&
         requireAddressMemoryLookup &&
-        (
-          state.addressLookupMisses.length > 0 ||
-          extractRequestedAddressFromText(firstUserInput) !== null
-        ) &&
+        state.addressLookupMisses.length > 0 &&
         !state.toolsInvoked.has("search_parcels") &&
         !state.toolsInvoked.has("get_parcel_details")
       ) {
