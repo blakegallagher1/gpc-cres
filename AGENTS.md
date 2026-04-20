@@ -148,6 +148,7 @@ pnpm deploy              # Full: typecheck + build + deploy (~50-60s warm)
 pnpm deploy:fast         # Fast: skip typecheck + sentry (~35-45s warm)
 ./scripts/quick-deploy.sh --fast --dry   # Validate build only, no deploy
 ./scripts/quick-deploy.sh --prebuilt     # Fastest: local vercel build + prebuilt upload
+./scripts/quick-deploy.sh --fast --force # Non-interactive (for Codex/automation)
 ```
 
 Build uses turbo for package caching (82ms on cache hit) and conditional Prisma generate (skips if schema unchanged).

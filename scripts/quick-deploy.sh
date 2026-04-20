@@ -7,6 +7,7 @@ set -euo pipefail
 #   ./scripts/quick-deploy.sh --fast       # skip typecheck + sentry source maps
 #   ./scripts/quick-deploy.sh --dry        # local build only, no deploy
 #   ./scripts/quick-deploy.sh --prebuilt   # use vercel build + deploy --prebuilt (fastest)
+#   ./scripts/quick-deploy.sh --force      # skip interactive prompts (for CI/automation)
 #
 # First-time setup:
 #   cd apps/web && pnpm exec vercel pull --yes --environment production && cd ../..
@@ -18,30 +19,40 @@ START=$SECONDS
 FAST=false
 DRY=false
 PREBUILT=false
+FORCE=false
 for arg in "$@"; do
   case $arg in
     --fast)     FAST=true ;;
     --dry)      DRY=true ;;
     --prebuilt) PREBUILT=true ;;
+    --force|-y) FORCE=true ;;
   esac
 done
 
 # ── Safety checks ──────────────────────────────────────────────────
 if [ -n "$(git status --porcelain)" ]; then
-  echo "⚠  Working directory not clean."
-  git status --short
-  echo ""
-  read -p "Deploy anyway? (y/N) " -n 1 -r
-  echo
-  [[ $REPLY =~ ^[Yy]$ ]] || exit 1
+  if [ "$FORCE" = true ]; then
+    echo "⚠  Working directory not clean (--force: continuing)"
+  else
+    echo "⚠  Working directory not clean."
+    git status --short
+    echo ""
+    read -p "Deploy anyway? (y/N) " -n 1 -r
+    echo
+    [[ $REPLY =~ ^[Yy]$ ]] || exit 1
+  fi
 fi
 
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 if [ "$BRANCH" != "main" ]; then
-  echo "⚠  On branch '$BRANCH', not main."
-  read -p "Deploy anyway? (y/N) " -n 1 -r
-  echo
-  [[ $REPLY =~ ^[Yy]$ ]] || exit 1
+  if [ "$FORCE" = true ]; then
+    echo "⚠  On branch '$BRANCH', not main (--force: continuing)"
+  else
+    echo "⚠  On branch '$BRANCH', not main."
+    read -p "Deploy anyway? (y/N) " -n 1 -r
+    echo
+    [[ $REPLY =~ ^[Yy]$ ]] || exit 1
+  fi
 fi
 
 # ── Typecheck (skip with --fast) ──────────────────────────────────

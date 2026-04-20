@@ -21,6 +21,7 @@
   "scripts": {
     "deploy": "bash scripts/quick-deploy.sh",
     "deploy:fast": "bash scripts/quick-deploy.sh --fast",
+    "deploy:force": "bash scripts/quick-deploy.sh --fast --force",
     "dev": "pnpm -r --filter './packages/**' build && pnpm -r --parallel dev",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
