@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
       syncState: isAppRouteLocalBypassEnabled()
         ? ("local-bypass" as const)
         : ("degraded" as const),
-      error: "Failed to load map workspace",
+      error: "Shared workspace unavailable; using local state",
     });
   }
 }

@@ -135,7 +135,7 @@ describe("/api/map/workspace route", () => {
     expect(await response.json()).toEqual({
       workspace: null,
       syncState: "degraded",
-      error: "Failed to load map workspace",
+      error: "Shared workspace unavailable; using local state",
     });
   });
 
@@ -149,7 +149,7 @@ describe("/api/map/workspace route", () => {
     expect(await response.json()).toEqual({
       workspace: null,
       syncState: "local-bypass",
-      error: "Failed to load map workspace",
+      error: "Shared workspace unavailable; using local state",
     });
   });
 
