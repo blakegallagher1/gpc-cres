@@ -3,21 +3,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 const {
-  resolveAuthMock,
+  authorizeApiRouteMock,
   getActiveWorkspaceMock,
   buildWorkspaceBridgeRecordMock,
   saveWorkspaceMock,
   isAppRouteLocalBypassEnabledMock,
 } = vi.hoisted(() => ({
-  resolveAuthMock: vi.fn(),
+  authorizeApiRouteMock: vi.fn(),
   getActiveWorkspaceMock: vi.fn(),
   buildWorkspaceBridgeRecordMock: vi.fn(),
   saveWorkspaceMock: vi.fn(),
   isAppRouteLocalBypassEnabledMock: vi.fn(() => false),
 }));
 
-vi.mock("@/lib/auth/resolveAuth", () => ({
-  resolveAuth: resolveAuthMock,
+vi.mock("@/lib/auth/authorizeApiRoute", () => ({
+  authorizeApiRoute: authorizeApiRouteMock,
 }));
 
 vi.mock("@gpc/server/services/map-workspace.service", () => ({
@@ -42,8 +42,8 @@ vi.mock("@gpc/server/services/map-workspace.service", () => ({
       address: z.string(),
       owner: z.string().nullable().optional(),
       acreage: z.number().nullable().optional(),
-      lat: z.number(),
-      lng: z.number(),
+      lat: z.number().nullable(),
+      lng: z.number().nullable(),
       currentZoning: z.string().nullable().optional(),
       floodZone: z.string().nullable().optional(),
     })),
@@ -69,22 +69,24 @@ vi.mock("@/lib/auth/localDevBypass", () => ({
 
 import { GET, PUT } from "./route";
 
+const AUTH = {
+  userId: "22222222-2222-4222-8222-222222222222",
+  orgId: "11111111-1111-4111-8111-111111111111",
+};
+
 describe("/api/map/workspace route", () => {
   beforeEach(() => {
-    resolveAuthMock.mockReset();
+    authorizeApiRouteMock.mockReset();
     getActiveWorkspaceMock.mockReset();
     buildWorkspaceBridgeRecordMock.mockReset();
     saveWorkspaceMock.mockReset();
     isAppRouteLocalBypassEnabledMock.mockReset();
     isAppRouteLocalBypassEnabledMock.mockReturnValue(false);
-    resolveAuthMock.mockResolvedValue({
-      orgId: "11111111-1111-4111-8111-111111111111",
-      userId: "22222222-2222-4222-8222-222222222222",
-    });
+    authorizeApiRouteMock.mockResolvedValue({ ok: true, auth: AUTH });
   });
 
   it("returns 401 on GET when unauthenticated", async () => {
-    resolveAuthMock.mockResolvedValue(null);
+    authorizeApiRouteMock.mockResolvedValue({ ok: true, auth: null });
 
     const response = await GET(new NextRequest("http://localhost/api/map/workspace"));
 
@@ -102,21 +104,53 @@ describe("/api/map/workspace route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(body).toEqual({
+      workspace: { id: "workspace-1", trackedParcels: [] },
+      syncState: "connected",
+    });
     expect(getActiveWorkspaceMock).toHaveBeenCalledWith(
-      "11111111-1111-4111-8111-111111111111",
+      AUTH.orgId,
       {},
     );
-    expect(body.workspace.id).toBe("workspace-1");
   });
 
-  it("returns an empty workspace in local bypass mode when the workspace load fails", async () => {
+  it("returns an empty workspace bridge payload when no active workspace exists", async () => {
+    getActiveWorkspaceMock.mockResolvedValue(null);
+
+    const response = await GET(new NextRequest("http://localhost/api/map/workspace"));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      workspace: null,
+      syncState: "empty",
+    });
+  });
+
+  it("returns a degraded empty workspace when the load fails", async () => {
+    getActiveWorkspaceMock.mockRejectedValue(new Error("db unavailable"));
+
+    const response = await GET(new NextRequest("http://localhost/api/map/workspace"));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      workspace: null,
+      syncState: "degraded",
+      error: "Failed to load map workspace",
+    });
+  });
+
+  it("returns local bypass state when enabled and the workspace load fails", async () => {
     isAppRouteLocalBypassEnabledMock.mockReturnValue(true);
     getActiveWorkspaceMock.mockRejectedValue(new Error("db unavailable"));
 
     const response = await GET(new NextRequest("http://localhost/api/map/workspace"));
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ workspace: null });
+    expect(await response.json()).toEqual({
+      workspace: null,
+      syncState: "local-bypass",
+      error: "Failed to load map workspace",
+    });
   });
 
   it("saves the shared workspace payload", async () => {
@@ -166,8 +200,8 @@ describe("/api/map/workspace route", () => {
 
     expect(response.status).toBe(200);
     expect(saveWorkspaceMock).toHaveBeenCalledWith(
-      "11111111-1111-4111-8111-111111111111",
-      "22222222-2222-4222-8222-222222222222",
+      AUTH.orgId,
+      AUTH.userId,
       expect.objectContaining({
         selectedParcelIds: ["parcel-1"],
         overlayState: { zoning: true },

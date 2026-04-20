@@ -10,7 +10,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
     <button
       aria-expanded="true"
       aria-label="Collapse map workbench"
-      class="inline-flex items-center justify-center whitespace-nowrap border text-sm font-medium tracking-[-0.01em] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:text-accent-foreground rounded-xl relative h-11 w-11 border-map-border bg-map-surface-overlay shadow-lg transition-all text-map-text-primary hover:bg-map-surface"
+      class="inline-flex items-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-background/42 hover:text-accent-foreground py-2 relative h-11 min-w-[7.5rem] justify-start gap-2 border-map-border px-3 shadow-lg transition-all text-map-text-primary hover:bg-map-surface"
       data-state="closed"
       title="Collapse workbench (L)"
       type="button"
@@ -32,10 +32,15 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
           d="m15 18-6-6 6-6"
         />
       </svg>
+      <span
+        class="text-[11px] font-medium"
+      >
+        Hide tools
+      </span>
     </button>
     <button
       aria-label="Export map screenshot"
-      class="inline-flex items-center justify-center whitespace-nowrap border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:text-accent-foreground rounded-xl h-10 w-10 border-map-border bg-map-surface-overlay text-map-text-primary shadow-lg hover:bg-map-surface"
+      class="inline-flex items-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:text-accent-foreground py-2 h-10 min-w-[7.5rem] justify-start gap-2 border-map-border bg-map-surface-overlay px-3 text-map-text-primary shadow-lg hover:bg-map-surface"
       title="Export screenshot (S)"
       type="button"
     >
@@ -61,10 +66,15 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
           r="3"
         />
       </svg>
+      <span
+        class="text-[11px] font-medium"
+      >
+        Screenshot
+      </span>
     </button>
     <button
       aria-label="Toggle map fullscreen"
-      class="inline-flex items-center justify-center whitespace-nowrap border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:text-accent-foreground rounded-xl h-10 w-10 border-map-border bg-map-surface-overlay text-map-text-primary shadow-lg hover:bg-map-surface"
+      class="inline-flex items-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:text-accent-foreground py-2 h-10 min-w-[7.5rem] justify-start gap-2 border-map-border bg-map-surface-overlay px-3 text-map-text-primary shadow-lg hover:bg-map-surface"
       title="Toggle fullscreen (F)"
       type="button"
     >
@@ -94,6 +104,11 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
           d="M9 21H3v-6"
         />
       </svg>
+      <span
+        class="text-[11px] font-medium"
+      >
+        Fullscreen
+      </span>
     </button>
   </div>
   <aside
