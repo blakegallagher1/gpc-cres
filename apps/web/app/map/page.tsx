@@ -1,11 +1,8 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 import { Loader2 } from "lucide-react";
 import { MapPageClient } from "./MapPageClient";
 
-export default async function MapPage() {
-  await connection();
-
+export default function MapPage() {
   return (
     <Suspense
       fallback={

@@ -36,4 +36,10 @@ Rules:
 - If Vercel deployment fails, report the error but do not retry automatically.
 - Committing and pushing directly to main is allowed.
 - Do NOT sleep-poll Vercel deployment status. Use auto-merge and check later.
+
+FAST DEPLOY (optional):
+After pushing to main, Vercel auto-deploys in ~3 min. For faster production visibility:
+  pnpm deploy:fast
+This builds locally with turbo cache (~25-35s) and deploys prebuilt output (~10-15s upload).
+Only use when explicitly asked to "deploy fast" or "quick deploy". Default path (push + auto-deploy) is fine.
 """

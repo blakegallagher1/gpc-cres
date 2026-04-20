@@ -58,10 +58,27 @@ prefix_rule(pattern=["docker", "compose"], decision="allow")
 prefix_rule(pattern=["docker", "ps"], decision="allow")
 prefix_rule(pattern=["docker", "logs"], decision="allow")
 
+# Cloudflare Wrangler (CF Worker + Pages deploys)
+prefix_rule(pattern=["npx", "wrangler"], decision="allow")
+prefix_rule(pattern=["wrangler"], decision="allow")
+
+# SSH to Windows server (Tailscale)
+prefix_rule(pattern=["ssh", "bg"], decision="allow")
+
 # Node/TypeScript tools
 prefix_rule(pattern=["node"], decision="allow")
 prefix_rule(pattern=["npx", "tsx"], decision="allow")
 prefix_rule(pattern=["npx", "tsc"], decision="allow")
+
+# Turbo build cache
+prefix_rule(pattern=["turbo"], decision="allow")
+prefix_rule(pattern=["npx", "turbo"], decision="allow")
+
+# Deploy scripts
+prefix_rule(pattern=["bash", "scripts/"], decision="allow")
+
+# Curl (health checks, API probes)
+prefix_rule(pattern=["curl"], decision="allow")
 
 # Process management (for dev servers)
 prefix_rule(pattern=["lsof", "-i"], decision="allow")

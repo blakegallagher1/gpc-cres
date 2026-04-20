@@ -32,6 +32,15 @@ fi
 
 # Install monorepo dependencies
 pnpm install --frozen-lockfile 2>/dev/null || pnpm install
+
+# Create env file from example (required for Prisma generate + builds)
+if [ ! -f .env ]; then
+  cp .env.example .env
+  echo "Created .env from .env.example — populate secrets before running tests."
+fi
+
+# Generate Prisma client (required before any build or typecheck)
+pnpm --filter @entitlement-os/db generate
 """
 
 [[actions]]
@@ -58,3 +67,28 @@ command = "pnpm lint && pnpm typecheck"
 name = "Run"
 icon = "run"
 command = "./script/build_and_run.sh"
+
+[[actions]]
+name = "Deploy Fast"
+icon = "deploy"
+command = "pnpm deploy:fast"
+
+[[actions]]
+name = "Deploy Full"
+icon = "deploy"
+command = "pnpm deploy"
+
+[[actions]]
+name = "Deploy CF Worker"
+icon = "deploy"
+command = "cd infra/gateway-proxy && npx wrangler deploy"
+
+[[actions]]
+name = "Deploy Admin Dashboard"
+icon = "deploy"
+command = "cd infra/admin-dashboard && npm run build && npx wrangler pages deploy dist"
+
+[[actions]]
+name = "Test Boundaries"
+icon = "test"
+command = "pnpm test:boundaries"

@@ -35,8 +35,8 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter @entitlement-os/db generate
 
-      - name: Build packages
-        run: pnpm --filter @entitlement-os/shared build && pnpm --filter @entitlement-os/db build && pnpm --filter @entitlement-os/artifacts build && pnpm --filter @entitlement-os/openai build && pnpm --filter @entitlement-os/evidence build
+      - name: Build packages (turbo cached)
+        run: pnpm exec turbo run build --filter=@entitlement-os/shared --filter=@entitlement-os/db --filter=@entitlement-os/artifacts --filter=@entitlement-os/openai --filter=@entitlement-os/evidence
 
       - name: Boundary locks
         run: pnpm test:boundaries
@@ -80,8 +80,8 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter @entitlement-os/db generate
 
-      - name: Build packages
-        run: pnpm --filter @entitlement-os/shared build && pnpm --filter @entitlement-os/db build && pnpm --filter @entitlement-os/artifacts build && pnpm --filter @entitlement-os/openai build && pnpm --filter @entitlement-os/evidence build
+      - name: Build packages (turbo cached)
+        run: pnpm exec turbo run build --filter=@entitlement-os/shared --filter=@entitlement-os/db --filter=@entitlement-os/artifacts --filter=@entitlement-os/openai --filter=@entitlement-os/evidence
 
       - name: Boundary locks
         run: pnpm test:boundaries

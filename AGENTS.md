@@ -68,7 +68,32 @@ L5: infra/*                 — separate runtimes, HTTP only
 pnpm typecheck              # TypeScript — run after every 1-2 file changes
 pnpm lint                   # ESLint
 pnpm test                   # Vitest
+pnpm test:boundaries        # Architectural boundary checks — run before shipping (CI blocker)
 pnpm build                  # Full build (run before shipping)
+pnpm deploy:fast            # Build + deploy to production (~35-45s warm cache)
+```
+
+### Build Prerequisites (fresh env or after `pnpm install`)
+```bash
+cp .env.example .env                          # Prisma needs DATABASE_URL
+pnpm --filter @entitlement-os/db generate     # Generate Prisma client BEFORE build/typecheck
+```
+
+### Package Builds (turbo cached)
+```bash
+pnpm exec turbo run build --filter=@entitlement-os/shared --filter=@entitlement-os/db --filter=@entitlement-os/artifacts --filter=@entitlement-os/openai --filter=@entitlement-os/evidence
+```
+Turbo caches package builds — subsequent runs are ~82ms if source is unchanged.
+
+### E2E Tests (two separate suites)
+```bash
+pnpm test:e2e:ui            # Playwright UI tests — no DB required
+pnpm test:e2e:db            # Playwright DB tests — needs Postgres + OPENAI_API_KEY
+```
+
+After any Playwright run, restore generated files:
+```bash
+git checkout -- apps/web/next-env.d.ts apps/web/tsconfig.json
 ```
 
 ## Shipping (MANDATORY)
@@ -103,6 +128,57 @@ git checkout -- apps/web/next-env.d.ts apps/web/tsconfig.json
 - Don't add new workspace packages without updating `pnpm-workspace.yaml`
 - Don't use `git add -A` — stage specific files
 - Don't use destructive git commands without approval
+
+## Deploy Targets
+
+| Surface | Source | Command | Trigger |
+|---------|--------|---------|---------|
+| **Vercel (frontend)** | `apps/web/` | `pnpm deploy:fast` (or `./scripts/quick-deploy.sh --fast`) | Auto-deploy on push to `main`; CLI for speed |
+| **CF Worker (gateway-proxy)** | `infra/gateway-proxy/` | `cd infra/gateway-proxy && npx wrangler deploy` | CI: push to `infra/local-api/**` |
+| **CF Pages (admin dashboard)** | `infra/admin-dashboard/` | `cd infra/admin-dashboard && npm run build && npx wrangler pages deploy dist` | Manual |
+| **CUA Worker (Docker)** | `infra/cua-worker/` | SSH to Windows: `docker compose up -d --build gpc-cua-worker` | Manual via SSH |
+| **Gateway (Docker Compose)** | `infra/local-api/` | CI: `.github/workflows/deploy-gateway.yml` | Push to `infra/local-api/**` |
+
+### Fast Deploy (scripts/quick-deploy.sh)
+
+The preferred deploy path for speed. Builds locally with turbo caching, deploys to Vercel production.
+
+```bash
+pnpm deploy              # Full: typecheck + build + deploy (~50-60s warm)
+pnpm deploy:fast         # Fast: skip typecheck + sentry (~35-45s warm)
+./scripts/quick-deploy.sh --fast --dry   # Validate build only, no deploy
+./scripts/quick-deploy.sh --prebuilt     # Fastest: local vercel build + prebuilt upload
+```
+
+Build uses turbo for package caching (82ms on cache hit) and conditional Prisma generate (skips if schema unchanged).
+
+### Vercel Deploy Notes
+- `--archive=tgz` is included automatically in the deploy script
+- Auto-deploy on push to `main` still works as fallback (3 min remote build)
+- Env vars on Vercel: `GATEWAY_PROXY_URL`, `GATEWAY_PROXY_TOKEN`, `CUA_WORKER_URL`
+
+## Infrastructure Quick Reference
+
+| Resource | ID / Location |
+|----------|--------------|
+| D1 Database (`gpc-gateway-cache`) | `52176b29-712b-4da2-a41d-1c2c80119ceb` |
+| Hyperdrive Config | `ebd13ab7df60414d9ba8244299467e5e` |
+| CF Tunnel (`gpc-hp-tunnel`) | Windows server ONLY — never run connector on Mac |
+| Property DB network | Docker `172.18.x` — gateway access only |
+| App DB network | Docker `172.19.x` — CF tunnel + Hyperdrive |
+| Windows server SSH | `ssh bg` (Tailscale) — never use CF Access |
+
+## CI/CD Pipelines
+
+| Workflow | Trigger | Node | Purpose |
+|----------|---------|------|---------|
+| `ci.yml` | push/PR to main | 22 (`.node-version`) | Full test matrix |
+| `harness-ci.yml` | push/PR to main | 22 (`.node-version`) | Harness CI checks |
+| `deploy-gateway.yml` | push to `infra/local-api/**` | — | Gateway Docker deploy |
+| `codex-autofix.yml` | `harness-ci` failure | 22 | Auto-fix CI breaks |
+| `codex-review.yml` | PR opened (non-draft) | 22 | Structured PR review |
+| `codex-issue-fix.yml` | label `codex-fix` | 22 | Fix issues from label |
+| `codex-mention.yml` | `@codex` in issue/PR | 22 | Respond to mentions |
 
 ## Reference Docs (read ONLY when needed for a specific task)
 

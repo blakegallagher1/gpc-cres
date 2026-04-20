@@ -18,11 +18,13 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: '.node-version'
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
+      - name: Build packages (turbo cached)
+        run: pnpm exec turbo run build --filter=@entitlement-os/shared --filter=@entitlement-os/db --filter=@entitlement-os/artifacts --filter=@entitlement-os/openai --filter=@entitlement-os/evidence
       - run: pnpm lint
-      - run: pnpm typecheck
+      - run: pnpm --filter gpc-agent-dashboard exec tsc --noEmit
 
   architecture:
     name: Architectural Constraints
@@ -57,12 +59,13 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: '.node-version'
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: cp .env.example .env
       - run: pnpm --filter @entitlement-os/db generate
-      - run: pnpm --filter @entitlement-os/shared build && pnpm --filter @entitlement-os/db build && pnpm --filter @entitlement-os/evidence build && pnpm --filter @entitlement-os/artifacts build && pnpm --filter @entitlement-os/openai build
+      - name: Build packages (turbo cached)
+        run: pnpm exec turbo run build --filter=@entitlement-os/shared --filter=@entitlement-os/db --filter=@entitlement-os/artifacts --filter=@entitlement-os/openai --filter=@entitlement-os/evidence
       - run: pnpm test
 
   build:
@@ -74,7 +77,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: '.node-version'
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
