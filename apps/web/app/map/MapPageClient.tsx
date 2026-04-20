@@ -1421,7 +1421,7 @@ export function MapPageClient() {
       return "No Baton Rouge parcels with verified geometry matched that lookup. Try a broader local address, parcel id, or owner name.";
     }
     if (parcels.length === 0) {
-      return "No East Baton Rouge parcel geometry is available yet. Load verified parish geometry to enable lookup, highlighting, and working sets.";
+      return "Verified parcel geometry is temporarily unavailable. Search by address, open copilot, or use prospecting while the parcel layer recovers.";
     }
     if (source === "org-fallback") {
       return `${visibleParcels.length} of ${parcels.length} parcels (property database fallback)`;
