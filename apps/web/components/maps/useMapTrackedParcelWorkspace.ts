@@ -37,6 +37,9 @@ type UseMapTrackedParcelWorkspaceArgs = {
 type UseMapTrackedParcelWorkspaceResult = {
   trackedParcels: MapTrackedParcel[];
   trackedParcelsHydrated: boolean;
+  workspaceSyncState: "connected" | "empty" | "degraded" | "local-bypass" | "saving";
+  workspaceSyncMessage: string | null;
+  reloadWorkspace: () => void;
   saveTrackedSelection: (draft: MapTrackedParcelDraft) => void;
   removeTrackedSelection: (parcelId: string) => void;
   updateTrackedSelectionStatus: (
@@ -111,13 +114,18 @@ export function useMapTrackedParcelWorkspace({
   const [trackedParcels, setTrackedParcels] = useState<MapTrackedParcel[]>([]);
   const [trackedParcelsHydrated, setTrackedParcelsHydrated] = useState(false);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+  const [workspaceSyncState, setWorkspaceSyncState] =
+    useState<UseMapTrackedParcelWorkspaceResult["workspaceSyncState"]>("saving");
+  const [workspaceSyncMessage, setWorkspaceSyncMessage] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadWorkspace = useCallback(() => {
     if (typeof window === "undefined") {
-      return;
+      return () => undefined;
     }
 
     let active = true;
+    setWorkspaceSyncState("saving");
+    setWorkspaceSyncMessage("Refreshing shared workspace");
 
     void fetch("/api/map/workspace", { cache: "no-store" })
       .then(async (response) => {
@@ -126,6 +134,8 @@ export function useMapTrackedParcelWorkspace({
         }
 
         const payload = (await response.json()) as {
+          syncState?: "connected" | "empty" | "degraded" | "local-bypass";
+          error?: string;
           workspace?: {
             id?: string;
             trackedParcels?: MapTrackedParcel[];
@@ -142,6 +152,18 @@ export function useMapTrackedParcelWorkspace({
             ? payload.workspace.trackedParcels
             : [],
         );
+        const nextSyncState = payload.syncState ?? "connected";
+        setWorkspaceSyncState(nextSyncState);
+        setWorkspaceSyncMessage(
+          payload.error ??
+            (nextSyncState === "connected"
+              ? "Shared workspace connected"
+              : nextSyncState === "empty"
+                ? "No shared map workspace yet"
+                : nextSyncState === "local-bypass"
+                  ? "Local workspace bypass active"
+                  : "Shared workspace degraded; using local state"),
+        );
       })
       .catch(() => {
         if (!active) {
@@ -149,6 +171,8 @@ export function useMapTrackedParcelWorkspace({
         }
 
         setTrackedParcels(readMapTrackedParcels(window.localStorage));
+        setWorkspaceSyncState("degraded");
+        setWorkspaceSyncMessage("Shared workspace unavailable; using local state");
       })
       .finally(() => {
         if (active) {
@@ -160,6 +184,8 @@ export function useMapTrackedParcelWorkspace({
       active = false;
     };
   }, []);
+
+  useEffect(() => loadWorkspace(), [loadWorkspace]);
 
   useEffect(() => {
     if (!trackedParcelsHydrated) {
@@ -236,6 +262,8 @@ export function useMapTrackedParcelWorkspace({
 
       try {
         setTrackedParcels(normalizedTrackedParcels);
+        setWorkspaceSyncState("saving");
+        setWorkspaceSyncMessage("Saving shared workspace");
 
         if (typeof window !== "undefined") {
           writeMapTrackedParcels(window.localStorage, normalizedTrackedParcels);
@@ -269,11 +297,15 @@ export function useMapTrackedParcelWorkspace({
         };
 
         setWorkspaceId(payload.workspace?.id ?? workspaceId);
+        setWorkspaceSyncState("connected");
+        setWorkspaceSyncMessage("Shared workspace connected");
         if (Array.isArray(payload.workspace?.trackedParcels)) {
           setTrackedParcels(payload.workspace.trackedParcels);
         }
       } catch {
         // Keep the optimistic local state when the shared workspace call fails.
+        setWorkspaceSyncState("degraded");
+        setWorkspaceSyncMessage("Shared workspace save failed; keeping local state");
       }
     },
     [
@@ -313,6 +345,11 @@ export function useMapTrackedParcelWorkspace({
   return {
     trackedParcels,
     trackedParcelsHydrated,
+    workspaceSyncState,
+    workspaceSyncMessage,
+    reloadWorkspace: () => {
+      loadWorkspace();
+    },
     saveTrackedSelection,
     removeTrackedSelection,
     updateTrackedSelectionStatus,

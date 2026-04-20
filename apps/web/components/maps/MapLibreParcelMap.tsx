@@ -659,6 +659,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   const [measureMode, setMeasureMode] = useState<"off" | "distance" | "area">("off");
   const [lastDrawnMeasureLabel, setLastDrawnMeasureLabel] = useState<string | null>(null);
   const [layerPanelOpen, setLayerPanelOpen] = useState(false);
+  const workbenchAutoOpenedRef = useRef(false);
   const [internalSelectedParcelIds, setInternalSelectedParcelIds] = useState<Set<string>>(new Set());
   const [imperativeHighlightIds, setImperativeHighlightIds] = useState<Set<string>>(new Set());
   const [compareOpen, setCompareOpen] = useState(false);
@@ -671,6 +672,14 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   const stableMapCallbacks = useStableOptions({ onParcelClick });
   const parcelByIdRef = useRef<Map<string, MapParcel>>(new Map());
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    if (isMobile || workbenchAutoOpenedRef.current) {
+      return;
+    }
+    workbenchAutoOpenedRef.current = true;
+    setLayerPanelOpen(true);
+  }, [isMobile]);
 
   // Dark mode detection via MutationObserver
   const [isDark, setIsDark] = useState(false);
@@ -2484,6 +2493,13 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           showWetlands={showWetlands}
           showEpa={showEpa}
           showMobileHomePark={showMobileHomePark}
+          onToggleParcelBoundaries={() => setShowParcelBoundaries((value) => !value)}
+          onToggleZoning={() => setShowZoning((value) => !value)}
+          onToggleFlood={() => setShowFlood((value) => !value)}
+          onToggleSoils={() => setShowSoils((value) => !value)}
+          onToggleWetlands={() => setShowWetlands((value) => !value)}
+          onToggleEpa={() => setShowEpa((value) => !value)}
+          onToggleMobileHomePark={() => setShowMobileHomePark((value) => !value)}
         />
       )}
 

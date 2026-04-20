@@ -308,6 +308,7 @@ export function MapPageClient() {
   const initializedFromUrlRef = useRef(false);
   const [activePanel, setActivePanel] = useState<"chat" | "prospecting" | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sidebarAutoOpenedRef = useRef(false);
 
   // Force dark mode on map page mount
   useLayoutEffect(() => {
@@ -410,6 +411,14 @@ export function MapPageClient() {
       setSidebarOpen(true);
     }
   }, [selectedParcelIds.size]);
+
+  useEffect(() => {
+    if (isMobile || sidebarAutoOpenedRef.current) {
+      return;
+    }
+    sidebarAutoOpenedRef.current = true;
+    setSidebarOpen(true);
+  }, [isMobile]);
 
   useEffect(() => {
     const handleKeyDown = (e: Event) => {
@@ -1033,6 +1042,9 @@ export function MapPageClient() {
   );
   const {
     trackedParcels,
+    workspaceSyncState,
+    workspaceSyncMessage,
+    reloadWorkspace,
     saveTrackedSelection,
     removeTrackedSelection,
     updateTrackedSelectionStatus,
@@ -1542,6 +1554,82 @@ export function MapPageClient() {
           <>
             <div className="relative flex min-h-0 flex-1">
               <div className="relative min-w-0 flex-1">
+                <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex justify-end">
+                  <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-end gap-2 rounded-2xl border border-map-border bg-map-surface-overlay/94 px-3 py-2 shadow-[0_20px_55px_-34px_rgba(15,23,42,0.72)] backdrop-blur-xl">
+                    <span className="mr-1 font-mono text-[10px] uppercase tracking-[0.18em] text-map-text-muted">
+                      Operator actions
+                    </span>
+                    <Badge variant="outline" className="px-2 py-0.5 text-[9px]">
+                      {workingSetCount} selected
+                    </Badge>
+                    {trackedSummary.totalCount > 0 ? (
+                      <Badge variant="secondary" className="px-2 py-0.5 text-[9px]">
+                        {trackedSummary.totalCount} tracked
+                      </Badge>
+                    ) : null}
+                    <Badge
+                      variant="outline"
+                      className="px-2 py-0.5 text-[9px]"
+                    >
+                      {workspaceSyncState === "connected"
+                        ? "Workspace connected"
+                        : workspaceSyncState === "saving"
+                          ? "Workspace saving"
+                          : workspaceSyncState === "empty"
+                            ? "Workspace empty"
+                            : workspaceSyncState === "local-bypass"
+                              ? "Workspace bypass"
+                              : "Workspace degraded"}
+                    </Badge>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={sidebarOpen ? "secondary" : "default"}
+                      className="h-8 text-xs"
+                      onClick={() => setSidebarOpen((value) => !value)}
+                    >
+                      {sidebarOpen ? "Hide console" : "Open console"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={activePanel === "chat" ? "secondary" : "outline"}
+                      className="h-8 text-xs"
+                      onClick={() =>
+                        setActivePanel((value) => (value === "chat" ? null : "chat"))
+                      }
+                    >
+                      {activePanel === "chat" ? "Close copilot" : "Open copilot"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={activePanel === "prospecting" ? "secondary" : "outline"}
+                      className="h-8 text-xs"
+                      onClick={() =>
+                        setActivePanel((value) => (value === "prospecting" ? null : "prospecting"))
+                      }
+                    >
+                      {activePanel === "prospecting" ? "Close prospecting" : "Open prospecting"}
+                    </Button>
+                    {workspaceSyncState === "degraded" ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs"
+                        onClick={reloadWorkspace}
+                      >
+                        Retry workspace
+                      </Button>
+                    ) : null}
+                    {workspaceSyncMessage ? (
+                      <span className="text-[10px] text-map-text-muted">
+                        {workspaceSyncMessage}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
                 <AnimatePresence initial={false}>
                   {activePanel === "chat" ? (
                     <MapChatPanel
@@ -1851,15 +1939,18 @@ export function MapPageClient() {
                   type="button"
                   onClick={() => setSidebarOpen((prev) => !prev)}
                   initial={false}
-                  animate={{ x: sidebarOpen ? -412 : 0 }}
+                  animate={{ x: sidebarOpen ? -430 : 0 }}
                   transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                  className="pointer-events-auto absolute right-0 top-1/2 flex h-14 w-7 -translate-y-1/2 items-center justify-center rounded-l-2xl border border-r-0 border-map-border bg-map-surface-overlay/95 text-map-text-muted shadow-[0_18px_50px_-28px_rgba(15,23,42,0.55)] backdrop-blur-md transition-colors hover:text-map-text-primary"
+                  className="pointer-events-auto absolute right-0 top-1/2 flex h-12 min-w-[8.5rem] -translate-y-1/2 items-center justify-center rounded-2xl border border-map-border bg-map-surface-overlay/95 px-3 text-[11px] font-medium text-map-text-muted shadow-[0_18px_50px_-28px_rgba(15,23,42,0.55)] backdrop-blur-md transition-colors hover:text-map-text-primary"
                   aria-label={sidebarOpen ? "Close console" : "Open console"}
                   aria-expanded={sidebarOpen}
                   aria-controls="map-operator-console"
                   title={sidebarOpen ? "Close operator console" : "Open operator console"}
                 >
-                  <span className="text-sm leading-none">{sidebarOpen ? "\u203A" : "\u2039"}</span>
+                  <span className="inline-flex items-center gap-2">
+                    <span className="text-sm leading-none">{sidebarOpen ? "\u203A" : "\u2039"}</span>
+                    <span>{sidebarOpen ? "Hide console" : "Show console"}</span>
+                  </span>
                 </motion.button>
                 <AnimatePresence initial={false}>
                   {sidebarOpen ? (

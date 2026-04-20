@@ -465,11 +465,10 @@ export function MapWorkbenchPanel({
             <TooltipTrigger asChild>
               <Button
                 type="button"
-                variant="outline"
-                size="icon"
+                variant={open ? "outline" : "default"}
                 onClick={onToggleOpen}
                 className={cn(
-                  "relative h-11 w-11 border-map-border bg-map-surface-overlay shadow-lg transition-all",
+                  "relative h-11 min-w-[7.5rem] justify-start gap-2 border-map-border px-3 shadow-lg transition-all",
                   open
                     ? "text-map-text-primary hover:bg-map-surface"
                     : "text-map-accent hover:bg-map-surface hover:text-map-accent",
@@ -479,6 +478,9 @@ export function MapWorkbenchPanel({
                 aria-expanded={open}
               >
                 {open ? <ChevronLeft className="h-4 w-4" /> : <Layers className="h-4 w-4" />}
+                <span className="text-[11px] font-medium">
+                  {open ? "Hide tools" : "Map tools"}
+                </span>
                 {!open && actionableCount > 0 ? (
                   <span className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-map-accent px-1 text-[9px] font-bold leading-none text-white shadow-md">
                     {actionableCount}
@@ -493,27 +495,89 @@ export function MapWorkbenchPanel({
           <Button
             type="button"
             variant="outline"
-            size="icon"
             onClick={onScreenshot}
-            className="h-10 w-10 border-map-border bg-map-surface-overlay text-map-text-primary shadow-lg hover:bg-map-surface"
+            className="h-10 min-w-[7.5rem] justify-start gap-2 border-map-border bg-map-surface-overlay px-3 text-map-text-primary shadow-lg hover:bg-map-surface"
             title="Export screenshot (S)"
             aria-label="Export map screenshot"
           >
             <Camera className="h-4 w-4" />
+            <span className="text-[11px] font-medium">Screenshot</span>
           </Button>
           <Button
             type="button"
             variant="outline"
-            size="icon"
             onClick={onToggleFullscreen}
-            className="h-10 w-10 border-map-border bg-map-surface-overlay text-map-text-primary shadow-lg hover:bg-map-surface"
+            className="h-10 min-w-[7.5rem] justify-start gap-2 border-map-border bg-map-surface-overlay px-3 text-map-text-primary shadow-lg hover:bg-map-surface"
             title="Toggle fullscreen (F)"
             aria-label="Toggle map fullscreen"
           >
             <Maximize2 className="h-4 w-4" />
+            <span className="text-[11px] font-medium">Fullscreen</span>
           </Button>
         </div>
       </TooltipProvider>
+
+      {!open ? (
+        <div className="pointer-events-auto w-[17.5rem] rounded-[1.4rem] border border-map-border bg-map-surface-overlay/95 p-3 shadow-[0_18px_50px_-28px_rgba(15,23,42,0.55)] backdrop-blur-xl">
+          <div className="space-y-1">
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-map-text-muted">
+              Feature access
+            </p>
+            <p className="text-[11px] leading-5 text-map-text-secondary">
+              Open the tool stack directly instead of hunting through icon-only controls.
+            </p>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <ToolButton
+              active={false}
+              label="Open layers"
+              onClick={onToggleOpen}
+              icon={<Layers className="h-4 w-4" />}
+            />
+            <ToolButton
+              active={showComps}
+              label="Comps"
+              onClick={() => {
+                if (!open) onToggleOpen();
+                setShowComps((value) => !value);
+              }}
+              icon={<Sparkles className="h-4 w-4" />}
+            />
+            <ToolButton
+              active={drawing}
+              label="Draw boundary"
+              onClick={() => {
+                if (!open) onToggleOpen();
+                onToggleDrawing();
+              }}
+              icon={<Pencil className="h-4 w-4" />}
+            />
+            <ToolButton
+              active={measureMode !== "off"}
+              label="Measure"
+              onClick={() => {
+                if (!open) onToggleOpen();
+                setMeasureMode(measureMode === "distance" ? "off" : "distance");
+              }}
+              icon={<Ruler className="h-4 w-4" />}
+            />
+          </div>
+          <div className="mt-3">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="h-9 w-full justify-between rounded-2xl px-3 text-xs"
+              onClick={onOpenCompare}
+            >
+              <span>Open compare sheet</span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-map-text-muted">
+                {selectedCount > 0 ? `${selectedCount} selected` : "Need selection"}
+              </span>
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <AnimatePresence initial={false}>
         {open ? (

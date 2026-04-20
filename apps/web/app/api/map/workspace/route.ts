@@ -27,25 +27,27 @@ export async function GET(request: NextRequest) {
     );
 
     if (!workspace) {
-      return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+      return NextResponse.json({
+        workspace: null,
+        syncState: "empty" as const,
+      });
     }
 
     return NextResponse.json({
       workspace: mapWorkspaceService.buildWorkspaceBridgeRecord(workspace),
+      syncState: "connected" as const,
     });
   } catch (error) {
     Sentry.captureException(error, {
       tags: { route: "api.map.workspace", method: "GET" },
     });
-
-    if (isAppRouteLocalBypassEnabled()) {
-      return NextResponse.json({ workspace: null });
-    }
-
-    return NextResponse.json(
-      { error: "Failed to load map workspace" },
-      { status: 500 },
-    );
+    return NextResponse.json({
+      workspace: null,
+      syncState: isAppRouteLocalBypassEnabled()
+        ? ("local-bypass" as const)
+        : ("degraded" as const),
+      error: "Failed to load map workspace",
+    });
   }
 }
 
