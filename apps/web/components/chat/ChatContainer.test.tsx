@@ -241,6 +241,11 @@ describe("ChatContainer", () => {
       expect(
         screen.getByText(/Lead with the matter, outcome, or document you need\./i),
       ).toBeInTheDocument();
+      expect(screen.getByTestId("conversation-sidebar")).toHaveAttribute("data-open", "true");
+      expect(screen.getByTestId("conversation-sidebar")).toHaveAttribute(
+        "data-mobile",
+        "false",
+      );
       expect(screen.queryByRole("button", { name: "History", exact: true })).not.toBeInTheDocument();
       expect(
         screen.queryByRole("button", { name: "Verification", exact: true }),
@@ -293,6 +298,10 @@ describe("ChatContainer", () => {
 
       expect(await screen.findByText(/Saved thread/)).toBeInTheDocument();
       expect(screen.getByText(/finance/)).toBeInTheDocument();
+      expect(screen.getByTestId("conversation-sidebar")).toHaveAttribute(
+        "data-active-conversation-id",
+        RESTORED_SUMMARY_CONVERSATION_ID,
+      );
       expect(screen.getByTestId("message-list")).toHaveAttribute(
         "data-conversation-id",
         RESTORED_SUMMARY_CONVERSATION_ID,

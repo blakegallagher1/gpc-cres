@@ -11,6 +11,7 @@ import { AgentTrustEnvelope } from '@/types';
 import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
 import { AgentIndicator } from './AgentIndicator';
+import { ConversationSidebar } from './ConversationSidebar';
 import { DealSelector } from './DealSelector';
 import {
   ChatWorkspaceHero,
@@ -289,6 +290,7 @@ export function ChatContainer() {
   const [agentSummary, setAgentSummary] = useState<AgentTrustEnvelope | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   const [authToken, setAuthToken] = useState<string | null>(null);
 
@@ -378,6 +380,12 @@ export function ChatContainer() {
       setRecentConversationIds(createRecentState(readRecentConversationIds()));
     }
   }, []);
+
+  useEffect(() => {
+    if (!isMobile) {
+      setIsHistoryOpen(true);
+    }
+  }, [isMobile]);
 
   const hasRecentConversations = useMemo(
     () => recentConversationIds.length > 0,
@@ -833,6 +841,7 @@ export function ChatContainer() {
     onSuggestionClick: handleSend,
   });
   const showLaunchComposer = visibleMessages.length === 0;
+  const showHistoryRail = !isMobile || conversationId !== null || visibleMessages.length > 0;
   const handleQuickActionSelect = useCallback((prompt: string) => {
     void handleSend(prompt);
   }, [handleSend]);
@@ -850,9 +859,26 @@ export function ChatContainer() {
 
   return (
     <div className="flex h-[calc(100svh-var(--app-header-height))] min-h-[calc(100svh-var(--app-header-height))] overflow-hidden bg-background">
-      <div className="mx-auto flex h-full w-full max-w-[1040px] flex-col px-3 py-4 md:px-6 md:py-6">
-        <section className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg border border-border bg-background shadow-sm">
-            <div className="flex h-full min-h-0 min-w-0 flex-col">
+      <div className="mx-auto flex h-full w-full max-w-[1360px] flex-col px-3 py-4 md:px-6 md:py-6">
+        <section className="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg border border-border bg-background shadow-sm">
+          <div className="flex h-full min-h-0 min-w-0">
+            {showHistoryRail ? (
+              <ConversationSidebar
+                conversations={conversations}
+                activeConversationId={conversationId}
+                onConversationSelect={loadConversation}
+                open={isHistoryOpen}
+                onToggle={() => setIsHistoryOpen((current) => !current)}
+                onRefresh={reloadConversations}
+                loading={isLoadingConversations}
+                hasRecentRecents={hasRecentConversations}
+                recentConversationIds={recentConversationIds}
+                mobile={isMobile}
+                showCollapsedTrigger={!isMobile || conversationId !== null || visibleMessages.length > 0}
+              />
+            ) : null}
+
+            <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
               {showLaunchComposer ? (
                 <>
                   <div className="min-h-0 flex-1 overflow-y-auto">
@@ -872,7 +898,7 @@ export function ChatContainer() {
                       threadStatusLabel={threadStatusLabel}
                       transportLabel={transportLabel}
                       isMobile={isMobile}
-                      onOpenHistory={() => undefined}
+                      onOpenHistory={() => setIsHistoryOpen(true)}
                       onOpenInspector={() => undefined}
                       onCuaModelChange={setCuaModel}
                       onQuickActionSelect={handleQuickActionSelect}
@@ -905,7 +931,7 @@ export function ChatContainer() {
                     threadStatusLabel={threadStatusLabel}
                     transportLabel={transportLabel}
                     isMobile={isMobile}
-                    onOpenHistory={() => undefined}
+                    onOpenHistory={() => setIsHistoryOpen(true)}
                     onOpenInspector={() => undefined}
                     onCuaModelChange={setCuaModel}
                     onQuickActionSelect={handleQuickActionSelect}
@@ -961,7 +987,8 @@ export function ChatContainer() {
                 </>
               )}
             </div>
-          </section>
+          </div>
+        </section>
       </div>
     </div>
   );
