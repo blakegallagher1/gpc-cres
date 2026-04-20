@@ -112,7 +112,7 @@ export const coordinatorInputGuardrail: InputGuardrail = {
     const dealReferenceMismatch =
       activeDealId &&
       referencedDealIds.length > 0 &&
-      referencedDealIds.some((id) => id !== activeDealId)
+      !referencedDealIds.includes(activeDealId)
         ? ["deal_reference_mismatch"]
         : [];
 

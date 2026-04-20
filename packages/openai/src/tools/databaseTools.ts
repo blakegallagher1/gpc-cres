@@ -69,9 +69,12 @@ function normalizeTableIdentifier(raw: string): string {
   return withoutSchema.trim().toLowerCase();
 }
 
-function extractReferencedTables(sql: string): string[] {
+export function extractReferencedTables(sql: string): string[] {
+  const cleaned = sql
+    .replace(/--.*$/gm, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
   const tables: string[] = [];
-  for (const match of sql.matchAll(TABLE_REF_REGEX)) {
+  for (const match of cleaned.matchAll(TABLE_REF_REGEX)) {
     const table = normalizeTableIdentifier(match[1] ?? "");
     if (table.length > 0) {
       tables.push(table);
