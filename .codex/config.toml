@@ -38,27 +38,81 @@ background_terminal_max_timeout = 600000
 inherit                = "core"
 ignore_default_excludes = true
 include_only = [
+  # System
   "PATH", "HOME", "SHELL", "USER", "LANG", "TERM",
+  "NODE_OPTIONS", "EDITOR", "SSH_AUTH_SOCK",
+  # Git
   "GH_TOKEN", "GITHUB_TOKEN",
-  "OPENAI_API_KEY",
-  "NODE_OPTIONS",
   "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL",
   "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL",
-  "EDITOR", "SSH_AUTH_SOCK",
+  # Database
   "DATABASE_URL", "DIRECT_URL",
-  "SENTRY_AUTH_TOKEN", "SENTRY_ORG", "SENTRY_PROJECT",
-  "CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET",
-  "ADMIN_API_KEY", "LOCAL_API_KEY",
+  "READ_REPLICA_DATABASE_URL", "ENABLE_READ_REPLICA",
+  "DATABASE_URL_LOCAL", "DIRECT_DATABASE_URL_LOCAL",
+  # Auth
   "NEXTAUTH_SECRET", "AUTH_SECRET",
+  "ADMIN_API_KEY", "LOCAL_API_KEY",
+  # AI / Model routing
+  "OPENAI_API_KEY",
+  "OPENAI_PARISH_PACK_MODEL", "OPENAI_TRIAGE_MODEL", "OPENAI_ARTIFACT_MODEL",
+  "PERPLEXITY_API_KEY",
+  # Gateway proxy (canonical Vercel pattern)
+  "GATEWAY_PROXY_URL", "GATEWAY_PROXY_TOKEN",
+  "GATEWAY_ADMIN_TOKEN", "GATEWAY_SERVICE_USER_ID",
+  # Cloudflare
+  "CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET",
+  # CUA browser agent
+  "CUA_WORKER_URL",
+  # External services
+  "GOOGLE_MAPS_API_KEY",
+  "NEPTUNE_FLOOD_API_KEY", "NEPTUNE_FLOOD_BASE_URL",
+  "SOCRATA_APP_TOKEN",
+  # Observability
+  "SENTRY_AUTH_TOKEN", "SENTRY_ORG", "SENTRY_PROJECT",
+  "SENTRY_DSN", "NEXT_PUBLIC_SENTRY_DSN",
 ]
 
 # ---------------------------------------------------------------------------
 # Feature Flags
 # ---------------------------------------------------------------------------
 [features]
-multi_agent         = true
-memories            = true
-prevent_idle_sleep  = true    # Keep macOS awake during 15-min agent jobs
+apply_patch_freeform            = true
+apps                            = true
+artifact                        = true
+child_agents_md                 = true
+code_mode                       = true
+codex_git_commit                = true
+codex_hooks                     = true
+default_mode_request_user_input = true
+enable_fanout                   = true
+enable_request_compression      = true
+exec_permission_approvals       = true
+fast_mode                       = true
+guardian_approval                = true
+image_detail_original           = true
+image_generation                = true
+js_repl                         = true
+memories                        = true
+multi_agent                     = true
+multi_agent_v2                  = true
+personality                     = true
+plugins                         = true
+prevent_idle_sleep              = true
+realtime_conversation           = true
+request_permissions_tool        = true
+runtime_metrics                 = true
+shell_snapshot                  = true
+shell_tool                      = true
+shell_zsh_fork                  = true
+skill_env_var_dependency_prompt = true
+skill_mcp_dependency_install    = true
+smart_approvals                 = true
+tool_call_mcp_elicitation       = true
+tool_search                     = true
+tool_suggest                    = true
+undo                            = true
+unified_exec                    = true
+voice_transcription             = true
 
 # ---------------------------------------------------------------------------
 # Multi-agent — trimmed to essentials
@@ -166,3 +220,18 @@ enabled = true
 # ---------------------------------------------------------------------------
 [plugins."build-web-apps@openai-curated"]
 enabled = true
+
+[plugins."computer-use@openai-bundled"]
+enabled = true
+
+[plugins."github@openai-curated"]
+enabled = true
+
+# ---------------------------------------------------------------------------
+# Tools
+# ---------------------------------------------------------------------------
+[tools]
+view_image = true
+
+[tools.web_search]
+context_size = "high"

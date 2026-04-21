@@ -5,32 +5,68 @@
 #
 # Sets global defaults across all repos.
 # Project-level .codex/config.toml overrides these per-repo.
+# Last updated: 2026-04-20
 
 # ---------------------------------------------------------------------------
 # Core
 # ---------------------------------------------------------------------------
-model                   = "gpt-5.2-codex"
+model                   = "gpt-5.4"
 personality             = "pragmatic"
 approval_policy         = "on-request"
+approvals_reviewer      = "guardian_subagent"
 sandbox_mode            = "workspace-write"
-file_opener             = "cursor"          # Change to "vscode" if using VS Code
+file_opener             = "cursor"
 
-model_reasoning_effort  = "medium"
+model_reasoning_effort  = "xhigh"
 model_reasoning_summary = "concise"
+model_verbosity         = "medium"
+model_context_window    = 1000000
+model_auto_compact_token_limit = 950000
 
-web_search = "live"
+plan_mode_reasoning_effort = "high"
+review_model            = "gpt-5.4"
 
-# Fast service tier — low-latency path when available.
+web_search              = "live"
 service_tier            = "fast"
 
+background_terminal_max_timeout = 600000
+check_for_update_on_startup     = true
+hide_agent_reasoning            = false
+show_raw_agent_reasoning        = false
 suppress_unstable_features_warning = true
 
+project_doc_max_bytes              = 524288
+project_doc_fallback_filenames     = ["AGENTS.md", "CLAUDE.md", ".agents.md"]
+tool_output_token_limit            = 200000
+
+cli_auth_credentials_store     = "keyring"
+mcp_oauth_callback_port        = 4591
+mcp_oauth_credentials_store    = "keyring"
+
+commit_attribution = "Co-Authored-By: Codex <codex@openai.com>"
+zsh_path           = "/bin/zsh"
+
 # ---------------------------------------------------------------------------
-# Context Management
+# Agents
 # ---------------------------------------------------------------------------
-project_doc_max_bytes           = 65536
-model_auto_compact_token_limit  = 100000
-tool_output_token_limit         = 10000
+[agents]
+job_max_runtime_seconds = 3600
+max_depth               = 4
+max_threads             = 8
+
+# ---------------------------------------------------------------------------
+# Analytics
+# ---------------------------------------------------------------------------
+[analytics]
+enabled = false
+
+# ---------------------------------------------------------------------------
+# Apps
+# ---------------------------------------------------------------------------
+[apps._default]
+destructive_enabled = true
+enabled             = true
+open_world_enabled  = true
 
 # ---------------------------------------------------------------------------
 # Sandbox
@@ -39,70 +75,153 @@ tool_output_token_limit         = 10000
 network_access = true
 
 # ---------------------------------------------------------------------------
-# Shell Environment — minimal safe set; projects add their own
+# Shell Environment
 # ---------------------------------------------------------------------------
 [shell_environment_policy]
-inherit    = "core"
-ignore_default_excludes = true
-include_only = [
-  "PATH", "HOME", "SHELL", "USER", "LANG", "TERM",
-  "GH_TOKEN",
-  "GITHUB_TOKEN",
-  "OPENAI_API_KEY",
-  "NODE_OPTIONS",
-  "GIT_AUTHOR_NAME",
-  "GIT_AUTHOR_EMAIL",
-  "GIT_COMMITTER_NAME",
-  "GIT_COMMITTER_EMAIL",
-  "EDITOR",
-  "SSH_AUTH_SOCK",
-]
+inherit                = "all"
+experimental_use_profile = true
+ignore_default_excludes  = true
 
 # ---------------------------------------------------------------------------
-# Features
+# Features — all stable + experimental as of 2026-04-20
 # ---------------------------------------------------------------------------
 [features]
-memory_tool          = true
-shell_tool           = true
-undo                 = true
-search_tool          = true
-collaboration_modes  = true
-personality          = true
-request_rule         = true
-apply_patch_freeform = true
-unified_exec         = true
-shell_snapshot       = true
-prevent_idle_sleep   = true    # Keep macOS awake during long agent jobs
-
-# ---------------------------------------------------------------------------
-# TUI
-# ---------------------------------------------------------------------------
-# Desktop notification on agent-turn-complete (requires terminal-notifier or osascript)
-# Projects can override with their own script path.
-notify = ["python3", ".codex/scripts/notify.py"]
-
-[tui]
-notifications      = true
-notification_method = "auto"
-animations         = true
-show_tooltips      = false
-status_line        = ["context-remaining", "git-branch"]
+apply_patch_freeform            = true
+apps                            = true
+artifact                        = true
+child_agents_md                 = true
+code_mode                       = true
+codex_git_commit                = true
+codex_hooks                     = true
+default_mode_request_user_input = true
+enable_fanout                   = true
+enable_request_compression      = true
+exec_permission_approvals       = true
+fast_mode                       = true
+guardian_approval                = true
+image_detail_original           = true
+image_generation                = true
+js_repl                         = true
+memories                        = true
+multi_agent                     = true
+multi_agent_v2                  = true
+personality                     = true
+plugins                         = true
+prevent_idle_sleep              = true
+realtime_conversation           = true
+request_permissions_tool        = true
+runtime_metrics                 = true
+shell_snapshot                  = true
+shell_tool                      = true
+shell_zsh_fork                  = true
+skill_env_var_dependency_prompt = true
+skill_mcp_dependency_install    = true
+smart_approvals                 = true
+tool_call_mcp_elicitation       = true
+tool_search                     = true
+tool_suggest                    = true
+undo                            = true
+unified_exec                    = true
+voice_transcription             = true
 
 # ---------------------------------------------------------------------------
 # History & Memory
 # ---------------------------------------------------------------------------
 [history]
 persistence = "save-all"
-max_bytes   = 104857600       # 100 MiB cap — prevents unbounded growth
 
 [memories]
-max_raw_memories_for_global = 50
-max_rollout_age_days        = 30
-max_rollouts_per_startup    = 3
-min_rollout_idle_hours      = 4
+generate_memories = true
 
 # ---------------------------------------------------------------------------
-# Trusted Projects
+# Notice
+# ---------------------------------------------------------------------------
+[notice]
+hide_full_access_warning = true
+
+[notice.model_migrations]
+"gpt-5.3-codex" = "gpt-5.4"
+
+# ---------------------------------------------------------------------------
+# Realtime (voice)
+# ---------------------------------------------------------------------------
+[realtime]
+session_type = "conversational"
+transport    = "webrtc"
+version      = "v2"
+
+# ---------------------------------------------------------------------------
+# Tools
+# ---------------------------------------------------------------------------
+[tools]
+view_image = true
+
+[tools.web_search]
+context_size = "high"
+
+# ---------------------------------------------------------------------------
+# TUI
+# ---------------------------------------------------------------------------
+[tui]
+alternate_screen    = "auto"
+animations          = true
+notification_method = "auto"
+notifications       = true
+show_tooltips       = true
+
+# ---------------------------------------------------------------------------
+# Plugins — enable all curated + bundled
+# ---------------------------------------------------------------------------
+[plugins."build-ios-apps@openai-curated"]
+enabled = true
+
+[plugins."build-macos-apps@openai-curated"]
+enabled = true
+
+[plugins."build-web-apps@openai-curated"]
+enabled = true
+
+[plugins."canva@openai-curated"]
+enabled = true
+
+[plugins."circleci@openai-curated"]
+enabled = true
+
+[plugins."cloudflare@openai-curated"]
+enabled = true
+
+[plugins."computer-use@openai-bundled"]
+enabled = true
+
+[plugins."figma@openai-curated"]
+enabled = true
+
+[plugins."github@openai-curated"]
+enabled = true
+
+[plugins."gmail@openai-curated"]
+enabled = true
+
+[plugins."google-drive@openai-curated"]
+enabled = true
+
+[plugins."hugging-face@openai-curated"]
+enabled = true
+
+[plugins."jam@openai-curated"]
+enabled = true
+
+[plugins."netlify@openai-curated"]
+enabled = true
+
+[plugins."superpowers@openai-curated"]
+enabled = true
+
+[plugins."vercel@openai-curated"]
+enabled = true
+
+# ---------------------------------------------------------------------------
+# Trusted Projects — add your repos here
 # ---------------------------------------------------------------------------
 [projects."/Users/gallagherpropertycompany/Documents/gallagher-cres"]
 trust_level = "trusted"
