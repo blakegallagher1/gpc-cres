@@ -259,7 +259,7 @@ function MapPopupContent(params: {
       </div>
 
       {viewModel.identityRows && viewModel.identityRows.length > 0 ? (
-        <div className="grid grid-cols-1 gap-1.5 rounded border border-map-border bg-map-surface/60 p-2">
+        <div className="grid grid-cols-1 gap-1.5 rounded border border-map-border bg-map-surface/82 p-2">
           {viewModel.identityRows.map((row) => (
             <div key={`${row.label}:${row.value}`} className="flex justify-between gap-3 text-[10px]">
               <span className="text-map-text-muted">{row.label}</span>
@@ -274,7 +274,7 @@ function MapPopupContent(params: {
           {viewModel.riskChips.map((chip) => (
             <span
               key={chip}
-              className="rounded-full border border-map-border bg-map-surface px-2 py-0.5 text-[10px] text-map-text-secondary"
+              className="rounded-full border border-map-border bg-map-surface/85 px-2 py-0.5 text-[10px] text-map-text-secondary"
             >
               {chip}
             </span>

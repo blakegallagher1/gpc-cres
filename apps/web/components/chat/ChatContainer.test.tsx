@@ -236,7 +236,7 @@ describe("ChatContainer", () => {
           enabled: false,
         }),
       );
-      expect(screen.getByText("Ask Harvey anything.")).toBeInTheDocument();
+      expect(screen.getByText("Ask anything.")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Draft memo" })).toBeInTheDocument();
       expect(
         screen.getByText(/Lead with the matter, outcome, or document you need\./i),
@@ -267,7 +267,7 @@ describe("ChatContainer", () => {
         expect(fetchMock).toHaveBeenCalledWith("/api/chat/conversations");
       });
 
-      expect(screen.getByText("Ask Harvey anything.")).toBeInTheDocument();
+      expect(screen.getByText("Ask anything.")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Draft memo" })).toBeInTheDocument();
       expect(screen.queryByTestId("conversation-sidebar")).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "History", exact: true })).not.toBeInTheDocument();
@@ -327,7 +327,7 @@ describe("ChatContainer", () => {
       const fetchedUrls = fetchMock.mock.calls.map(([input]) => String(input));
       expect(fetchedUrls).not.toContain("/api/chat/conversations/agent-run");
       expect(window.location.search).toBe("");
-      expect(screen.getByText("Ask Harvey anything.")).toBeInTheDocument();
+      expect(screen.getByText("Ask anything.")).toBeInTheDocument();
     },
     CHAT_CONTAINER_TEST_TIMEOUT_MS,
   );

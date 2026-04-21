@@ -230,7 +230,7 @@ export function MapOperatorConsole({
   return (
     <section
       className={cn(
-        "flex h-full min-h-0 w-full flex-col border-l border-map-border bg-map-surface-overlay/95 backdrop-blur-xl",
+        "flex h-full min-h-0 w-full flex-col border-l border-map-border bg-map-panel/96 shadow-[0_30px_60px_-32px_rgba(15,23,42,0.92)] backdrop-blur-md",
         className,
       )}
     >
@@ -275,7 +275,7 @@ export function MapOperatorConsole({
               <div className="map-stat-value">{resultCount}</div>
             </div>
           </div>
-          <div className="rounded-2xl border border-map-border/80 bg-map-panel/70 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+          <div className="rounded-2xl border border-map-border/80 bg-map-panel/90 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1">
                 <SectionLabel>Cartographer workflow</SectionLabel>
@@ -327,17 +327,17 @@ export function MapOperatorConsole({
         onValueChange={(value) => setTab(value as "operate" | "parcels")}
         className="flex min-h-0 flex-1 flex-col"
       >
-        <div className="border-b border-map-border px-4 pt-3">
-          <TabsList className="grid w-full grid-cols-2 gap-0 rounded-none border-map-border">
+        <div className="border-b border-map-border bg-map-panel/92 px-4 pt-3">
+          <TabsList className="grid w-full grid-cols-2 gap-0 rounded-none border-map-border bg-map-surface/80">
             <TabsTrigger
               value="operate"
-              className="min-h-9 border-b-2 border-transparent px-0 text-[11px] text-map-text-secondary data-[state=active]:border-map-accent data-[state=active]:text-map-text-primary"
+              className="min-h-9 border-b-2 border-transparent px-0 text-[11px] text-map-text-secondary data-[state=active]:border-map-accent data-[state=active]:bg-map-surface data-[state=active]:text-map-text-primary"
             >
               Operate
             </TabsTrigger>
             <TabsTrigger
               value="parcels"
-              className="min-h-9 border-b-2 border-transparent px-0 text-[11px] text-map-text-secondary data-[state=active]:border-map-accent data-[state=active]:text-map-text-primary"
+              className="min-h-9 border-b-2 border-transparent px-0 text-[11px] text-map-text-secondary data-[state=active]:border-map-accent data-[state=active]:bg-map-surface data-[state=active]:text-map-text-primary"
             >
               Parcels
             </TabsTrigger>
@@ -350,7 +350,7 @@ export function MapOperatorConsole({
               initial={reduceMotion ? false : { opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={TAB_TRANSITION}
-              className="space-y-5 px-4 py-4"
+              className="space-y-5 bg-map-panel/78 px-4 py-4"
             >
               <section className="space-y-2">
                 <SectionLabel>Tools</SectionLabel>
@@ -367,7 +367,7 @@ export function MapOperatorConsole({
                       "flex flex-1 items-center gap-2 rounded-lg border px-3 py-2 text-[11px] font-medium transition-colors",
                       activePanel === "chat"
                         ? "border-map-accent bg-map-accent/10 text-map-text-primary"
-                        : "border-map-border bg-map-surface/45 text-map-text-secondary hover:bg-map-surface",
+                        : "border-map-border bg-map-surface/85 text-map-text-primary hover:bg-map-surface-elevated",
                     )}
                   >
                     <Bot className="h-3.5 w-3.5" />
@@ -384,7 +384,7 @@ export function MapOperatorConsole({
                       "flex flex-1 items-center gap-2 rounded-lg border px-3 py-2 text-[11px] font-medium transition-colors",
                       activePanel === "prospecting"
                         ? "border-map-accent bg-map-accent/10 text-map-text-primary"
-                        : "border-map-border bg-map-surface/45 text-map-text-secondary hover:bg-map-surface",
+                        : "border-map-border bg-map-surface/85 text-map-text-primary hover:bg-map-surface-elevated",
                     )}
                   >
                     <Radar className="h-3.5 w-3.5" />
@@ -398,7 +398,7 @@ export function MapOperatorConsole({
               {selectedParcels.length > 0 ? (
                 <section className="space-y-2">
                   <SectionLabel>Workspace draft</SectionLabel>
-                  <div className="rounded-xl border border-map-border bg-map-surface/45 px-3 py-3">
+                  <div className="rounded-xl border border-map-border bg-map-surface/80 px-3 py-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-[11px] font-medium text-map-text-primary">
                       {selectedParcels.length > 0
@@ -438,7 +438,7 @@ export function MapOperatorConsole({
                       ) : null}
                     </div>
                   ) : (
-                    <div className="mt-3 rounded-xl border border-dashed border-map-border bg-map-surface/30 px-3 py-3 text-[11px] leading-5 text-map-text-muted">
+                    <div className="mt-3 rounded-xl border border-dashed border-map-border bg-map-panel/78 px-3 py-3 text-[11px] leading-5 text-map-text-muted">
                       Select parcels from the map or parcel table, then attach the next step before saving them to the shared workspace record.
                     </div>
                   )}
@@ -506,7 +506,7 @@ export function MapOperatorConsole({
                     className="space-y-2"
                   >
                     <SectionLabel>Screening</SectionLabel>
-                    <div className="rounded-xl border border-map-border bg-map-surface/45 px-3 py-3">
+                    <div className="rounded-xl border border-map-border bg-map-surface/80 px-3 py-3">
                       <ScreeningScorecard parcelId={selectedParcels[0]?.id ?? null} />
                     </div>
                   </motion.section>
@@ -524,7 +524,7 @@ export function MapOperatorConsole({
                     className="space-y-2"
                   >
                     <SectionLabel>Ownership Intel</SectionLabel>
-                    <div className="rounded-lg border border-map-border bg-map-surface/50 p-3 space-y-2">
+                    <div className="rounded-lg border border-map-border bg-map-surface/82 p-3 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-medium text-map-text-primary">{ownershipIntel.ownerName}</span>
                       </div>
@@ -566,7 +566,7 @@ export function MapOperatorConsole({
               <section className="space-y-2">
                 <SectionLabel>Workspace parcels</SectionLabel>
                 {trackedParcels.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-map-border bg-map-surface/30 px-3 py-3 text-[11px] leading-5 text-map-text-muted">
+                  <div className="rounded-xl border border-dashed border-map-border bg-map-panel/78 px-3 py-3 text-[11px] leading-5 text-map-text-muted">
                     No workspace parcels yet. Save the current selection to persist the parcel brief and next move into the shared record.
                   </div>
                 ) : (
@@ -578,7 +578,7 @@ export function MapOperatorConsole({
                         <motion.article
                           key={entry.parcelId}
                           layout={!reduceMotion}
-                          className="rounded-xl border border-map-border bg-map-surface/45 px-3 py-3"
+                          className="rounded-xl border border-map-border bg-map-surface/80 px-3 py-3"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">

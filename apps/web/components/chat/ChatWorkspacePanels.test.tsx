@@ -1,7 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { AgentTrustEnvelope } from "@/types";
-import { ChatWorkspaceInspector } from "./ChatWorkspacePanels";
+import {
+  ChatWorkspaceInspector,
+  shouldAnimateChatWorkspaceHero,
+} from "./ChatWorkspacePanels";
 
 vi.mock("@/components/agent-state/AgentStatePanel", () => ({
   AgentStatePanel: ({
@@ -67,6 +70,16 @@ const SUMMARY: AgentTrustEnvelope = {
 };
 
 describe("ChatWorkspaceInspector", () => {
+  it("does not enable hero entrance animation before hydration", () => {
+    expect(
+      shouldAnimateChatWorkspaceHero({
+        isHydrated: false,
+        reduceMotion: false,
+        isTest: false,
+      }),
+    ).toBe(false);
+  });
+
   it("shows the run brief by default when no verification summary is available", () => {
     render(
       <ChatWorkspaceInspector

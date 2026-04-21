@@ -134,10 +134,10 @@ export default function StrategyPage() {
             <ArrowRight className="h-4 w-4" />
           </Link>
           <Link
-            href="/focus"
+            href="/"
             className="inline-flex h-12 items-center gap-1.5 px-2 text-[0.88rem] font-medium text-[var(--pub-muted)] transition-colors duration-200 hover:text-[var(--pub-fg)]"
           >
-            Review focus
+            Back home
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>

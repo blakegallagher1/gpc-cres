@@ -58,7 +58,7 @@ export function MapParcelDataGrid({
       className={
         embedded
           ? "flex h-full min-h-0 flex-col bg-transparent"
-          : "flex h-full w-[26rem] flex-col border-l border-map-border bg-map-surface-overlay/95"
+          : "flex h-full w-[26rem] flex-col border-l border-map-border bg-map-surface-overlay/98"
       }
     >
       <div className="border-b border-map-border px-3 py-3">
@@ -110,7 +110,7 @@ export function MapParcelDataGrid({
               return (
                 <tr
                   key={parcel.id}
-                  className={`border-b border-map-border/60 ${selected ? "bg-map-accent/20" : "hover:bg-map-surface"}`}
+                  className={`border-b border-map-border/60 ${selected ? "bg-map-accent/20" : "hover:bg-map-surface-elevated"}`}
                 >
                   <td className="px-2 py-1 align-top">
                     <input

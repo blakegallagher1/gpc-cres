@@ -10,7 +10,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
     <button
       aria-expanded="true"
       aria-label="Collapse map workbench"
-      class="inline-flex items-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 bg-background/42 hover:text-accent-foreground py-2 relative h-11 min-w-[7.5rem] justify-start gap-2 border-map-border px-3 shadow-lg transition-all text-map-text-primary hover:bg-map-surface"
+      class="inline-flex items-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:text-accent-foreground py-2 relative h-11 min-w-[7.5rem] justify-start gap-2 border-map-border bg-map-panel/95 px-3 shadow-[0_16px_32px_-20px_rgba(15,23,42,0.9)] transition-all text-map-text-primary hover:bg-map-surface-elevated"
       data-state="closed"
       title="Collapse workbench (L)"
       type="button"
@@ -40,7 +40,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
     </button>
     <button
       aria-label="Export map screenshot"
-      class="inline-flex items-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:text-accent-foreground py-2 h-10 min-w-[7.5rem] justify-start gap-2 border-map-border bg-map-surface-overlay px-3 text-map-text-primary shadow-lg hover:bg-map-surface"
+      class="inline-flex items-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:text-accent-foreground py-2 h-10 min-w-[7.5rem] justify-start gap-2 border-map-border bg-map-panel/95 px-3 text-map-text-primary shadow-[0_16px_32px_-20px_rgba(15,23,42,0.9)] hover:bg-map-surface-elevated"
       title="Export screenshot (S)"
       type="button"
     >
@@ -74,7 +74,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
     </button>
     <button
       aria-label="Toggle map fullscreen"
-      class="inline-flex items-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:text-accent-foreground py-2 h-10 min-w-[7.5rem] justify-start gap-2 border-map-border bg-map-surface-overlay px-3 text-map-text-primary shadow-lg hover:bg-map-surface"
+      class="inline-flex items-center whitespace-nowrap rounded-xl border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:text-accent-foreground py-2 h-10 min-w-[7.5rem] justify-start gap-2 border-map-border bg-map-panel/95 px-3 text-map-text-primary shadow-[0_16px_32px_-20px_rgba(15,23,42,0.9)] hover:bg-map-surface-elevated"
       title="Toggle fullscreen (F)"
       type="button"
     >
@@ -113,7 +113,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
   </div>
   <aside
     animate="[object Object]"
-    class="pointer-events-auto flex h-full flex-col overflow-hidden rounded-[1.5rem] border border-map-border bg-map-surface-overlay shadow-2xl backdrop-blur-xl w-[23rem] max-w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-5.5rem)]"
+    class="pointer-events-auto flex h-full flex-col overflow-hidden rounded-[1.5rem] border border-map-border bg-map-panel/95 shadow-[0_30px_60px_-32px_rgba(15,23,42,0.92)] backdrop-blur-md w-[23rem] max-w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-5.5rem)]"
     data-tour="layers-panel"
     exit="[object Object]"
     transition="[object Object]"
@@ -185,12 +185,12 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
               <button
                 aria-controls="map-workbench-section-search"
                 aria-expanded="true"
-                class="flex w-full items-start gap-3 rounded-2xl px-1 py-1 text-left transition-colors hover:bg-map-surface/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-map-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-map-surface-overlay"
+                class="flex w-full items-start gap-3 rounded-2xl px-1 py-1 text-left transition-colors hover:bg-map-surface/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-map-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-map-surface-overlay"
                 data-state="open"
                 type="button"
               >
                 <span
-                  class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-map-border/70 bg-map-surface/60 text-map-text-primary"
+                  class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-map-border/70 bg-map-surface/85 text-map-text-primary"
                 >
                   <svg
                     aria-hidden="true"
@@ -244,7 +244,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                   </span>
                 </span>
                 <span
-                  class="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-map-border/70 bg-map-surface/50 text-map-text-muted transition-transform duration-200 rotate-180"
+                  class="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-map-border/70 bg-map-surface/80 text-map-text-muted transition-transform duration-200 rotate-180"
                 >
                   <svg
                     aria-hidden="true"
@@ -286,12 +286,12 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
               <button
                 aria-controls="map-workbench-section-working-set"
                 aria-expanded="true"
-                class="flex w-full items-start gap-3 rounded-2xl px-1 py-1 text-left transition-colors hover:bg-map-surface/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-map-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-map-surface-overlay"
+                class="flex w-full items-start gap-3 rounded-2xl px-1 py-1 text-left transition-colors hover:bg-map-surface/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-map-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-map-surface-overlay"
                 data-state="open"
                 type="button"
               >
                 <span
-                  class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-map-border/70 bg-map-surface/60 text-map-text-primary"
+                  class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-map-border/70 bg-map-surface/85 text-map-text-primary"
                 >
                   <svg
                     aria-hidden="true"
@@ -346,7 +346,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                   </span>
                 </span>
                 <span
-                  class="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-map-border/70 bg-map-surface/50 text-map-text-muted transition-transform duration-200 rotate-180"
+                  class="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-map-border/70 bg-map-surface/80 text-map-text-muted transition-transform duration-200 rotate-180"
                 >
                   <svg
                     aria-hidden="true"
@@ -377,7 +377,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                   class="grid grid-cols-3 gap-2 text-[10px]"
                 >
                   <div
-                    class="rounded-2xl border border-map-border/70 bg-map-surface/45 px-3 py-3"
+                    class="rounded-2xl border border-map-border/70 bg-map-surface/80 px-3 py-3"
                   >
                     <p
                       class="text-map-text-muted"
@@ -391,7 +391,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                     </p>
                   </div>
                   <div
-                    class="rounded-2xl border border-map-border/70 bg-map-surface/45 px-3 py-3"
+                    class="rounded-2xl border border-map-border/70 bg-map-surface/80 px-3 py-3"
                   >
                     <p
                       class="text-map-text-muted"
@@ -405,7 +405,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                     </p>
                   </div>
                   <div
-                    class="rounded-2xl border border-map-border/70 bg-map-surface/45 px-3 py-3"
+                    class="rounded-2xl border border-map-border/70 bg-map-surface/80 px-3 py-3"
                   >
                     <p
                       class="text-map-text-muted"
@@ -423,13 +423,13 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                   class="mt-3 flex flex-wrap gap-2"
                 >
                   <button
-                    class="inline-flex items-center justify-center whitespace-nowrap border font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:text-accent-foreground rounded-lg px-3 h-8 border-map-border bg-map-surface/45 text-[10px] text-map-text-primary hover:bg-map-surface"
+                    class="inline-flex items-center justify-center whitespace-nowrap border font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:text-accent-foreground rounded-lg px-3 h-8 border-map-border bg-map-surface/80 text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
                     type="button"
                   >
                     Compare selected parcels
                   </button>
                   <button
-                    class="inline-flex items-center justify-center whitespace-nowrap border font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:text-accent-foreground rounded-lg px-3 h-8 border-map-border bg-map-surface/45 text-[10px] text-map-text-primary hover:bg-map-surface"
+                    class="inline-flex items-center justify-center whitespace-nowrap border font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:text-accent-foreground rounded-lg px-3 h-8 border-map-border bg-map-surface/80 text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
                     disabled=""
                     type="button"
                   >
@@ -448,12 +448,12 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
               <button
                 aria-controls="map-workbench-section-display"
                 aria-expanded="true"
-                class="flex w-full items-start gap-3 rounded-2xl px-1 py-1 text-left transition-colors hover:bg-map-surface/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-map-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-map-surface-overlay"
+                class="flex w-full items-start gap-3 rounded-2xl px-1 py-1 text-left transition-colors hover:bg-map-surface/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-map-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-map-surface-overlay"
                 data-state="open"
                 type="button"
               >
                 <span
-                  class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-map-border/70 bg-map-surface/60 text-map-text-primary"
+                  class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-map-border/70 bg-map-surface/85 text-map-text-primary"
                 >
                   <svg
                     aria-hidden="true"
@@ -507,7 +507,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                   </span>
                 </span>
                 <span
-                  class="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-map-border/70 bg-map-surface/50 text-map-text-muted transition-transform duration-200 rotate-180"
+                  class="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-map-border/70 bg-map-surface/80 text-map-text-muted transition-transform duration-200 rotate-180"
                 >
                   <svg
                     aria-hidden="true"
@@ -585,7 +585,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                   class="mt-3 grid grid-cols-2 gap-2"
                 >
                   <button
-                    class="flex min-h-[4.7rem] flex-col rounded-2xl border px-3 py-3 text-left transition-colors border-map-border/70 bg-map-surface/45 text-map-text-secondary hover:border-map-accent-muted hover:bg-map-surface"
+                    class="flex min-h-[4.7rem] flex-col rounded-2xl border px-3 py-3 text-left transition-colors border-map-border bg-map-surface/85 text-map-text-primary hover:border-map-accent-muted hover:bg-map-surface-elevated"
                     type="button"
                   >
                     <span
@@ -600,7 +600,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                     </span>
                   </button>
                   <button
-                    class="flex min-h-[4.7rem] flex-col rounded-2xl border px-3 py-3 text-left transition-colors border-map-border/70 bg-map-surface/45 text-map-text-secondary hover:border-map-accent-muted hover:bg-map-surface"
+                    class="flex min-h-[4.7rem] flex-col rounded-2xl border px-3 py-3 text-left transition-colors border-map-border bg-map-surface/85 text-map-text-primary hover:border-map-accent-muted hover:bg-map-surface-elevated"
                     type="button"
                   >
                     <span
@@ -627,12 +627,12 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
               <button
                 aria-controls="map-workbench-section-references"
                 aria-expanded="false"
-                class="flex w-full items-start gap-3 rounded-2xl px-1 py-1 text-left transition-colors hover:bg-map-surface/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-map-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-map-surface-overlay"
+                class="flex w-full items-start gap-3 rounded-2xl px-1 py-1 text-left transition-colors hover:bg-map-surface/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-map-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-map-surface-overlay"
                 data-state="closed"
                 type="button"
               >
                 <span
-                  class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-map-border/70 bg-map-surface/60 text-map-text-primary"
+                  class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-map-border/70 bg-map-surface/85 text-map-text-primary"
                 >
                   <svg
                     aria-hidden="true"
@@ -688,7 +688,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                   </span>
                 </span>
                 <span
-                  class="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-map-border/70 bg-map-surface/50 text-map-text-muted transition-transform duration-200 rotate-0"
+                  class="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-map-border/70 bg-map-surface/80 text-map-text-muted transition-transform duration-200 rotate-0"
                 >
                   <svg
                     aria-hidden="true"
@@ -726,12 +726,12 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
               <button
                 aria-controls="map-workbench-section-analysis"
                 aria-expanded="true"
-                class="flex w-full items-start gap-3 rounded-2xl px-1 py-1 text-left transition-colors hover:bg-map-surface/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-map-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-map-surface-overlay"
+                class="flex w-full items-start gap-3 rounded-2xl px-1 py-1 text-left transition-colors hover:bg-map-surface/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-map-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-map-surface-overlay"
                 data-state="open"
                 type="button"
               >
                 <span
-                  class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-map-border/70 bg-map-surface/60 text-map-text-primary"
+                  class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-map-border/70 bg-map-surface/85 text-map-text-primary"
                 >
                   <svg
                     aria-hidden="true"
@@ -792,7 +792,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                   </span>
                 </span>
                 <span
-                  class="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-map-border/70 bg-map-surface/50 text-map-text-muted transition-transform duration-200 rotate-180"
+                  class="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-map-border/70 bg-map-surface/80 text-map-text-muted transition-transform duration-200 rotate-180"
                 >
                   <svg
                     aria-hidden="true"
@@ -822,7 +822,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                   class="grid grid-cols-2 gap-2"
                 >
                   <button
-                    class="inline-flex min-h-11 items-center gap-2 rounded-2xl border px-3 py-2 text-left text-[11px] font-medium transition-colors border-map-border bg-map-surface/55 text-map-text-secondary hover:border-map-accent-muted hover:bg-map-surface hover:text-map-text-primary"
+                    class="inline-flex min-h-11 items-center gap-2 rounded-2xl border px-3 py-2 text-left text-[11px] font-medium transition-colors border-map-border bg-map-surface/80 text-map-text-primary hover:border-map-accent-muted hover:bg-map-surface-elevated hover:text-map-text-primary"
                     type="button"
                   >
                     <span
@@ -902,7 +902,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                     </span>
                   </button>
                   <button
-                    class="inline-flex min-h-11 items-center gap-2 rounded-2xl border px-3 py-2 text-left text-[11px] font-medium transition-colors border-map-border bg-map-surface/55 text-map-text-secondary hover:border-map-accent-muted hover:bg-map-surface hover:text-map-text-primary"
+                    class="inline-flex min-h-11 items-center gap-2 rounded-2xl border px-3 py-2 text-left text-[11px] font-medium transition-colors border-map-border bg-map-surface/80 text-map-text-primary hover:border-map-accent-muted hover:bg-map-surface-elevated hover:text-map-text-primary"
                     type="button"
                   >
                     <span
@@ -959,7 +959,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                     <button
                       aria-checked="true"
                       aria-label="Sale Activity"
-                      class="inline-flex items-center whitespace-nowrap border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent/55 hover:text-accent-foreground h-8 justify-start rounded-xl border-map-border bg-map-surface/55 px-3 text-[10px] text-map-text-secondary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
+                      class="inline-flex items-center whitespace-nowrap border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent/55 hover:text-accent-foreground h-8 justify-start rounded-xl border-map-border bg-map-surface/80 px-3 text-[10px] text-map-text-primary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
                       data-radix-collection-item=""
                       data-state="on"
                       role="radio"
@@ -972,7 +972,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                     <button
                       aria-checked="false"
                       aria-label="Price Density"
-                      class="inline-flex items-center whitespace-nowrap border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent/55 hover:text-accent-foreground h-8 justify-start rounded-xl border-map-border bg-map-surface/55 px-3 text-[10px] text-map-text-secondary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
+                      class="inline-flex items-center whitespace-nowrap border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent/55 hover:text-accent-foreground h-8 justify-start rounded-xl border-map-border bg-map-surface/80 px-3 text-[10px] text-map-text-primary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
                       data-radix-collection-item=""
                       data-state="off"
                       role="radio"
@@ -985,7 +985,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                     <button
                       aria-checked="false"
                       aria-label="Development Activity"
-                      class="inline-flex items-center whitespace-nowrap border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent/55 hover:text-accent-foreground h-8 justify-start rounded-xl border-map-border bg-map-surface/55 px-3 text-[10px] text-map-text-secondary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
+                      class="inline-flex items-center whitespace-nowrap border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent/55 hover:text-accent-foreground h-8 justify-start rounded-xl border-map-border bg-map-surface/80 px-3 text-[10px] text-map-text-primary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
                       data-radix-collection-item=""
                       data-state="off"
                       role="radio"
@@ -998,7 +998,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                     <button
                       aria-checked="false"
                       aria-label="Zoning Upside"
-                      class="inline-flex items-center whitespace-nowrap border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent/55 hover:text-accent-foreground h-8 justify-start rounded-xl border-map-border bg-map-surface/55 px-3 text-[10px] text-map-text-secondary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
+                      class="inline-flex items-center whitespace-nowrap border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent/55 hover:text-accent-foreground h-8 justify-start rounded-xl border-map-border bg-map-surface/80 px-3 text-[10px] text-map-text-primary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
                       data-radix-collection-item=""
                       data-state="off"
                       role="radio"
@@ -1011,7 +1011,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                     <button
                       aria-checked="false"
                       aria-label="Distressed Ownership"
-                      class="inline-flex items-center whitespace-nowrap border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent/55 hover:text-accent-foreground h-8 justify-start rounded-xl border-map-border bg-map-surface/55 px-3 text-[10px] text-map-text-secondary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
+                      class="inline-flex items-center whitespace-nowrap border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent/55 hover:text-accent-foreground h-8 justify-start rounded-xl border-map-border bg-map-surface/80 px-3 text-[10px] text-map-text-primary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
                       data-radix-collection-item=""
                       data-state="off"
                       role="radio"
@@ -1024,7 +1024,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                     <button
                       aria-checked="false"
                       aria-label="Infrastructure Momentum"
-                      class="inline-flex items-center whitespace-nowrap border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent/55 hover:text-accent-foreground h-8 justify-start rounded-xl border-map-border bg-map-surface/55 px-3 text-[10px] text-map-text-secondary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
+                      class="inline-flex items-center whitespace-nowrap border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent/55 hover:text-accent-foreground h-8 justify-start rounded-xl border-map-border bg-map-surface/80 px-3 text-[10px] text-map-text-primary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
                       data-radix-collection-item=""
                       data-state="off"
                       role="radio"
@@ -1037,7 +1037,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                   </div>
                 </div>
                 <button
-                  class="inline-flex items-center justify-center whitespace-nowrap border font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:text-accent-foreground rounded-lg px-3 mt-3 h-8 w-full border-map-border bg-map-surface/45 text-[10px] text-map-text-primary hover:bg-map-surface"
+                  class="inline-flex items-center justify-center whitespace-nowrap border font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 hover:text-accent-foreground rounded-lg px-3 mt-3 h-8 w-full border-map-border bg-map-surface/80 text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
                   type="button"
                 >
                   Open compare sheet
@@ -1054,12 +1054,12 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
               <button
                 aria-controls="map-workbench-section-measure-draw"
                 aria-expanded="false"
-                class="flex w-full items-start gap-3 rounded-2xl px-1 py-1 text-left transition-colors hover:bg-map-surface/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-map-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-map-surface-overlay"
+                class="flex w-full items-start gap-3 rounded-2xl px-1 py-1 text-left transition-colors hover:bg-map-surface/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-map-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-map-surface-overlay"
                 data-state="closed"
                 type="button"
               >
                 <span
-                  class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-map-border/70 bg-map-surface/60 text-map-text-primary"
+                  class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-map-border/70 bg-map-surface/85 text-map-text-primary"
                 >
                   <svg
                     aria-hidden="true"
@@ -1111,7 +1111,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                   </span>
                 </span>
                 <span
-                  class="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-map-border/70 bg-map-surface/50 text-map-text-muted transition-transform duration-200 rotate-0"
+                  class="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-map-border/70 bg-map-surface/80 text-map-text-muted transition-transform duration-200 rotate-0"
                 >
                   <svg
                     aria-hidden="true"
@@ -1149,12 +1149,12 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
               <button
                 aria-controls="map-workbench-section-geofences"
                 aria-expanded="false"
-                class="flex w-full items-start gap-3 rounded-2xl px-1 py-1 text-left transition-colors hover:bg-map-surface/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-map-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-map-surface-overlay"
+                class="flex w-full items-start gap-3 rounded-2xl px-1 py-1 text-left transition-colors hover:bg-map-surface/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-map-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-map-surface-overlay"
                 data-state="closed"
                 type="button"
               >
                 <span
-                  class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-map-border/70 bg-map-surface/60 text-map-text-primary"
+                  class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-map-border/70 bg-map-surface/85 text-map-text-primary"
                 >
                   <svg
                     aria-hidden="true"
@@ -1213,7 +1213,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                   </span>
                 </span>
                 <span
-                  class="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-map-border/70 bg-map-surface/50 text-map-text-muted transition-transform duration-200 rotate-0"
+                  class="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-map-border/70 bg-map-surface/80 text-map-text-muted transition-transform duration-200 rotate-0"
                 >
                   <svg
                     aria-hidden="true"
@@ -1251,12 +1251,12 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
               <button
                 aria-controls="map-workbench-section-help"
                 aria-expanded="false"
-                class="flex w-full items-start gap-3 rounded-2xl px-1 py-1 text-left transition-colors hover:bg-map-surface/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-map-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-map-surface-overlay"
+                class="flex w-full items-start gap-3 rounded-2xl px-1 py-1 text-left transition-colors hover:bg-map-surface/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-map-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-map-surface-overlay"
                 data-state="closed"
                 type="button"
               >
                 <span
-                  class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-map-border/70 bg-map-surface/60 text-map-text-primary"
+                  class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-map-border/70 bg-map-surface/85 text-map-text-primary"
                 >
                   <svg
                     aria-hidden="true"
@@ -1320,7 +1320,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                   </span>
                 </span>
                 <span
-                  class="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-map-border/70 bg-map-surface/50 text-map-text-muted transition-transform duration-200 rotate-0"
+                  class="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-map-border/70 bg-map-surface/80 text-map-text-muted transition-transform duration-200 rotate-0"
                 >
                   <svg
                     aria-hidden="true"

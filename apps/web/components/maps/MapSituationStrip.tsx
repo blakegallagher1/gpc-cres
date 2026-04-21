@@ -21,10 +21,10 @@ function Pill({ children, accent, index }: { children: React.ReactNode; accent?:
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, delay: (index ?? 0) * 0.05 }}
       className={cn(
-        "pointer-events-auto inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium tracking-wide backdrop-blur-md",
+        "pointer-events-auto inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium tracking-wide",
         accent
           ? "bg-map-accent/20 text-map-accent ring-1 ring-map-accent/30"
-          : "bg-map-surface/70 text-map-text-secondary ring-1 ring-map-border/50",
+          : "bg-map-surface/92 text-map-text-secondary ring-1 ring-map-border/50",
       )}
     >
       {children}

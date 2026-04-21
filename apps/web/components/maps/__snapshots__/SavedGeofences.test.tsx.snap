@@ -76,7 +76,7 @@ exports[`SavedGeofences > renders the saved geofence list with active polygon co
           class="flex flex-col gap-1.5 pr-2"
         >
           <div
-            class="rounded-xl border border-map-border bg-map-surface/45 px-3 py-2.5"
+            class="rounded-xl border border-map-border bg-map-surface/82 px-3 py-2.5"
           >
             <div
               class="flex items-start justify-between gap-2"

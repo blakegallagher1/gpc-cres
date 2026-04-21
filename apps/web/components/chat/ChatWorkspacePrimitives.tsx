@@ -84,7 +84,7 @@ export function PageHeader({
   actions,
 }: PageHeaderProps) {
   return (
-    <header className="relative overflow-hidden rounded-[28px] border border-border/60 bg-background/95 p-6 shadow-[0_18px_65px_-40px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:p-7">
+    <header className="relative overflow-hidden rounded-[28px] border border-border/65 bg-background/98 p-6 shadow-[0_18px_65px_-40px_rgba(15,23,42,0.45)] sm:p-7">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-foreground/20 to-transparent" />
       <div className="pointer-events-none absolute inset-y-0 right-0 w-40 bg-gradient-to-l from-primary/10 via-transparent to-transparent dark:from-primary/15" />
       <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
@@ -97,7 +97,7 @@ export function PageHeader({
               <Badge
                 key={`${route.label}-${route.value}`}
                 variant="outline"
-                className="rounded-full border-border/70 bg-background/80 px-3 py-1 text-[11px] font-medium text-foreground/88"
+                className="rounded-full border-border/70 bg-background/94 px-3 py-1 text-[11px] font-medium text-foreground/88"
               >
                 <span className="mr-2 text-muted-foreground">{route.label}</span>
                 <span>{route.value}</span>
@@ -127,7 +127,7 @@ export function RunMetaPanel({
   footer,
 }: RunMetaPanelProps) {
   return (
-    <section className="rounded-[26px] border border-border/60 bg-background/95 p-5 shadow-[0_16px_50px_-38px_rgba(15,23,42,0.48)] backdrop-blur-xl sm:p-6">
+    <section className="rounded-[26px] border border-border/65 bg-background/98 p-5 shadow-[0_16px_50px_-38px_rgba(15,23,42,0.48)] sm:p-6">
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-2">
@@ -169,7 +169,7 @@ export function QuickActionsGrid({
   onAction,
 }: QuickActionsGridProps) {
   return (
-    <section className="rounded-[26px] border border-border/60 bg-background/95 p-5 shadow-[0_16px_50px_-38px_rgba(15,23,42,0.48)] backdrop-blur-xl sm:p-6">
+    <section className="rounded-[26px] border border-border/65 bg-background/98 p-5 shadow-[0_16px_50px_-38px_rgba(15,23,42,0.48)] sm:p-6">
       <div className="space-y-4">
         <div className="space-y-2">
           <h2 className="text-base font-semibold tracking-[-0.03em] text-foreground">
@@ -201,7 +201,7 @@ export function QuickActionsGrid({
                       'mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border text-muted-foreground transition-colors',
                       highlight
                         ? 'border-primary/30 bg-background/90 text-primary'
-                        : 'border-border/70 bg-background/75 group-hover:text-foreground',
+                        : 'border-border/70 bg-background/90 group-hover:text-foreground',
                     )}
                   >
                     <Icon className="h-4.5 w-4.5" />
@@ -228,7 +228,7 @@ export function QuickActionsGrid({
 export function InspectorTabs({ value, onValueChange }: InspectorTabsProps) {
   return (
     <Tabs value={value} onValueChange={onValueChange}>
-      <TabsList className="grid h-auto w-full grid-cols-3 rounded-2xl border border-border/60 bg-muted/[0.5] p-1">
+      <TabsList className="grid h-auto w-full grid-cols-3 rounded-2xl border border-border/70 bg-muted/[0.72] p-1">
         <TabsTrigger
           value="guide"
           className="rounded-xl px-3 py-2.5 text-xs font-medium text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
@@ -269,7 +269,7 @@ export function SavedRunListHeader({
           <h2 className="text-base font-semibold tracking-[-0.03em] text-foreground">
             Recent operator threads
           </h2>
-          <Badge variant="outline" className="rounded-full border-border/70 bg-background/70 px-2.5 py-0.5 text-[11px]">
+          <Badge variant="outline" className="rounded-full border-border/70 bg-background/92 px-2.5 py-0.5 text-[11px]">
             {runCount}
           </Badge>
         </div>
@@ -309,7 +309,7 @@ export function InlineStatusBadge({
   label: string;
 }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-[11px] font-medium text-foreground/88">
+    <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/94 px-3 py-1.5 text-[11px] font-medium text-foreground/88">
       {icon ?? <Bot className="h-3.5 w-3.5 text-muted-foreground" />}
       <span>{label}</span>
     </span>

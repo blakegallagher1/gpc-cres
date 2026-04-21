@@ -15,7 +15,7 @@ describe("ChatInput", () => {
     );
 
     const textarea = screen.getByPlaceholderText(
-      /Ask anything about your properties, deals, evidence, or next move/i,
+      /Ask anything\. Name the matter, outcome, or source you need\./i,
     ) as HTMLTextAreaElement;
     textarea.value = "Store this memory now";
 
@@ -37,7 +37,7 @@ describe("ChatInput", () => {
       />,
     );
 
-    fireEvent.change(screen.getByPlaceholderText(/Ask anything about your properties, deals, evidence, or next move/i), {
+    fireEvent.change(screen.getByPlaceholderText(/Ask anything\. Name the matter, outcome, or source you need\./i), {
       target: { value: "Screen this property" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
@@ -84,9 +84,9 @@ describe("ChatInput", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Advanced controls/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Controls/i }));
     fireEvent.click(screen.getByRole("button", { name: /Web research/i }));
-    fireEvent.change(screen.getByPlaceholderText(/Ask anything about your properties, deals, evidence, or next move/i), {
+    fireEvent.change(screen.getByPlaceholderText(/Ask anything\. Name the matter, outcome, or source you need\./i), {
       target: { value: "Find the latest zoning update and cite sources" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
@@ -109,7 +109,7 @@ describe("ChatInput", () => {
 
     expect(screen.queryByRole("button", { name: /Web research/i })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /Advanced controls/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Controls/i }));
 
     expect(screen.getByRole("button", { name: /Web research/i })).toBeInTheDocument();
   });
@@ -124,8 +124,8 @@ describe("ChatInput", () => {
     );
 
     expect(screen.getByText("Run in progress")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Advanced controls/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Controls/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Stop run/i })).toBeInTheDocument();
-    expect(screen.queryByText(/Start in plain English/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/State the task clearly/i)).not.toBeInTheDocument();
   });
 });

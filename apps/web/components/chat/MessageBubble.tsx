@@ -61,6 +61,23 @@ interface MessageBubbleProps {
   onVerifyTrust?: (messageId: string) => void;
 }
 
+export async function writeClipboardTextSafely(text: string): Promise<boolean> {
+  if (!navigator?.clipboard?.writeText) {
+    return false;
+  }
+
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'NotAllowedError') {
+      return false;
+    }
+
+    throw error;
+  }
+}
+
 function formatTrustDuration(ms?: number): string {
   if (ms == null) return 'n/a';
   if (ms < 1000) return `${ms}ms`;
@@ -321,13 +338,12 @@ function MessageActions({
   const sourceUrl = findSourceUrl(message);
 
   const onCopy = async () => {
-    if (!navigator?.clipboard?.writeText) return;
-    await navigator.clipboard.writeText(message.content);
+    await writeClipboardTextSafely(message.content);
   };
 
   const onCopyLink = async () => {
-    if (!shareHref || !navigator?.clipboard?.writeText) return;
-    await navigator.clipboard.writeText(shareHref);
+    if (!shareHref) return;
+    await writeClipboardTextSafely(shareHref);
   };
 
   const onReopen = () => {

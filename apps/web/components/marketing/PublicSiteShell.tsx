@@ -41,13 +41,12 @@ interface PublicStatListProps {
   items: readonly {
     label: string;
     value: string;
-    detail: string;
+    detail?: string;
   }[];
 }
 
 const PUBLIC_NAV = [
   { href: "/", label: "Home" },
-  { href: "/focus", label: "Focus" },
   { href: "/strategy", label: "Strategy" },
   { href: "/platform", label: "Platform" },
 ] as const;
@@ -256,9 +255,11 @@ export function PublicStatList({ items }: PublicStatListProps) {
           <dd className="mt-2 font-[family-name:var(--font-display)] text-xl font-bold tracking-[-0.03em] text-[var(--pub-fg)]">
             {item.value}
           </dd>
-          <p className="mt-1.5 text-[0.84rem] leading-[1.6] text-[var(--pub-muted)]">
-            {item.detail}
-          </p>
+          {item.detail ? (
+            <p className="mt-1.5 text-[0.84rem] leading-[1.6] text-[var(--pub-muted)]">
+              {item.detail}
+            </p>
+          ) : null}
         </div>
       ))}
     </dl>
