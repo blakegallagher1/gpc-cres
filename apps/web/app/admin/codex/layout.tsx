@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { auth } from "@/auth";
+import { currentUser } from "@clerk/nextjs/server";
 import { isEmailAllowed } from "@/lib/auth/allowedEmails";
 
 interface AdminCodexLayoutProps {
@@ -15,8 +15,8 @@ export default async function AdminCodexLayout({ children }: AdminCodexLayoutPro
     return <>{children}</>;
   }
 
-  const session = await auth();
-  if (!session?.user) {
+  const user = await currentUser();
+  if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-950 text-gray-200">
         <div className="max-w-lg rounded-md border border-red-700/60 bg-gray-900 p-6 text-center">
@@ -27,7 +27,8 @@ export default async function AdminCodexLayout({ children }: AdminCodexLayoutPro
     );
   }
 
-  if (!isEmailAllowed(session.user.email)) {
+  const email = user.emailAddresses[0]?.emailAddress;
+  if (!isEmailAllowed(email)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-950 text-gray-200">
         <div className="max-w-lg rounded-md border border-amber-600/70 bg-gray-900 p-6 text-center">

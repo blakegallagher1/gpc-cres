@@ -5,7 +5,7 @@ import { useMemo, useState, useEffect } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { Building2, ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, Menu } from "lucide-react";
-import { useSession } from "next-auth/react";
+import { useUser } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/uiStore";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -25,7 +25,7 @@ const SIDEBAR_TRANSITION = { duration: 0.24, ease: [0.22, 1, 0.36, 1] as const }
 export function Sidebar() {
   const pathname = usePathname();
   const reduceMotion = useReducedMotion();
-  const { data: session } = useSession();
+  const { user } = useUser();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
   const isMobile = useIsMobile();
   const { route: activeRoute, group: activeGroup } = getWorkspaceRouteContext(pathname);
@@ -64,8 +64,8 @@ export function Sidebar() {
       }).format(new Date()),
     [],
   );
-  const userName = session?.user?.name?.trim() || "Gallagher team";
-  const userLabel = session?.user?.email?.trim() || "Operator access";
+  const userName = user?.fullName?.trim() || "Gallagher team";
+  const userLabel = user?.primaryEmailAddress?.emailAddress?.trim() || "Operator access";
 
   // On mobile: sidebar is hidden by default, shown as overlay when not collapsed
   const mobileHidden = isMobile && sidebarCollapsed;
@@ -95,7 +95,7 @@ export function Sidebar() {
 
       <aside
         className={cn(
-          "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border/55 bg-background/82 backdrop-blur-2xl transition-[width,transform] duration-300",
+          "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border/55 bg-background/88 backdrop-blur-2xl transition-[width,transform] duration-300",
           "w-[var(--app-sidebar-expanded)]",
           isMobile
             ? cn(
@@ -107,9 +107,9 @@ export function Sidebar() {
               : "w-[var(--app-sidebar-expanded)]"
         )}
         >
-        <div className="flex h-[var(--app-header-height)] items-center border-b border-border/60 px-4">
+        <div className="flex h-[var(--app-header-height)] items-center border-b border-border/60 px-5">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border/55 bg-background/70 shadow-[0_16px_36px_-28px_rgba(15,23,42,0.42)]">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] border border-border/55 bg-muted/[0.22] shadow-[0_16px_36px_-28px_rgba(15,23,42,0.42)]">
               <Building2 className="h-5 w-5 text-foreground/85" />
             </div>
             {isExpanded && (
@@ -130,29 +130,38 @@ export function Sidebar() {
             <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
               System Index
             </p>
-            <div className="mt-3 rounded-[24px] border border-border/60 bg-muted/[0.34] p-4 shadow-[0_18px_45px_-40px_rgba(15,23,42,0.45)]">
-              <div className="flex items-start justify-between gap-3">
+            <div className="mt-3 rounded-[24px] border border-border/60 bg-muted/[0.24] p-4 shadow-[0_18px_45px_-40px_rgba(15,23,42,0.45)]">
+              <div className="flex items-center justify-between gap-3">
                 <div>
-                  <span className="text-sm font-medium">{todayLabel}</span>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {activeGroup.label} desk active
-                  </p>
+                  <span className="text-sm font-medium text-foreground">{todayLabel}</span>
+                  <p className="mt-1 text-xs text-muted-foreground">Workspace status</p>
                 </div>
-                <div className="text-right">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-                    {WORKSPACE_ROUTE_COUNT} routes
-                  </span>
-                  <p className="mt-2 text-xs text-muted-foreground">{activeRoute.label} selected</p>
+                <span className="rounded-full border border-border/60 bg-background/72 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                  {WORKSPACE_ROUTE_COUNT} routes
+                </span>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <div className="rounded-2xl border border-border/60 bg-background/74 px-3 py-2.5">
+                  <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
+                    Active desk
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-foreground">{activeGroup.label}</p>
+                </div>
+                <div className="rounded-2xl border border-border/60 bg-background/74 px-3 py-2.5">
+                  <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
+                    Current view
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-foreground">{activeRoute.label}</p>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <nav className="flex-1 overflow-y-auto px-3 py-5">
           {/* Pinned Chat Item */}
           {isExpanded && (
-            <div className="mb-3 pb-3 border-b border-white/10">
+            <div className="mb-4 border-b border-border/50 pb-4">
               {(() => {
                 const Icon = PINNED_NAV_ITEM.icon;
                 const isActive = activeRoute.href === PINNED_NAV_ITEM.href;
@@ -208,7 +217,7 @@ export function Sidebar() {
                 {isExpanded && (
                   <button
                     onClick={() => toggleGroupCollapse(group.label)}
-                    className="mb-2 flex w-full min-h-[44px] items-center justify-between gap-2 px-3 text-left hover:opacity-80 transition-opacity"
+                    className="mb-2 flex w-full min-h-[44px] items-center justify-between gap-2 rounded-2xl px-3 py-1.5 text-left transition-colors hover:bg-background/50"
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       {isCollapsed ? (
@@ -226,7 +235,7 @@ export function Sidebar() {
                   </button>
                 )}
                 {!isCollapsed && (
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     {group.items.map((item) => {
                       const Icon = item.icon;
                       const isActive = activeRoute.href === item.href;
@@ -285,7 +294,7 @@ export function Sidebar() {
 
         {/* Footer Items */}
         {isExpanded && (
-          <div className="mt-3 border-t border-border/50 px-3 py-3 pt-3">
+          <div className="mt-2 border-t border-border/50 px-3 py-3">
             <div className="flex items-center gap-2">
               {FOOTER_NAV_ITEMS.map((item) => {
                 const Icon = item.icon;
@@ -334,7 +343,7 @@ export function Sidebar() {
         )}
 
         <div className="border-t border-border/60 p-3">
-          <div className="app-shell-panel flex items-center gap-3 rounded-[22px] px-3 py-3 shadow-[0_18px_45px_-42px_rgba(15,23,42,0.45)]">
+          <div className="app-shell-panel flex items-center gap-3 rounded-[22px] border border-border/55 bg-background/70 px-3 py-3 shadow-[0_18px_45px_-42px_rgba(15,23,42,0.45)]">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background/80 font-mono text-xs font-semibold uppercase tracking-[0.22em] text-foreground/80">
               G
             </div>

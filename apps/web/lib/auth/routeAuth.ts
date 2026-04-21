@@ -1,8 +1,6 @@
 import "server-only";
-import { getToken } from "next-auth/jwt";
-import type { NextRequest } from "next/server";
+import { auth as clerkAuth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@entitlement-os/db";
-import { getAuthSecret } from "@/lib/auth/authSecret";
 import {
   getLocalDevAuthResult,
   isAppRouteLocalBypassEnabled,
@@ -56,6 +54,26 @@ function setMembershipCache(userId: string, orgId: string): void {
   if (membershipCache.size > 500) {
     const firstKey = membershipCache.keys().next().value;
     if (firstKey) membershipCache.delete(firstKey);
+  }
+}
+
+const clerkToPrismaCache = new Map<string, { prismaId: string; validUntil: number }>();
+
+function getClerkToPrismaCache(clerkUserId: string): string | null {
+  const entry = clerkToPrismaCache.get(clerkUserId);
+  if (entry && entry.validUntil > Date.now()) return entry.prismaId;
+  if (entry) clerkToPrismaCache.delete(clerkUserId);
+  return null;
+}
+
+function setClerkToPrismaCache(clerkUserId: string, prismaId: string): void {
+  clerkToPrismaCache.set(clerkUserId, {
+    prismaId,
+    validUntil: Date.now() + MEMBERSHIP_CACHE_TTL_MS,
+  });
+  if (clerkToPrismaCache.size > 500) {
+    const firstKey = clerkToPrismaCache.keys().next().value;
+    if (firstKey) clerkToPrismaCache.delete(firstKey);
   }
 }
 
@@ -129,28 +147,47 @@ async function resolveAppRouteAuthState(request?: Request): Promise<RouteAuthSta
     return buildAuthorizedState(coordinatorAuth);
   }
 
-  const secret = getAuthSecret();
-  if (!secret) {
+  const { userId: clerkUserId } = await clerkAuth();
+  if (!clerkUserId) {
     return { status: "unauthenticated" };
   }
 
-  const requestUrl = (request as NextRequest).url ?? "";
-  const secureCookie =
-    requestUrl.startsWith("https://") || process.env.NODE_ENV === "production";
-  const token = await getToken({
-    req: request as NextRequest,
-    secret,
-    secureCookie,
-  });
+  const cachedPrismaId = getClerkToPrismaCache(clerkUserId);
+  let prismaUserId: string;
 
-  if (token?.userId && token?.orgId) {
-    return buildAuthorizedState({
-      userId: token.userId as string,
-      orgId: token.orgId as string,
+  if (cachedPrismaId) {
+    prismaUserId = cachedPrismaId;
+  } else {
+    const client = await clerkClient();
+    const clerkUser = await client.users.getUser(clerkUserId);
+    const email = clerkUser.emailAddresses[0]?.emailAddress;
+    if (!email) {
+      return { status: "unauthenticated" };
+    }
+
+    const dbUser = await prisma.user.findFirst({
+      where: { email },
+      select: { id: true },
     });
+    if (!dbUser) {
+      return { status: "unauthenticated" };
+    }
+
+    setClerkToPrismaCache(clerkUserId, dbUser.id);
+    prismaUserId = dbUser.id;
   }
 
-  return { status: "unauthenticated" };
+  const membership = await prisma.orgMembership.findFirst({
+    where: { userId: prismaUserId },
+    orderBy: { createdAt: "asc" },
+    select: { orgId: true },
+  });
+  if (!membership) {
+    return { status: "unauthenticated" };
+  }
+
+  setMembershipCache(prismaUserId, membership.orgId);
+  return buildAuthorizedState({ userId: prismaUserId, orgId: membership.orgId });
 }
 
 async function resolveAdminRouteAuthState(localBypassEnabled: boolean): Promise<RouteAuthState> {
@@ -161,26 +198,50 @@ async function resolveAdminRouteAuthState(localBypassEnabled: boolean): Promise<
     });
   }
 
-  const [{ auth }, { isEmailAllowed }] = await Promise.all([
-    import("@/auth"),
+  const [{ isEmailAllowed }] = await Promise.all([
     import("@/lib/auth/allowedEmails"),
   ]);
-  const session = await auth();
-  if (!session?.user) {
+
+  const user = await currentUser();
+  if (!user) {
     return { status: "unauthenticated" };
   }
 
-  if (!isEmailAllowed(session.user.email)) {
+  const email = user.emailAddresses[0]?.emailAddress;
+  if (!isEmailAllowed(email)) {
     return { status: "forbidden" };
   }
 
-  const userId = session.user.id;
-  const orgId = (session.user as { orgId?: string | null }).orgId;
-  if (!userId || !orgId) {
+  const cachedPrismaId = email ? getClerkToPrismaCache(user.id) : null;
+  let prismaUserId: string;
+
+  if (cachedPrismaId) {
+    prismaUserId = cachedPrismaId;
+  } else {
+    if (!email) {
+      return { status: "unauthenticated" };
+    }
+    const dbUser = await prisma.user.findFirst({
+      where: { email },
+      select: { id: true },
+    });
+    if (!dbUser) {
+      return { status: "unauthenticated" };
+    }
+    setClerkToPrismaCache(user.id, dbUser.id);
+    prismaUserId = dbUser.id;
+  }
+
+  const membership = await prisma.orgMembership.findFirst({
+    where: { userId: prismaUserId },
+    orderBy: { createdAt: "asc" },
+    select: { orgId: true },
+  });
+  if (!membership) {
     return { status: "unauthenticated" };
   }
 
-  return buildAuthorizedState({ userId, orgId });
+  return buildAuthorizedState({ userId: prismaUserId, orgId: membership.orgId });
 }
 
 /**

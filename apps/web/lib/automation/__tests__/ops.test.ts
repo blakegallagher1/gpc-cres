@@ -163,6 +163,10 @@ describe("ops", () => {
     beforeEach(() => {
       process.env = { ...originalEnv };
       delete process.env.DATABASE_URL;
+      // Ensure NextAuth vars don't interfere with Clerk-based auth checks
+      delete process.env.AUTH_SECRET;
+      delete process.env.NEXTAUTH_SECRET;
+      delete process.env.CLERK_SECRET_KEY;
     });
 
     afterAll(() => {
@@ -170,7 +174,7 @@ describe("ops", () => {
     });
 
     it('should return "ok" when all critical vars are present', () => {
-      process.env.AUTH_SECRET = "test-secret";
+      process.env.CLERK_SECRET_KEY = "sk_test_secret";
       process.env.LOCAL_API_URL = "http://localhost:8000";
       process.env.LOCAL_API_KEY = "test-api-key";
       process.env.OPENAI_API_KEY = "sk-test";
@@ -210,20 +214,18 @@ describe("ops", () => {
     });
 
     it('should return "degraded" when non-critical vars missing', () => {
-      delete process.env.AUTH_SECRET;
-      delete process.env.NEXTAUTH_SECRET;
+      delete process.env.CLERK_SECRET_KEY;
       process.env.LOCAL_API_URL = "http://localhost:8000";
       process.env.LOCAL_API_KEY = "test-api-key";
       process.env.OPENAI_API_KEY = "sk-test";
 
       const result = evaluateHealth();
       expect(result.status).toBe("degraded");
-      expect(result.missingVars).toContain("AUTH_SECRET");
+      expect(result.missingVars).toContain("CLERK_SECRET_KEY");
     });
 
-    it("accepts NEXTAUTH_SECRET as the auth secret fallback", () => {
-      delete process.env.AUTH_SECRET;
-      process.env.NEXTAUTH_SECRET = "legacy-nextauth-secret";
+    it("reports ok when CLERK_SECRET_KEY is set", () => {
+      process.env.CLERK_SECRET_KEY = "sk_live_secret";
       process.env.LOCAL_API_URL = "http://localhost:8000";
       process.env.LOCAL_API_KEY = "test-api-key";
       process.env.OPENAI_API_KEY = "sk-test";
@@ -231,7 +233,7 @@ describe("ops", () => {
       const result = evaluateHealth();
 
       expect(result.status).toBe("ok");
-      expect(result.missingVars).not.toContain("AUTH_SECRET");
+      expect(result.missingVars).not.toContain("CLERK_SECRET_KEY");
     });
 
     it("should include ISO timestamp", () => {

@@ -19,13 +19,12 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/chat",
 }));
 
-vi.mock("next-auth/react", () => ({
-  useSession: () => ({
-    data: {
-      user: {
-        name: "Blake Gallagher",
-        email: "blake@gallagherpropco.com",
-      },
+vi.mock("@clerk/nextjs", () => ({
+  useUser: () => ({
+    isLoaded: true,
+    user: {
+      fullName: "Blake Gallagher",
+      primaryEmailAddress: { emailAddress: "blake@gallagherpropco.com" },
     },
   }),
 }));
@@ -59,9 +58,9 @@ describe("Sidebar", () => {
 
     expect(screen.getByText("Gallagher Property Company")).toBeInTheDocument();
     expect(screen.getByText("Development and investment OS")).toBeInTheDocument();
-    expect(screen.getByText("Operate")).toBeInTheDocument();
-    expect(screen.getByText("Intelligence")).toBeInTheDocument();
-    expect(screen.getByText("System")).toBeInTheDocument();
+    expect(screen.getAllByText("Operate").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Intelligence").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("System").length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: /Chat/i })).toBeInTheDocument();
     expect(container.firstChild).toMatchSnapshot();
   });

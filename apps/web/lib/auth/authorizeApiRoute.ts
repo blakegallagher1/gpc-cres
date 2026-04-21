@@ -320,33 +320,50 @@ async function tryAdminSessionAuthorization(
     };
   }
 
-  const [{ auth }, { isEmailAllowed }] = await Promise.all([
-    import("@/auth"),
+  const [{ currentUser }, { isEmailAllowed }] = await Promise.all([
+    import("@clerk/nextjs/server"),
     import("@/lib/auth/allowedEmails"),
   ]);
-  const session = await auth();
+  const user = await currentUser();
 
-  if (!session?.user) {
+  if (!user) {
     return unauthorized("Unauthorized");
   }
 
-  if (!isEmailAllowed(session.user.email)) {
+  const email = user.emailAddresses[0]?.emailAddress;
+  if (!isEmailAllowed(email)) {
     return {
       ok: false,
       response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
     };
   }
 
-  const userId = session.user.id;
-  const orgId = (session.user as { orgId?: string | null }).orgId;
+  if (!email) {
+    return unauthorized("Unauthorized");
+  }
 
-  if (!userId || !orgId) {
+  const { prisma } = await import("@entitlement-os/db");
+
+  const dbUser = await prisma.user.findFirst({
+    where: { email },
+    select: { id: true },
+  });
+  if (!dbUser) {
+    return unauthorized("Unauthorized");
+  }
+
+  const membership = await prisma.orgMembership.findFirst({
+    where: { userId: dbUser.id },
+    orderBy: { createdAt: "asc" },
+    select: { orgId: true },
+  });
+  if (!membership) {
     return unauthorized("Unauthorized");
   }
 
   return {
     ok: true,
-    auth: { userId, orgId },
+    auth: { userId: dbUser.id, orgId: membership.orgId },
     authorizedBy: "admin_session",
     rule,
     key: null,

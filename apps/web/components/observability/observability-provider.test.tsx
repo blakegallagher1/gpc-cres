@@ -4,15 +4,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const state = {
   pathname: "/map",
   search: "search=baton+rouge",
-  session: {
-    data: {
-      user: {
-        id: "user-1",
-        email: "blake@gallagherpropco.com",
-        orgId: "org-1",
-      },
-    },
+  auth: {
+    userId: "user-1" as string | null,
+    orgId: "org-1" as string | null,
   },
+  user: {
+    primaryEmailAddress: { emailAddress: "blake@gallagherpropco.com" } as { emailAddress: string } | null,
+  } as { primaryEmailAddress: { emailAddress: string } | null } | null,
 };
 
 const sentryMocks = vi.hoisted(() => ({
@@ -36,8 +34,17 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(state.search),
 }));
 
-vi.mock("next-auth/react", () => ({
-  useSession: () => state.session,
+vi.mock("@clerk/nextjs", () => ({
+  useAuth: () => ({
+    isLoaded: true,
+    isSignedIn: state.auth.userId !== null,
+    userId: state.auth.userId,
+    orgId: state.auth.orgId,
+  }),
+  useUser: () => ({
+    isLoaded: true,
+    user: state.user,
+  }),
 }));
 
 vi.mock("@sentry/nextjs", () => sentryMocks);
@@ -49,15 +56,8 @@ describe("ObservabilityProvider", () => {
   beforeEach(() => {
     state.pathname = "/map";
     state.search = "search=baton+rouge";
-    state.session = {
-      data: {
-        user: {
-          id: "user-1",
-          email: "blake@gallagherpropco.com",
-          orgId: "org-1",
-        },
-      },
-    };
+    state.auth = { userId: "user-1", orgId: "org-1" };
+    state.user = { primaryEmailAddress: { emailAddress: "blake@gallagherpropco.com" } };
     sentryMocks.setUser.mockReset();
     sentryMocks.setTag.mockReset();
     sentryMocks.addBreadcrumb.mockReset();
@@ -143,15 +143,8 @@ describe("ObservabilityProvider", () => {
   });
 
   it("skips navigation ingestion when no org is present", async () => {
-    state.session = {
-      data: {
-        user: {
-          id: "user-1",
-          email: "blake@gallagherpropco.com",
-          orgId: null,
-        },
-      },
-    };
+    state.auth = { userId: "user-1", orgId: null };
+    state.user = { primaryEmailAddress: { emailAddress: "blake@gallagherpropco.com" } };
 
     render(
       <ObservabilityProvider>

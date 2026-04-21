@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useAuth } from "@clerk/nextjs";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -12,20 +12,20 @@ const DISABLE_AUTH = process.env.NEXT_PUBLIC_DISABLE_AUTH === "true";
 
 export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
-  const { status } = useSession();
+  const { isLoaded, isSignedIn } = useAuth();
 
   useEffect(() => {
     if (DISABLE_AUTH) return;
-    if (status === "unauthenticated") {
+    if (isLoaded && !isSignedIn) {
       router.replace("/login");
     }
-  }, [status, router]);
+  }, [isLoaded, isSignedIn, router]);
 
   if (DISABLE_AUTH) {
     return <>{children}</>;
   }
 
-  if (status === "loading") {
+  if (!isLoaded) {
     return (
       <div className="flex min-h-screen items-center justify-center text-muted-foreground">
         Checking session...
@@ -33,7 +33,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
     );
   }
 
-  if (status === "unauthenticated") {
+  if (!isSignedIn) {
     return null;
   }
 

@@ -1,12 +1,30 @@
 import { NextRequest } from "next/server";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getTokenMock } = vi.hoisted(() => ({
-  getTokenMock: vi.fn(),
-}));
+// Use vi.hoisted so both clerkAuthMock and handlerRef are available when the
+// vi.mock factory runs (vi.mock is hoisted to the top of the file by Vitest).
+const { clerkAuthMock, handlerRef } = vi.hoisted(() => {
+  type HandlerFn = (
+    clerkAuth: () => Promise<{ userId: string | null }>,
+    request: NextRequest,
+  ) => Promise<Response>;
+  return {
+    clerkAuthMock: vi.fn(),
+    handlerRef: { fn: null as HandlerFn | null },
+  };
+});
 
-vi.mock("next-auth/jwt", () => ({
-  getToken: getTokenMock,
+vi.mock("@clerk/nextjs/server", () => ({
+  clerkMiddleware: (
+    handler: (
+      clerkAuth: () => Promise<{ userId: string | null }>,
+      request: NextRequest,
+    ) => Promise<Response>,
+  ) => {
+    handlerRef.fn = handler;
+    // Return a function that delegates to the captured handler using the mock auth.
+    return (request: NextRequest) => handlerRef.fn!(clerkAuthMock, request);
+  },
 }));
 
 import { proxy } from "./proxy";
@@ -15,10 +33,11 @@ describe("proxy", () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
-    getTokenMock.mockReset();
+    clerkAuthMock.mockReset();
+    // Default: no authenticated user
+    clerkAuthMock.mockResolvedValue({ userId: null });
     process.env = {
       ...originalEnv,
-      AUTH_SECRET: "test-auth-secret",
     };
   });
 
@@ -31,7 +50,7 @@ describe("proxy", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("location")).toBeNull();
-    expect(getTokenMock).not.toHaveBeenCalled();
+    expect(clerkAuthMock).not.toHaveBeenCalled();
   });
 
   it("allows public asset requests without consulting auth", async () => {
@@ -39,7 +58,7 @@ describe("proxy", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("location")).toBeNull();
-    expect(getTokenMock).not.toHaveBeenCalled();
+    expect(clerkAuthMock).not.toHaveBeenCalled();
   });
 
   it("allows public video asset requests without consulting auth", async () => {
@@ -47,11 +66,11 @@ describe("proxy", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("location")).toBeNull();
-    expect(getTokenMock).not.toHaveBeenCalled();
+    expect(clerkAuthMock).not.toHaveBeenCalled();
   });
 
   it("redirects authenticated users from login to the chat workspace", async () => {
-    getTokenMock.mockResolvedValue({ sub: "user-1" });
+    clerkAuthMock.mockResolvedValue({ userId: "user_clerk_123" });
 
     const response = await proxy(new NextRequest("http://localhost/login"));
 
@@ -59,45 +78,36 @@ describe("proxy", () => {
     expect(response.headers.get("location")).toBe("http://localhost/chat");
   });
 
-  it("accepts NEXTAUTH_SECRET as the login token secret fallback", async () => {
-    delete process.env.AUTH_SECRET;
-    process.env.NEXTAUTH_SECRET = "legacy-nextauth-secret";
-    getTokenMock.mockResolvedValue({ sub: "user-1" });
-
-    const response = await proxy(new NextRequest("http://localhost/login"));
-
-    expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("http://localhost/chat");
-    expect(getTokenMock).toHaveBeenCalledWith({
-      req: expect.anything(),
-      secret: "legacy-nextauth-secret",
-      secureCookie: false,
-    });
-  });
-
-  it("allows the login page through when no auth secret is configured", async () => {
-    delete process.env.AUTH_SECRET;
-    delete process.env.NEXTAUTH_SECRET;
+  it("allows the login page through when no authenticated user", async () => {
+    clerkAuthMock.mockResolvedValue({ userId: null });
 
     const response = await proxy(new NextRequest("http://localhost/login"));
 
     expect(response.status).toBe(200);
     expect(response.headers.get("location")).toBeNull();
-    expect(getTokenMock).not.toHaveBeenCalled();
   });
 
   it("redirects protected routes to login when no session token is present", async () => {
-    getTokenMock.mockResolvedValue(null);
+    clerkAuthMock.mockResolvedValue({ userId: null });
 
     const response = await proxy(new NextRequest("http://localhost/map"));
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("http://localhost/login?next=%2Fmap");
-    expect(getTokenMock).toHaveBeenCalledTimes(1);
+    expect(clerkAuthMock).toHaveBeenCalledTimes(1);
   });
 
-  it("redirects login failures to auth_db_unreachable when middleware token lookup throws", async () => {
-    getTokenMock.mockRejectedValue(new Error("db down"));
+  it("allows protected routes when user is authenticated", async () => {
+    clerkAuthMock.mockResolvedValue({ userId: "user_clerk_123" });
+
+    const response = await proxy(new NextRequest("http://localhost/map"));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("redirects to auth_db_unreachable when middleware auth lookup throws", async () => {
+    clerkAuthMock.mockRejectedValue(new Error("clerk down"));
 
     const response = await proxy(new NextRequest("http://localhost/map"));
 
@@ -105,5 +115,12 @@ describe("proxy", () => {
     expect(response.headers.get("location")).toBe(
       "http://localhost/login?error=auth_db_unreachable",
     );
+  });
+
+  it("allows API routes through without checking clerk auth directly", async () => {
+    const response = await proxy(new NextRequest("http://localhost/api/health"));
+
+    expect(response.status).toBe(200);
+    expect(clerkAuthMock).not.toHaveBeenCalled();
   });
 });

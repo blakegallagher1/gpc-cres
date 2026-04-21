@@ -2,17 +2,17 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  getTokenMock,
+  getAuthMock,
   userHasHealthAccessMock,
   getHealthStatusSnapshotMock,
 } = vi.hoisted(() => ({
-  getTokenMock: vi.fn(),
+  getAuthMock: vi.fn(),
   userHasHealthAccessMock: vi.fn(),
   getHealthStatusSnapshotMock: vi.fn(),
 }));
 
-vi.mock("next-auth/jwt", () => ({
-  getToken: getTokenMock,
+vi.mock("@clerk/nextjs/server", () => ({
+  getAuth: getAuthMock,
 }));
 
 vi.mock("@gpc/server", () => ({
@@ -29,12 +29,14 @@ describe("GET /api/health", () => {
     vi.resetAllMocks();
     process.env = {
       ...envSnapshot,
-      AUTH_SECRET: "test-secret",
+      CLERK_SECRET_KEY: "sk_test_secret",
       HEALTHCHECK_TOKEN: "health-token",
       LOCAL_API_URL: "http://gateway.test",
       LOCAL_API_KEY: "gateway-key",
       OPENAI_API_KEY: "test-openai",
     };
+    // Default: no authenticated user
+    getAuthMock.mockReturnValue({ userId: null });
     getHealthStatusSnapshotMock.mockResolvedValue({
       status: "ok",
       missing: [],
@@ -65,7 +67,9 @@ describe("GET /api/health", () => {
   });
 
   it("returns 401 when request is not authorized", async () => {
-    getTokenMock.mockResolvedValue(null);
+    delete process.env.HEALTHCHECK_TOKEN;
+    delete process.env.VERCEL_ACCESS_TOKEN;
+    getAuthMock.mockReturnValue({ userId: null });
 
     const req = new NextRequest("http://localhost/api/health");
     const res = await GET(req);
@@ -117,7 +121,9 @@ describe("GET /api/health", () => {
   });
 
   it("falls back to authenticated membership access", async () => {
-    getTokenMock.mockResolvedValue({ userId: "user-1" });
+    delete process.env.HEALTHCHECK_TOKEN;
+    delete process.env.VERCEL_ACCESS_TOKEN;
+    getAuthMock.mockReturnValue({ userId: "clerk_user_1" });
     userHasHealthAccessMock.mockResolvedValue(true);
     getHealthStatusSnapshotMock.mockResolvedValue({
       status: "degraded",
@@ -151,7 +157,7 @@ describe("GET /api/health", () => {
     const res = await GET(req);
 
     expect(res.status).toBe(500);
-    expect(userHasHealthAccessMock).toHaveBeenCalledWith("user-1");
+    expect(userHasHealthAccessMock).toHaveBeenCalledWith("clerk_user_1");
     expect(await res.json()).toEqual({
       status: "degraded",
       missing: ["LOCAL_API_URL"],

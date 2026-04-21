@@ -7,10 +7,10 @@ const appRoot = "apps/web";
 const codeExtensions = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]);
 const ignoredSegments = new Set(["node_modules", "dist", ".next", "coverage"]);
 const approvedDbImports = new Set([
-  "apps/web/auth.ts",
   "apps/web/lib/agent/executeAgent.ts",
   "apps/web/lib/auth/authorizeApiRoute.ts",
   "apps/web/lib/auth/routeAuth.ts",
+  "apps/web/app/api/webhooks/clerk/route.ts",
 ]);
 
 const productionAppCodeRoots = [

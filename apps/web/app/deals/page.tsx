@@ -5,11 +5,7 @@ import { DashboardShell } from "@/components/layout/DashboardShell";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { DealSummary } from "@/components/deals/DealCard";
 import DealsPage from "./page-client";
-import { auth } from "@/auth";
-import {
-  getLocalDevAuthResult,
-  isAppRouteLocalBypassEnabled,
-} from "@/lib/auth/localDevBypass";
+import { resolveAuth } from "@/lib/auth/routeAuth";
 import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -129,18 +125,13 @@ function DealsFallback() {
 }
 
 export default async function DealsRoute({ searchParams }: DealsRouteProps) {
-  const session = await auth();
-  const localBypassAuth = isAppRouteLocalBypassEnabled()
-    ? getLocalDevAuthResult()
-    : null;
-  const userId = session?.user?.id ?? localBypassAuth?.userId;
-  const orgId =
-    (session?.user as { orgId?: string | null } | undefined)?.orgId ??
-    localBypassAuth?.orgId;
+  const authResult = await resolveAuth();
 
-  if (!userId || !orgId) {
+  if (!authResult) {
     redirect("/login");
   }
+
+  const { userId, orgId } = authResult;
 
   const params = searchParams instanceof Promise ? await searchParams : searchParams ?? {};
   const statusFilter = getSearchParam(params?.status) ?? "all";

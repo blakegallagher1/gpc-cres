@@ -1,26 +1,30 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { authMock, getTokenMock, isEmailAllowedMock, prismaMock } = vi.hoisted(() => ({
-  authMock: vi.fn(),
-  getTokenMock: vi.fn(),
+const { clerkAuthMock, clerkClientMock, currentUserMock, isEmailAllowedMock, prismaMock } = vi.hoisted(() => ({
+  clerkAuthMock: vi.fn(),
+  clerkClientMock: vi.fn(),
+  currentUserMock: vi.fn(),
   isEmailAllowedMock: vi.fn(),
   prismaMock: {
+    user: {
+      findFirst: vi.fn(),
+    },
     orgMembership: {
       findFirst: vi.fn(),
     },
   },
 }));
 
-vi.mock("@/auth", () => ({
-  auth: authMock,
+vi.mock("@clerk/nextjs/server", () => ({
+  auth: clerkAuthMock,
+  clerkClient: clerkClientMock,
+  currentUser: currentUserMock,
 }));
+
+vi.mock("server-only", () => ({}));
 
 vi.mock("@/lib/auth/allowedEmails", () => ({
   isEmailAllowed: isEmailAllowedMock,
-}));
-
-vi.mock("next-auth/jwt", () => ({
-  getToken: getTokenMock,
 }));
 
 vi.mock("@entitlement-os/db", () => ({
@@ -33,14 +37,14 @@ describe("resolveRouteAuth", () => {
 
   beforeEach(async () => {
     vi.resetModules();
-    authMock.mockReset();
-    getTokenMock.mockReset();
+    clerkAuthMock.mockReset();
+    clerkClientMock.mockReset();
+    currentUserMock.mockReset();
     isEmailAllowedMock.mockReset();
+    prismaMock.user.findFirst.mockReset();
     prismaMock.orgMembership.findFirst.mockReset();
 
-    process.env.AUTH_SECRET = "test-secret-32chars-minimum-len";
     process.env.NODE_ENV = originalNodeEnv ?? "test";
-    delete process.env.NEXTAUTH_SECRET;
     delete process.env.NEXT_PUBLIC_DISABLE_AUTH;
     delete process.env.NEXT_PUBLIC_E2E;
     delete process.env.AGENT_TOOL_INTERNAL_TOKEN;
@@ -70,8 +74,14 @@ describe("resolveRouteAuth", () => {
     });
   });
 
-  it("returns authorized state for JWT-backed app routes", async () => {
-    getTokenMock.mockResolvedValue({ userId: "user-123", orgId: "org-123" });
+  it("returns authorized state for Clerk-backed app routes", async () => {
+    clerkAuthMock.mockResolvedValue({ userId: "clerk_user_123" });
+    const mockGetUser = vi.fn().mockResolvedValue({
+      emailAddresses: [{ emailAddress: "user@example.com" }],
+    });
+    clerkClientMock.mockResolvedValue({ users: { getUser: mockGetUser } });
+    prismaMock.user.findFirst.mockResolvedValue({ id: "user-123" });
+    prismaMock.orgMembership.findFirst.mockResolvedValue({ orgId: "org-123" });
 
     const result = await resolveRouteAuth({
       kind: "app",
@@ -84,26 +94,15 @@ describe("resolveRouteAuth", () => {
     });
   });
 
-  it("accepts NEXTAUTH_SECRET as the route auth token secret fallback", async () => {
-    delete process.env.AUTH_SECRET;
-    process.env.NEXTAUTH_SECRET = "legacy-nextauth-secret";
-    ({ resolveRouteAuth } = await import("./routeAuth"));
-    getTokenMock.mockResolvedValue({ userId: "user-legacy", orgId: "org-legacy" });
+  it("returns unauthenticated for app routes when Clerk returns no userId", async () => {
+    clerkAuthMock.mockResolvedValue({ userId: null });
 
     const result = await resolveRouteAuth({
       kind: "app",
       request: new Request("http://localhost/api/test"),
     });
 
-    expect(result).toEqual({
-      status: "authorized",
-      auth: { userId: "user-legacy", orgId: "org-legacy" },
-    });
-    expect(getTokenMock).toHaveBeenCalledWith({
-      req: expect.anything(),
-      secret: "legacy-nextauth-secret",
-      secureCookie: false,
-    });
+    expect(result).toEqual({ status: "unauthenticated" });
   });
 
   it("returns authorized state for coordinator memory app-route auth", async () => {
@@ -127,7 +126,7 @@ describe("resolveRouteAuth", () => {
       status: "authorized",
       auth: { userId: "user-coord", orgId: "org-coord" },
     });
-    expect(getTokenMock).not.toHaveBeenCalled();
+    expect(clerkAuthMock).not.toHaveBeenCalled();
   });
 
   it("returns authorized state for admin-route local bypass", async () => {
@@ -143,7 +142,7 @@ describe("resolveRouteAuth", () => {
   });
 
   it("returns unauthenticated for admin routes without a session", async () => {
-    authMock.mockResolvedValue(null);
+    currentUserMock.mockResolvedValue(null);
     const result = await resolveRouteAuth({
       kind: "admin",
       localBypassEnabled: false,
@@ -153,12 +152,9 @@ describe("resolveRouteAuth", () => {
   });
 
   it("returns forbidden for admin routes when email is not allowed", async () => {
-    authMock.mockResolvedValue({
-      user: {
-        id: "user-123",
-        email: "viewer@example.com",
-        orgId: "org-123",
-      },
+    currentUserMock.mockResolvedValue({
+      id: "clerk_user_123",
+      emailAddresses: [{ emailAddress: "viewer@example.com" }],
     });
     isEmailAllowedMock.mockReturnValue(false);
 
@@ -170,14 +166,13 @@ describe("resolveRouteAuth", () => {
     expect(result).toEqual({ status: "forbidden" });
   });
 
-  it("returns unauthenticated for admin routes when org context is missing", async () => {
-    authMock.mockResolvedValue({
-      user: {
-        id: "user-123",
-        email: "blake@gallagherpropco.com",
-      },
+  it("returns unauthenticated for admin routes when DB user not found", async () => {
+    currentUserMock.mockResolvedValue({
+      id: "clerk_user_123",
+      emailAddresses: [{ emailAddress: "blake@gallagherpropco.com" }],
     });
     isEmailAllowedMock.mockReturnValue(true);
+    prismaMock.user.findFirst.mockResolvedValue(null);
 
     const result = await resolveRouteAuth({
       kind: "admin",
@@ -188,14 +183,13 @@ describe("resolveRouteAuth", () => {
   });
 
   it("returns authorized state for admin routes with an allowed session", async () => {
-    authMock.mockResolvedValue({
-      user: {
-        id: "user-123",
-        email: "blake@gallagherpropco.com",
-        orgId: "org-123",
-      },
+    currentUserMock.mockResolvedValue({
+      id: "clerk_user_123",
+      emailAddresses: [{ emailAddress: "blake@gallagherpropco.com" }],
     });
     isEmailAllowedMock.mockReturnValue(true);
+    prismaMock.user.findFirst.mockResolvedValue({ id: "user-123" });
+    prismaMock.orgMembership.findFirst.mockResolvedValue({ orgId: "org-123" });
 
     const result = await resolveRouteAuth({
       kind: "admin",

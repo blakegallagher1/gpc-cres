@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-vi.mock("next-auth/jwt", () => ({
-  getToken: vi.fn().mockResolvedValue(null),
+const { getAuthMock } = vi.hoisted(() => ({
+  getAuthMock: vi.fn(),
+}));
+
+vi.mock("@clerk/nextjs/server", () => ({
+  getAuth: getAuthMock,
 }));
 
 vi.mock("@entitlement-os/db", () => ({
@@ -16,6 +20,8 @@ vi.mock("@entitlement-os/db", () => ({
 describe("GET /api/health", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: no authenticated user
+    getAuthMock.mockReturnValue({ userId: null });
   });
 
   it("returns 401 when no auth token or session present", async () => {
@@ -24,16 +30,14 @@ describe("GET /api/health", () => {
 
     delete process.env.HEALTHCHECK_TOKEN;
     delete process.env.VERCEL_ACCESS_TOKEN;
-    process.env.NEXTAUTH_SECRET = "legacy-nextauth-secret";
 
     try {
       const { GET } = await import("@/app/api/health/route");
-      const { getToken } = await import("next-auth/jwt");
 
       const response = await GET(new NextRequest("http://localhost/api/health"));
 
       expect(response.status).toBe(401);
-      expect(getToken).toHaveBeenCalled();
+      expect(getAuthMock).toHaveBeenCalled();
     } finally {
       if (previousHealthToken === undefined) {
         delete process.env.HEALTHCHECK_TOKEN;
@@ -48,13 +52,12 @@ describe("GET /api/health", () => {
     }
   });
 
-  it("authorizes with x-health-token without calling getToken", async () => {
+  it("authorizes with x-health-token without calling getAuth", async () => {
     const previousHealthToken = process.env.HEALTHCHECK_TOKEN;
     process.env.HEALTHCHECK_TOKEN = "health-token";
 
     try {
       const { GET } = await import("@/app/api/health/route");
-      const { getToken } = await import("next-auth/jwt");
 
       const response = await GET(
         new NextRequest("http://localhost/api/health", {
@@ -63,7 +66,7 @@ describe("GET /api/health", () => {
       );
 
       expect(response.status).not.toBe(401);
-      expect(getToken).not.toHaveBeenCalled();
+      expect(getAuthMock).not.toHaveBeenCalled();
     } finally {
       if (previousHealthToken === undefined) {
         delete process.env.HEALTHCHECK_TOKEN;

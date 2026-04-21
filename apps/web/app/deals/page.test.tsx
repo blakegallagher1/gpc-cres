@@ -13,8 +13,8 @@ const { authMock, redirectMock, dealsPageMock, fetchMock } = vi.hoisted(() => ({
   fetchMock: vi.fn(),
 }));
 
-vi.mock("@/auth", () => ({
-  auth: authMock,
+vi.mock("@/lib/auth/routeAuth", () => ({
+  resolveAuth: authMock,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -51,10 +51,8 @@ describe("DealsRoute", () => {
 
   it("uses the authenticated server session to load deals", async () => {
     authMock.mockResolvedValue({
-      user: {
-        id: "user-1",
-        orgId: "org-1",
-      },
+      userId: "user-1",
+      orgId: "org-1",
     });
 
     fetchMock.mockResolvedValue({
@@ -85,7 +83,7 @@ describe("DealsRoute", () => {
   });
 
   it("uses local bypass auth when enabled and no server session is available", async () => {
-    authMock.mockResolvedValue(null);
+    authMock.mockResolvedValue({ userId: "local-user-7", orgId: "local-org-7" });
     process.env.NEXT_PUBLIC_DISABLE_AUTH = "true";
     process.env.LOCAL_DEV_AUTH_ORG_ID = "local-org-7";
     process.env.LOCAL_DEV_AUTH_USER_ID = "local-user-7";

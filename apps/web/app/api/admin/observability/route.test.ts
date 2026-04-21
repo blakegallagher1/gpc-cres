@@ -3,18 +3,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { authMock } = vi.hoisted(() => ({
-  authMock: vi.fn(),
-}));
-const { isEmailAllowedMock } = vi.hoisted(() => ({
+const { currentUserMock, isEmailAllowedMock, prismaMock } = vi.hoisted(() => ({
+  currentUserMock: vi.fn(),
   isEmailAllowedMock: vi.fn(),
+  prismaMock: {
+    user: {
+      findFirst: vi.fn(),
+    },
+    orgMembership: {
+      findFirst: vi.fn(),
+    },
+  },
 }));
 
-vi.mock("@/auth", () => ({
-  auth: authMock,
+vi.mock("@clerk/nextjs/server", () => ({
+  currentUser: currentUserMock,
 }));
 vi.mock("@/lib/auth/allowedEmails", () => ({
   isEmailAllowed: isEmailAllowedMock,
+}));
+vi.mock("@entitlement-os/db", () => ({
+  prisma: prismaMock,
 }));
 const { queryRecentObservabilityMock } = vi.hoisted(() => ({
   queryRecentObservabilityMock: vi.fn(),
@@ -38,13 +47,19 @@ import {
 } from "../../../../lib/server/observabilityStore";
 import { GET } from "./route";
 
+// Mirrors the DB IDs returned by the mocked prisma stubs above.
 const TEST_SESSION = {
   user: {
     id: "11111111-1111-4111-8111-111111111111",
     email: "blake@gallagherpropco.com",
     orgId: "22222222-2222-4222-8222-222222222222",
   },
-  expires: new Date(Date.now() + 86_400_000).toISOString(),
+};
+
+// Clerk user object returned by currentUser()
+const CLERK_TEST_USER = {
+  id: "clerk_11111111-1111-4111-8111-111111111111",
+  emailAddresses: [{ emailAddress: "blake@gallagherpropco.com" }],
 };
 
 const originalEnv = { ...process.env };
@@ -55,8 +70,12 @@ describe("/api/admin/observability route", () => {
     vi.clearAllMocks();
     process.env.OBSERVABILITY_ADMIN_LOCAL_BYPASS = "false";
     delete process.env.NEXT_PUBLIC_DISABLE_AUTH;
-    authMock.mockResolvedValue(TEST_SESSION);
+    // Default: authenticated admin user
+    currentUserMock.mockResolvedValue(CLERK_TEST_USER);
     isEmailAllowedMock.mockReturnValue(true);
+    // Re-establish default prisma mocks after clearAllMocks
+    prismaMock.user.findFirst.mockResolvedValue({ id: "11111111-1111-4111-8111-111111111111" });
+    prismaMock.orgMembership.findFirst.mockResolvedValue({ orgId: "22222222-2222-4222-8222-222222222222" });
   });
 
   afterEach(() => {
@@ -69,7 +88,7 @@ describe("/api/admin/observability route", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    authMock.mockResolvedValue(null);
+    currentUserMock.mockResolvedValue(null);
 
     const res = await GET(new NextRequest("http://localhost/api/admin/observability"));
     const body = await res.json();
@@ -216,7 +235,7 @@ describe("/api/admin/observability route", () => {
   it("supports local dev auth bypass", async () => {
     process.env.OBSERVABILITY_ADMIN_LOCAL_BYPASS = "true";
     delete process.env.NEXT_PUBLIC_DISABLE_AUTH;
-    authMock.mockResolvedValue(null);
+    currentUserMock.mockResolvedValue(null);
 
     recordObservabilityMonitorSnapshot({
       source: "production-monitor",

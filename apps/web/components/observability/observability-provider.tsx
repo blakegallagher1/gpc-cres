@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import * as Sentry from "@sentry/nextjs";
 import { type ReadonlyURLSearchParams, usePathname, useSearchParams } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useAuth, useUser } from "@clerk/nextjs";
 import {
   createViewId,
   installGlobalBrowserTelemetry,
@@ -11,12 +11,6 @@ import {
   type ClientTelemetryContext,
 } from "./client-telemetry";
 import { DevClientErrorPanel } from "./dev-client-error-panel";
-
-type SessionUser = {
-  id?: string | null;
-  email?: string | null;
-  orgId?: string | null;
-};
 
 function buildRoute(
   pathname: string | null,
@@ -30,8 +24,9 @@ function buildRoute(
 function ObservabilityLifecycle() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { data: session } = useSession();
-  const user = (session?.user ?? {}) as SessionUser;
+  const { userId, orgId } = useAuth();
+  const { user } = useUser();
+  const userEmail = user?.primaryEmailAddress?.emailAddress ?? null;
   const route = useMemo(
     () => buildRoute(pathname, searchParams),
     [pathname, searchParams],
@@ -51,9 +46,9 @@ function ObservabilityLifecycle() {
   const currentContextRef = useRef<ClientTelemetryContext>({
     route,
     viewId: activeViewId,
-    userId: user.id ?? null,
-    userEmail: user.email ?? null,
-    orgId: user.orgId ?? null,
+    userId: userId ?? null,
+    userEmail,
+    orgId: orgId ?? null,
   });
 
   useEffect(() => {
@@ -74,33 +69,33 @@ function ObservabilityLifecycle() {
     currentContextRef.current = {
       route,
       viewId: viewIdRef.current ?? activeViewId,
-      userId: user.id ?? null,
-      userEmail: user.email ?? null,
-      orgId: user.orgId ?? null,
+      userId: userId ?? null,
+      userEmail,
+      orgId: orgId ?? null,
     };
-  }, [route, user.email, user.id, user.orgId]);
+  }, [route, userEmail, userId, orgId, activeViewId]);
 
   useEffect(() => {
-    if (user.id || user.email) {
+    if (userId || userEmail) {
       Sentry.setUser({
-        id: user.id ?? undefined,
-        email: user.email ?? undefined,
+        id: userId ?? undefined,
+        email: userEmail ?? undefined,
       });
     } else {
       Sentry.setUser(null);
     }
 
-    Sentry.setTag("orgId", user.orgId ?? "anonymous");
+    Sentry.setTag("orgId", orgId ?? "anonymous");
     Sentry.setTag("route", route);
-  }, [route, user.email, user.id, user.orgId]);
+  }, [route, userEmail, userId, orgId]);
 
   useEffect(() => {
-    if (!user.orgId) {
+    if (!orgId) {
       return;
     }
 
     const lastNavigation = lastNavigationRef.current;
-    if (lastNavigation.route === route && lastNavigation.orgId === user.orgId) {
+    if (lastNavigation.route === route && lastNavigation.orgId === orgId) {
       return;
     }
 
@@ -115,8 +110,8 @@ function ObservabilityLifecycle() {
     });
 
     void recordNavigationEvent(currentContextRef.current, previousRoute);
-    lastNavigationRef.current = { route, orgId: user.orgId };
-  }, [route, user.orgId]);
+    lastNavigationRef.current = { route, orgId };
+  }, [route, orgId]);
 
   return null;
 }

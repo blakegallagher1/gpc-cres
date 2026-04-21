@@ -1,6 +1,5 @@
+import { clerkMiddleware } from "@clerk/nextjs/server";
 import { NextResponse, type NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt";
-import { getAuthSecret } from "@/lib/auth/authSecret";
 import {
   attachRequestId,
   cloneHeadersWithRequestId,
@@ -11,8 +10,9 @@ import {
 const PUBLIC_PATHS = [
   "/login",
   "/signup",
-  "/api/auth",      // NextAuth internal routes
+  "/api/auth",      // Clerk webhook routes live under /api/webhooks/clerk
   "/api/health",    // Health check (public)
+  "/api/webhooks",  // Clerk webhooks
 ];
 
 const PUBLIC_FILE_PATTERN = /\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|bmp|txt|xml|webmanifest|mp4|webm|ogg)$/i;
@@ -78,7 +78,7 @@ function handleApiCors(req: NextRequest, requestId: string): NextResponse {
   return res;
 }
 
-export async function proxy(request: NextRequest) {
+export const proxy = clerkMiddleware(async (clerkAuth, request: NextRequest) => {
   const { pathname } = request.nextUrl;
   const requestId = getOrCreateRequestId(request);
   const isHomepage = pathname === "/";
@@ -112,28 +112,19 @@ export async function proxy(request: NextRequest) {
       return nextResponseWithRequestId(request, requestId);
     }
 
-    const authSecret = getAuthSecret();
-    const secureCookie =
-      request.url.startsWith("https://") ||
-      process.env.NODE_ENV === "production";
-    const token = authSecret
-      ? await getToken({
-          req: request,
-          secret: authSecret,
-          secureCookie,
-        })
-      : null;
+    // Get Clerk auth state
+    const { userId } = await clerkAuth();
 
     if (isPublic) {
       // Logged-in users on /login → redirect home
-      if (pathname.startsWith("/login") && token) {
+      if (pathname.startsWith("/login") && userId) {
         return finalizeResponse(NextResponse.redirect(new URL("/chat", request.url)), requestId);
       }
       return nextResponseWithRequestId(request, requestId);
     }
 
     // Protected route — must have valid session
-    if (!token) {
+    if (!userId) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("next", pathname);
       return finalizeResponse(NextResponse.redirect(loginUrl), requestId);
@@ -152,7 +143,7 @@ export async function proxy(request: NextRequest) {
     loginUrl.searchParams.set("error", "auth_db_unreachable");
     return finalizeResponse(NextResponse.redirect(loginUrl), requestId);
   }
-}
+});
 
 export const config = {
   matcher: ["/api/:path*", "/((?!_next/static|_next/image|favicon.ico).*)"],

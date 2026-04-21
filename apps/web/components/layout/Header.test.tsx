@@ -31,8 +31,11 @@ vi.mock("next/navigation", () => ({
   usePathname: () => pathnameMock.value,
 }));
 
-vi.mock("next-auth/react", () => ({
-  signOut: vi.fn(),
+vi.mock("@clerk/nextjs", () => ({
+  useClerk: () => ({
+    signOut: vi.fn(),
+  }),
+  ClerkProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 vi.mock("@/stores/uiStore", () => ({

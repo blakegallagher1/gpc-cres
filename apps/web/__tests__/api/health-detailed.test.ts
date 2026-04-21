@@ -1,6 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
+const { getAuthMock } = vi.hoisted(() => ({
+  getAuthMock: vi.fn(),
+}));
+
+vi.mock("@clerk/nextjs/server", () => ({
+  getAuth: getAuthMock,
+}));
+
 vi.mock("@entitlement-os/db", () => ({
   prisma: {
     $queryRawUnsafe: vi.fn(),
@@ -10,10 +18,6 @@ vi.mock("@entitlement-os/db", () => ({
   },
 }));
 
-vi.mock("next-auth/jwt", () => ({
-  getToken: vi.fn().mockResolvedValue(null),
-}));
-
 vi.mock("@/lib/server/propertyDbEnv", () => ({
   getPropertyDbConfigOrNull: vi.fn(),
 }));
@@ -21,10 +25,13 @@ vi.mock("@/lib/server/propertyDbEnv", () => ({
 describe("GET /api/health/detailed", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: no authenticated user
+    getAuthMock.mockReturnValue({ userId: null });
     process.env.HEALTHCHECK_TOKEN = "health-token";
     process.env.LOCAL_API_URL = "http://gateway.test";
     process.env.LOCAL_API_KEY = "gateway-key";
     delete process.env.DATABASE_URL;
+    delete process.env.CUA_WORKER_URL;
   });
 
   it("returns detailed health payload", async () => {
@@ -87,18 +94,16 @@ describe("GET /api/health/detailed", () => {
   it("returns 401 when unauthorized", async () => {
     delete process.env.HEALTHCHECK_TOKEN;
     delete process.env.VERCEL_ACCESS_TOKEN;
-    process.env.NEXTAUTH_SECRET = "legacy-nextauth-secret";
 
     try {
       const { GET } = await import("@/app/api/health/detailed/route");
-      const { getToken } = await import("next-auth/jwt");
 
       const response = await GET(
         new NextRequest("http://localhost/api/health/detailed")
       );
 
       expect(response.status).toBe(401);
-      expect(getToken).toHaveBeenCalled();
+      expect(getAuthMock).toHaveBeenCalled();
     } finally {
       process.env.HEALTHCHECK_TOKEN = "health-token";
     }

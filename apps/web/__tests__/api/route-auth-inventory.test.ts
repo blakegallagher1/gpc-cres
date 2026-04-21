@@ -19,6 +19,13 @@ const PUBLIC_EXACT = new Set([
   "map/tiles/[z]/[x]/[y]/route.ts",
   "map/zoning-tiles/[z]/[x]/[y]/route.ts",
   "map/zoning-tiles/metadata/route.ts",
+  "map/flu-tiles/[z]/[x]/[y]/route.ts",
+  "map/interchanges-tiles/[z]/[x]/[y]/route.ts",
+  "map/ports-tiles/[z]/[x]/[y]/route.ts",
+  "map/rail-tiles/[z]/[x]/[y]/route.ts",
+  "map/truck-routes-tiles/[z]/[x]/[y]/route.ts",
+  "email-webhook/route.ts",
+  "webhooks/clerk/route.ts",
 ]);
 
 const USER_SCOPED_EXACT = new Set([
@@ -33,6 +40,9 @@ const GLOBAL_PROTECTED_EXACT = new Set([
   "market/building-permits/route.ts",
   "places/autocomplete/route.ts",
   "admin/codex/route.ts",
+  "map/ownership-clusters/route.ts",
+  "map/ownership-clusters/portfolio/route.ts",
+  "workflows/templates/route.ts",
 ]);
 
 const PASS_THROUGH_AUTH_EXACT = new Set([

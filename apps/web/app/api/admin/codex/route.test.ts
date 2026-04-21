@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { authMock, MockWebSocket } = vi.hoisted(() => {
+const { currentUserMock, isEmailAllowedMock, MockWebSocket } = vi.hoisted(() => {
   class MockWebSocketImpl {
     static instances: MockWebSocketImpl[] = [];
 
@@ -89,31 +89,49 @@ const { authMock, MockWebSocket } = vi.hoisted(() => {
   }
 
   return {
-    authMock: vi.fn(),
+    currentUserMock: vi.fn(),
+    isEmailAllowedMock: vi.fn(),
     MockWebSocket: MockWebSocketImpl,
   };
 });
 
-vi.mock("@/auth", () => ({
-  auth: authMock,
+vi.mock("@clerk/nextjs/server", () => ({
+  currentUser: currentUserMock,
+}));
+
+vi.mock("@/lib/auth/allowedEmails", () => ({
+  isEmailAllowed: isEmailAllowedMock,
+}));
+
+vi.mock("@entitlement-os/db", () => ({
+  prisma: {
+    user: {
+      findFirst: vi.fn().mockResolvedValue({
+        id: "11111111-1111-4111-8111-111111111111",
+      }),
+    },
+    orgMembership: {
+      findFirst: vi.fn().mockResolvedValue({
+        orgId: "22222222-2222-4222-8222-222222222222",
+      }),
+    },
+  },
 }));
 
 import { GET, POST } from "./route";
 
-const TEST_SESSION = {
-  user: {
-    id: "11111111-1111-4111-8111-111111111111",
-    email: "blake@gallagherpropco.com",
-    orgId: "22222222-2222-4222-8222-222222222222",
-  },
-  expires: new Date(Date.now() + 86_400_000).toISOString(),
+// Clerk user object returned by currentUser()
+const CLERK_TEST_USER = {
+  id: "clerk_11111111-1111-4111-8111-111111111111",
+  emailAddresses: [{ emailAddress: "blake@gallagherpropco.com" }],
 };
 
 const originalEnv = { ...process.env };
 const originalWebSocket = globalThis.WebSocket;
 
 function setDefaultAuthMocks() {
-  authMock.mockResolvedValue(TEST_SESSION);
+  currentUserMock.mockResolvedValue(CLERK_TEST_USER);
+  isEmailAllowedMock.mockReturnValue(true);
 }
 
 function makePostRequest(body: unknown) {
@@ -153,7 +171,7 @@ describe("/api/admin/codex relay route", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    authMock.mockResolvedValue(null);
+    currentUserMock.mockResolvedValue(null);
 
     const req = new NextRequest("http://localhost/api/admin/codex?connectionId=unauth");
     const res = await GET(req);
@@ -164,14 +182,11 @@ describe("/api/admin/codex relay route", () => {
   });
 
   it("returns 403 when authenticated user is not admin", async () => {
-    authMock.mockResolvedValue({
-      user: {
-        id: "33333333-3333-4333-8333-333333333333",
-        email: "viewer@example.com",
-        orgId: "44444444-4444-4444-8444-444444444444",
-      },
-      expires: new Date(Date.now() + 86_400_000).toISOString(),
+    currentUserMock.mockResolvedValue({
+      id: "clerk_33333333-3333-4333-8333-333333333333",
+      emailAddresses: [{ emailAddress: "viewer@example.com" }],
     });
+    isEmailAllowedMock.mockReturnValue(false);
 
     const req = new NextRequest("http://localhost/api/admin/codex?connectionId=forbidden");
     const res = await GET(req);
@@ -282,8 +297,8 @@ describe("/api/admin/codex relay route", () => {
     expect(MockWebSocket.instances).toHaveLength(1);
   });
 
-  it("returns 401 when session has no user", async () => {
-    authMock.mockResolvedValue({ expires: new Date().toISOString() });
+  it("returns 401 when currentUser returns null (no session)", async () => {
+    currentUserMock.mockResolvedValue(null);
 
     const req = new NextRequest("http://localhost/api/admin/codex?connectionId=no-user");
     const res = await GET(req);
@@ -293,14 +308,10 @@ describe("/api/admin/codex relay route", () => {
     expect(body).toEqual({ error: "Unauthorized" });
   });
 
-  it("returns 401 when session user has no orgId", async () => {
-    authMock.mockResolvedValue({
-      user: {
-        id: "11111111-1111-4111-8111-111111111111",
-        email: "blake@gallagherpropco.com",
-      },
-      expires: new Date(Date.now() + 86_400_000).toISOString(),
-    });
+  it("returns 401 when DB user has no org membership", async () => {
+    // User is authenticated and allowed, but has no org membership in DB
+    const { prisma } = await import("@entitlement-os/db");
+    (prisma.orgMembership.findFirst as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
 
     const req = new NextRequest("http://localhost/api/admin/codex?connectionId=no-orgid");
     const res = await GET(req);

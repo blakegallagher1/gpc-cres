@@ -10,7 +10,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { signOut } from "next-auth/react";
+import { useClerk } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { NotificationFeed } from "@/components/notifications/NotificationFeed";
 import {
@@ -33,6 +33,7 @@ export function Header() {
   useEffect(() => setMounted(true), []);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [commandKeyLabel, setCommandKeyLabel] = useState("Ctrl");
+  const clerk = useClerk();
   const router = useRouter();
   const pathname = usePathname();
   const isChatPage = pathname === "/chat" || pathname?.startsWith("/chat/");
@@ -57,7 +58,7 @@ export function Header() {
     setIsSigningOut(true);
 
     try {
-      await signOut({ redirectTo: "/login" });
+      await clerk.signOut({ redirectUrl: "/login" });
       toast.success("Signed out");
     } catch {
       toast.error("Sign out failed. Please try again.");

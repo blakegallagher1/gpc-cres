@@ -1,23 +1,19 @@
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-const { signInMock } = vi.hoisted(() => ({
-  signInMock: vi.fn(),
+vi.mock("@clerk/nextjs", () => ({
+  SignIn: () => <div data-testid="clerk-sign-in" />,
+  ClerkProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
-vi.mock("next-auth/react", () => ({
-  signIn: signInMock,
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => "/login",
 }));
 
 import LoginPage from "./page";
 
 describe("LoginPage", () => {
-  beforeEach(() => {
-    signInMock.mockReset();
-    process.env.NEXT_PUBLIC_DISABLE_AUTH = "true";
-  });
-
   it("renders sign-in as the primary surface on the public shell", () => {
     render(<LoginPage />);
 
@@ -25,23 +21,6 @@ describe("LoginPage", () => {
     expect(
       screen.getByRole("link", { name: "Gallagher Property Company" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Google OAuth unavailable on localhost" }),
-    ).toBeDisabled();
-    expect(
-      screen.getByRole("button", { name: "Use company credentials" }),
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText("Email")).toBeInTheDocument();
-    expect(screen.getByLabelText("Password")).toBeInTheDocument();
-  });
-
-  it("does not invoke Google sign-in from localhost", async () => {
-    const user = userEvent.setup();
-
-    render(<LoginPage />);
-
-    await user.click(screen.getByRole("button", { name: "Google OAuth unavailable on localhost" }));
-
-    expect(signInMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId("clerk-sign-in")).toBeInTheDocument();
   });
 });

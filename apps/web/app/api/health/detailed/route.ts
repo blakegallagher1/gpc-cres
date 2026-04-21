@@ -1,8 +1,7 @@
 import crypto from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { getAuth } from "@clerk/nextjs/server";
 import { getDetailedHealthStatus, userHasHealthAccess } from "@gpc/server";
-import { getAuthSecret } from "@/lib/auth/authSecret";
 
 function getBearerToken(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
@@ -40,20 +39,12 @@ async function isAuthorized(request: NextRequest) {
     return true;
   }
 
-  const secret = getAuthSecret();
-  if (!secret) {
+  const { userId } = getAuth(request);
+  if (!userId) {
     return false;
   }
 
-  const token = await getToken({
-    req: request,
-    secret,
-  });
-  if (!token?.userId) {
-    return false;
-  }
-
-  return userHasHealthAccess(token.userId as string);
+  return userHasHealthAccess(userId);
 }
 
 export async function GET(request: NextRequest) {

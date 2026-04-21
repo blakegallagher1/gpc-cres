@@ -1,17 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getTokenMock, prismaMock } = vi.hoisted(() => ({
-  getTokenMock: vi.fn(),
+const { clerkAuthMock, clerkClientMock, prismaMock } = vi.hoisted(() => ({
+  clerkAuthMock: vi.fn(),
+  clerkClientMock: vi.fn(),
   prismaMock: {
+    user: {
+      findFirst: vi.fn(),
+    },
     orgMembership: {
       findFirst: vi.fn(),
     },
   },
 }));
 
-vi.mock("next-auth/jwt", () => ({
-  getToken: getTokenMock,
+vi.mock("@clerk/nextjs/server", () => ({
+  auth: clerkAuthMock,
+  clerkClient: clerkClientMock,
+  currentUser: vi.fn(),
 }));
+
+vi.mock("server-only", () => ({}));
 
 vi.mock("@entitlement-os/db", () => ({
   prisma: prismaMock,
@@ -23,10 +31,14 @@ describe("resolveAuth", () => {
 
   beforeEach(async () => {
     vi.resetModules();
-    getTokenMock.mockReset();
+    clerkAuthMock.mockReset();
+    clerkClientMock.mockReset();
+    prismaMock.user.findFirst.mockReset();
     prismaMock.orgMembership.findFirst.mockReset();
 
-    process.env.AUTH_SECRET = "test-secret-32chars-minimum-len";
+    // Default: no authenticated Clerk user
+    clerkAuthMock.mockResolvedValue({ userId: null });
+
     process.env.NODE_ENV = originalNodeEnv ?? "test";
     delete process.env.NEXT_PUBLIC_DISABLE_AUTH;
     delete process.env.NEXT_PUBLIC_E2E;
@@ -80,50 +92,54 @@ describe("resolveAuth", () => {
       userId: "00000000-0000-0000-0000-000000000003",
       orgId: "00000000-0000-0000-0000-000000000001",
     });
-    expect(getTokenMock).not.toHaveBeenCalled();
+    expect(clerkAuthMock).not.toHaveBeenCalled();
   });
 
-  it("returns null when no auth token present", async () => {
-    getTokenMock.mockResolvedValue(null);
+  it("returns null when no Clerk userId present", async () => {
+    clerkAuthMock.mockResolvedValue({ userId: null });
     const res = await resolveAuth(new Request("http://localhost/api/test"));
     expect(res).toBeNull();
   });
 
-  it("returns userId and orgId from cookie session token", async () => {
-    getTokenMock.mockResolvedValue({ userId: "user-abc", orgId: "org-xyz" });
+  it("returns userId and orgId from Clerk session via DB lookup", async () => {
+    clerkAuthMock.mockResolvedValue({ userId: "clerk_user_abc" });
+    const mockClerkUser = {
+      emailAddresses: [{ emailAddress: "user@example.com" }],
+    };
+    const mockGetUser = vi.fn().mockResolvedValue(mockClerkUser);
+    clerkClientMock.mockResolvedValue({ users: { getUser: mockGetUser } });
+    prismaMock.user.findFirst.mockResolvedValue({ id: "user-abc" });
+    prismaMock.orgMembership.findFirst.mockResolvedValue({ orgId: "org-xyz" });
+
     const res = await resolveAuth(new Request("http://localhost/api/test"));
+
     expect(res).toEqual({ userId: "user-abc", orgId: "org-xyz" });
-    expect(getTokenMock).toHaveBeenCalledWith({
-      req: expect.anything(),
-      secret: "test-secret-32chars-minimum-len",
-      secureCookie: false,
-    });
+    expect(clerkAuthMock).toHaveBeenCalledTimes(1);
+    expect(mockGetUser).toHaveBeenCalledWith("clerk_user_abc");
   });
 
-  it("returns userId and orgId from Bearer token via getToken", async () => {
-    getTokenMock.mockResolvedValue({ userId: "user-bearer", orgId: "org-bearer" });
-    const req = new Request("http://localhost/api/test", {
-      headers: { Authorization: "Bearer raw.jwt.token" },
-    });
-    const res = await resolveAuth(req);
-    expect(res).toEqual({ userId: "user-bearer", orgId: "org-bearer" });
-    expect(getTokenMock).toHaveBeenCalledWith({
-      req: expect.anything(),
-      secret: "test-secret-32chars-minimum-len",
-      secureCookie: false,
-    });
-  });
+  it("returns null when Clerk user has no email", async () => {
+    clerkAuthMock.mockResolvedValue({ userId: "clerk_user_noemail" });
+    const mockGetUser = vi.fn().mockResolvedValue({ emailAddresses: [] });
+    clerkClientMock.mockResolvedValue({ users: { getUser: mockGetUser } });
 
-  it("returns null when Bearer token is invalid", async () => {
-    getTokenMock.mockResolvedValue(null);
-    const req = new Request("http://localhost/api/test", {
-      headers: { Authorization: "Bearer bad.token" },
-    });
-    const res = await resolveAuth(req);
+    const res = await resolveAuth(new Request("http://localhost/api/test"));
     expect(res).toBeNull();
   });
 
-  it("coordinator-memory bypass uses Prisma only, skips JWT checks", async () => {
+  it("returns null when DB user not found for Clerk email", async () => {
+    clerkAuthMock.mockResolvedValue({ userId: "clerk_user_notindb" });
+    const mockGetUser = vi.fn().mockResolvedValue({
+      emailAddresses: [{ emailAddress: "notfound@example.com" }],
+    });
+    clerkClientMock.mockResolvedValue({ users: { getUser: mockGetUser } });
+    prismaMock.user.findFirst.mockResolvedValue(null);
+
+    const res = await resolveAuth(new Request("http://localhost/api/test"));
+    expect(res).toBeNull();
+  });
+
+  it("coordinator-memory bypass uses Prisma only, skips Clerk checks", async () => {
     process.env.AGENT_TOOL_INTERNAL_TOKEN = "internal-secret";
     ({ resolveAuth } = await import("./resolveAuth"));
     prismaMock.orgMembership.findFirst.mockResolvedValue({ orgId: "org-coord" });
@@ -138,7 +154,7 @@ describe("resolveAuth", () => {
     });
     const res = await resolveAuth(req);
     expect(res).toEqual({ userId: "user-coord", orgId: "org-coord" });
-    expect(getTokenMock).not.toHaveBeenCalled();
+    expect(clerkAuthMock).not.toHaveBeenCalled();
     expect(prismaMock.orgMembership.findFirst).toHaveBeenCalledWith({
       where: { userId: "user-coord", orgId: "org-coord" },
       orderBy: { createdAt: "asc" },

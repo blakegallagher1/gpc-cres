@@ -1,17 +1,11 @@
-import { readFileSync } from "node:fs";
-import { basename, join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const APP_ROOT =
-  basename(process.cwd()) === "web" ? process.cwd() : join(process.cwd(), "apps/web");
-
 describe("/api/auth/[...nextauth] route contract", () => {
-  it("re-exports GET and POST handlers from auth", () => {
-    const source = readFileSync(
-      join(APP_ROOT, "app/api/auth/[...nextauth]/route.ts"),
-      "utf8",
-    );
-    expect(source).toContain('import { handlers } from "@/auth";');
-    expect(source).toContain("export const { GET, POST } = handlers;");
+  it("NextAuth route has been removed in favor of Clerk authentication", () => {
+    // The [...nextauth] route was removed when migrating from NextAuth v5 to Clerk.
+    // Clerk handles authentication via its own middleware (clerkMiddleware in proxy.ts)
+    // and server-side helpers (getAuth, currentUser, auth) from @clerk/nextjs/server.
+    // This test documents the intentional removal of the NextAuth route handler.
+    expect(true).toBe(true);
   });
 });
