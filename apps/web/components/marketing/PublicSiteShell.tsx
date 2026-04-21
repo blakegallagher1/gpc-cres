@@ -45,11 +45,7 @@ interface PublicStatListProps {
   }[];
 }
 
-const PUBLIC_NAV = [
-  { href: "/", label: "Home" },
-  { href: "/strategy", label: "Strategy" },
-  { href: "/platform", label: "Platform" },
-] as const;
+const PUBLIC_NAV = [{ href: "/", label: "Home" }] as const;
 
 export function PublicSiteShell({
   eyebrow,
@@ -140,10 +136,10 @@ export function PublicSiteShell({
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
-                href="/strategy"
+                href="/login"
                 className="inline-flex h-12 items-center gap-1.5 px-2 text-[0.88rem] font-medium text-[var(--pub-muted)] transition-colors duration-200 hover:text-[var(--pub-fg)]"
               >
-                Review strategy
+                Review operator access
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>

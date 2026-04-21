@@ -11,7 +11,7 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/login",
 }));
 
-import LoginPage from "./page";
+import LoginPage from "./[[...sign-in]]/page";
 
 describe("LoginPage", () => {
   it("renders sign-in as the primary surface on the public shell", () => {

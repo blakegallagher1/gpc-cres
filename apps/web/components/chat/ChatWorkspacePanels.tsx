@@ -579,29 +579,75 @@ export function ChatWorkspaceHero({
     >
       {launchState ? (
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 py-6 sm:py-10">
-          {/* Portfolio Pulse - shown when no deal selected */}
-          {showPortfolioPulse ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-lg border border-border/40 bg-muted/30 p-3">
-                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Active Deals</p>
-                <p className="text-lg font-semibold">{portfolioLoading ? '\u2014' : portfolioStats.activeDeals}</p>
+          <div className="rounded-lg border border-border bg-background p-5 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+              <div className="min-w-0">
+                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                  Run desk
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Start with the brief. Add deal context, sources, or routing only when the run needs stronger control.
+                </p>
               </div>
-              <div className="rounded-lg border border-border/40 bg-muted/30 p-3">
-                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Tracked Parcels</p>
-                <p className="text-lg font-semibold">{portfolioLoading ? '\u2014' : portfolioStats.trackedParcels}</p>
+              {cuaModel && onCuaModelChange ? (
+                <CuaModelToggle model={cuaModel} onModelChange={onCuaModelChange} />
+              ) : null}
+            </div>
+
+            {showPortfolioPulse ? (
+              <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="rounded-lg border border-border/40 bg-muted/20 p-3">
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Active Deals</p>
+                  <p className="text-base font-semibold">{portfolioLoading ? '\u2014' : portfolioStats.activeDeals}</p>
+                </div>
+                <div className="rounded-lg border border-border/40 bg-muted/20 p-3">
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Tracked Parcels</p>
+                  <p className="text-base font-semibold">{portfolioLoading ? '\u2014' : portfolioStats.trackedParcels}</p>
+                </div>
+                <div className="rounded-lg border border-border/40 bg-muted/20 p-3">
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Pipeline Stage</p>
+                  <p className="text-base font-semibold">{portfolioLoading ? '\u2014' : portfolioStats.topStage}</p>
+                </div>
+                <div className="rounded-lg border border-border/40 bg-muted/20 p-3">
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Open Tasks</p>
+                  <p className="text-base font-semibold">{portfolioLoading ? '\u2014' : portfolioStats.openTasks || '\u2014'}</p>
+                </div>
               </div>
-              <div className="rounded-lg border border-border/40 bg-muted/30 p-3">
-                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Pipeline Stage</p>
-                <p className="text-lg font-semibold">{portfolioLoading ? '\u2014' : portfolioStats.topStage}</p>
-              </div>
-              <div className="rounded-lg border border-border/40 bg-muted/30 p-3">
-                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Open Tasks</p>
-                <p className="text-lg font-semibold">{portfolioLoading ? '\u2014' : portfolioStats.openTasks || '\u2014'}</p>
+            ) : null}
+
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 text-sm">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="font-medium text-foreground">Client matter</span>
+                <div className="min-w-0 flex-1">{dealSelector}</div>
               </div>
             </div>
-          ) : null}
 
-          {/* Deal stage prompts OR default quick actions */}
+            <div className="mt-8 space-y-3">
+              <h1 className="text-4xl font-semibold tracking-tight text-foreground">
+                Ask anything.
+              </h1>
+              <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+                Name the matter, decision, memo, table, or next move you need back. Use{' '}
+                <span className="font-medium text-foreground">@</span> only when you want to pin the run to a specific source set.
+              </p>
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-2 rounded-full border border-border/60 px-3 py-1.5">
+                <FolderOpen className="h-3.5 w-3.5" />
+                Files
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-border/60 px-3 py-1.5">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Sources
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-border/60 px-3 py-1.5">
+                <Sparkles className="h-3.5 w-3.5" />
+                Prompt library
+              </span>
+            </div>
+          </div>
+
           {hasDealPrompts ? (
             <div className="space-y-2">
               <p className="text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -649,52 +695,6 @@ export function ChatWorkspaceHero({
               })}
             </div>
           )}
-
-          <div className="rounded-lg border border-border bg-background p-5 sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="font-medium text-foreground">Client matter</span>
-                <div className="min-w-0 flex-1">{dealSelector}</div>
-              </div>
-              {cuaModel && onCuaModelChange ? (
-                <CuaModelToggle model={cuaModel} onModelChange={onCuaModelChange} />
-              ) : null}
-            </div>
-
-            <div className="mt-8 space-y-3">
-              <h1 className="text-4xl font-semibold tracking-tight text-foreground">
-                Ask anything.
-              </h1>
-              <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-                Lead with the matter, outcome, or document you need. Type{' '}
-                <span className="font-medium text-foreground">@</span> to attach sources and move straight into the answer.
-              </p>
-            </div>
-
-            <div className="mt-8 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 font-medium transition hover:text-foreground"
-              >
-                <FolderOpen className="h-4 w-4" />
-                Files
-              </button>
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 font-medium transition hover:text-foreground"
-              >
-                <ShieldCheck className="h-4 w-4" />
-                Sources
-              </button>
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 font-medium transition hover:text-foreground"
-              >
-                <Sparkles className="h-4 w-4" />
-                Prompt library
-              </button>
-            </div>
-          </div>
         </div>
       ) : (
         <div className="flex flex-wrap items-center justify-between gap-3">

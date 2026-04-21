@@ -407,17 +407,10 @@ export function MapPageClient() {
   const previousSelectedParcelIdsRef = useRef<string[]>(mapState.selectedParcelIds);
 
   useEffect(() => {
-    if (selectedParcelIds.size > 0 && !sidebarOpen) {
-      setSidebarOpen(true);
-    }
-  }, [selectedParcelIds.size]);
-
-  useEffect(() => {
     if (isMobile || sidebarAutoOpenedRef.current) {
       return;
     }
     sidebarAutoOpenedRef.current = true;
-    setSidebarOpen(true);
   }, [isMobile]);
 
   useEffect(() => {

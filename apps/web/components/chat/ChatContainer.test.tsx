@@ -239,7 +239,9 @@ describe("ChatContainer", () => {
       expect(screen.getByText("Ask anything.")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Draft memo" })).toBeInTheDocument();
       expect(
-        screen.getByText(/Lead with the matter, outcome, or document you need\./i),
+        screen.getByText(
+          /Start with the brief\. Add deal context, sources, or routing only when the run needs stronger control\./i,
+        ),
       ).toBeInTheDocument();
       expect(screen.getByTestId("conversation-sidebar")).toHaveAttribute("data-open", "true");
       expect(screen.getByTestId("conversation-sidebar")).toHaveAttribute(

@@ -678,7 +678,6 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
       return;
     }
     workbenchAutoOpenedRef.current = true;
-    setLayerPanelOpen(true);
   }, [isMobile]);
 
   // Dark mode detection via MutationObserver
