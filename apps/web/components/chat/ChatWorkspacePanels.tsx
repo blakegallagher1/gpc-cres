@@ -79,6 +79,18 @@ interface ChatWorkspaceHeroProps {
   onQuickActionSelect?: (prompt: string) => void;
 }
 
+export function shouldAnimateChatWorkspaceHero({
+  isHydrated,
+  reduceMotion,
+  isTest,
+}: {
+  isHydrated: boolean;
+  reduceMotion: boolean;
+  isTest: boolean;
+}): boolean {
+  return isHydrated && !reduceMotion && !isTest;
+}
+
 interface ChatWorkspaceInspectorProps {
   activeAgentLabel: string;
   agentSummary: AgentTrustEnvelope | null;
@@ -532,14 +544,24 @@ export function ChatWorkspaceHero({
   onQuickActionSelect,
 }: ChatWorkspaceHeroProps) {
   const reduceMotion = useReducedMotion();
-  const motionProps = reduceMotion || process.env.NODE_ENV === 'test'
-    ? {}
-    : {
+  const [isHydrated, setIsHydrated] = useState(false);
+  const shouldAnimate = shouldAnimateChatWorkspaceHero({
+    isHydrated,
+    reduceMotion: Boolean(reduceMotion),
+    isTest: process.env.NODE_ENV === 'test',
+  });
+  const motionProps = shouldAnimate
+    ? {
         initial: { opacity: 0 },
         animate: { opacity: 1 },
         transition: HERO_TRANSITION,
-      };
+      }
+    : {};
   const compactQuickActions = CHAT_QUICK_ACTIONS.slice(0, 2);
+
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   // Feature 9: Deal stage prompts
   const dealStagePrompts = getDealStagePrompts(dealStatus);
@@ -641,7 +663,7 @@ export function ChatWorkspaceHero({
 
             <div className="mt-8 space-y-3">
               <h1 className="text-4xl font-semibold tracking-tight text-foreground">
-                Ask Harvey anything.
+                Ask anything.
               </h1>
               <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
                 Lead with the matter, outcome, or document you need. Type{' '}

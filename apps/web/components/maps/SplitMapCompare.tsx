@@ -259,7 +259,7 @@ export function SplitMapCompare({
         {/* Left pane */}
         <div className="relative flex-1 border-r border-neutral-800">
           <div ref={leftContainerRef} className="h-full w-full" />
-          <div className="absolute left-3 top-3 rounded-lg bg-black/70 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm">
+          <div className="absolute left-3 top-3 rounded-lg border border-white/20 bg-black/88 px-3 py-1.5 text-xs font-medium text-white">
             {leftLabel}
           </div>
         </div>
@@ -270,7 +270,7 @@ export function SplitMapCompare({
         {/* Right pane */}
         <div className="relative flex-1">
           <div ref={rightContainerRef} className="h-full w-full" />
-          <div className="absolute right-3 top-3 rounded-lg bg-black/70 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm">
+          <div className="absolute right-3 top-3 rounded-lg border border-white/20 bg-black/88 px-3 py-1.5 text-xs font-medium text-white">
             {rightLabel}
           </div>
         </div>

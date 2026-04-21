@@ -89,7 +89,7 @@ export function OwnerPortfolioCard({
 
   if (!portfolio || portfolio.parcelCount <= 1) {
     return (
-      <div className="rounded-lg border border-map-border bg-map-surface/60 p-2 text-[10px] text-map-text-muted">
+      <div className="rounded-lg border border-map-border bg-map-surface/85 p-2 text-[10px] text-map-text-muted">
         No additional parcels detected for this owner in the property DB.
       </div>
     );
@@ -97,7 +97,7 @@ export function OwnerPortfolioCard({
 
   return (
     <div className="space-y-2">
-      <div className="rounded-xl border border-map-border bg-map-surface/60 p-2.5">
+      <div className="rounded-xl border border-map-border bg-map-surface/85 p-2.5">
         <div className="mb-1 flex items-center gap-1.5 text-[9px] uppercase tracking-[0.18em] text-map-text-muted">
           <Building2 className="h-3 w-3" />
           LLC portfolio
@@ -133,7 +133,7 @@ export function OwnerPortfolioCard({
       </div>
 
       {otherParcels.length > 0 && (
-        <div className="rounded-xl border border-map-border bg-map-surface/60 p-2.5">
+        <div className="rounded-xl border border-map-border bg-map-surface/85 p-2.5">
           <div className="mb-1.5 text-[9px] uppercase tracking-[0.18em] text-map-text-muted">
             Other parcels ({otherParcels.length})
           </div>

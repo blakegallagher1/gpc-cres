@@ -1,7 +1,7 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { ChatMessage } from "@/lib/chat/types";
-import { MessageBubble } from "./MessageBubble";
+import { MessageBubble, writeClipboardTextSafely } from "./MessageBubble";
 
 vi.mock("@/lib/chat/MapChatContext", () => ({
   useMapChatDispatch: () => vi.fn(),
@@ -9,6 +9,20 @@ vi.mock("@/lib/chat/MapChatContext", () => ({
 }));
 
 describe("MessageBubble", () => {
+  it("returns false when clipboard permission is denied", async () => {
+    const writeText = vi.fn().mockRejectedValue(
+      new DOMException("Write permission denied.", "NotAllowedError"),
+    );
+
+    Object.defineProperty(window.navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    await expect(writeClipboardTextSafely("memo link")).resolves.toBe(false);
+    expect(writeText).toHaveBeenCalledWith("memo link");
+  });
+
   it("renders assistant JSON payload as formatted report", () => {
     const message: ChatMessage = {
       id: "assistant-report",
@@ -125,5 +139,31 @@ describe("MessageBubble", () => {
     expect(text).toBeInTheDocument();
     expect(bubble).toHaveClass("bg-primary", "text-primary-foreground");
     expect(screen.queryByText("Structured assistant report")).not.toBeInTheDocument();
+  });
+
+  it("does not surface an unhandled rejection when copy is blocked", async () => {
+    const writeText = vi.fn().mockRejectedValue(
+      new DOMException("Write permission denied.", "NotAllowedError"),
+    );
+
+    Object.defineProperty(window.navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    const message: ChatMessage = {
+      id: "assistant-copy-blocked",
+      role: "assistant",
+      createdAt: "2026-03-23T08:00:00.000Z",
+      content: "Shareable underwriting summary.",
+    };
+
+    render(<MessageBubble message={message} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith("Shareable underwriting summary.");
+    });
   });
 });

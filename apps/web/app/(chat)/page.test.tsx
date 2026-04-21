@@ -11,21 +11,16 @@ describe("HomePage", () => {
       screen.getByRole("link", { name: "Gallagher Property Company" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Review the company by section" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: /investment focus/i }),
-    ).toHaveAttribute("href", "/focus");
-    expect(
-      screen.getByRole("link", { name: /execution strategy/i }),
-    ).toHaveAttribute("href", "/strategy");
-    expect(
-      screen.getByRole("link", { name: /operating platform/i }),
-    ).toHaveAttribute("href", "/platform");
-    expect(
       screen.getByText("Manufactured Housing + Infill Industrial"),
     ).toBeInTheDocument();
     expect(screen.getByText("Buy → Build → Manage")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /enter the platform/i })).toHaveAttribute("href", "/login");
+    expect(screen.queryByRole("link", { name: "Focus" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Review the company by section" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /enter the platform/i })).toHaveAttribute(
+      "href",
+      "/login",
+    );
   });
 });

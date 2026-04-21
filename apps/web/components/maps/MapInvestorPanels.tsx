@@ -266,7 +266,7 @@ export function MapInvestorPanels({
                 </div>
               ))
             ) : (
-              <div className="rounded-lg border border-dashed border-map-border bg-map-surface/30 px-3 py-3 text-[10px] leading-5 text-map-text-muted">
+              <div className="rounded-lg border border-dashed border-map-border bg-map-surface/72 px-3 py-3 text-[10px] leading-5 text-map-text-muted">
                 Ownership records will populate once the workspace carries parcel context.
               </div>
             )}
@@ -347,7 +347,7 @@ export function MapInvestorPanels({
               ))}
             </div>
           ) : (
-            <div className="rounded-lg border border-dashed border-map-border bg-map-surface/30 px-3 py-3 text-[10px] leading-5 text-map-text-muted">
+            <div className="rounded-lg border border-dashed border-map-border bg-map-surface/72 px-3 py-3 text-[10px] leading-5 text-map-text-muted">
               Adjusted comp rows will render here once the enhanced comps contract is available.
             </div>
           )}
@@ -391,7 +391,7 @@ export function MapInvestorPanels({
               </div>
             ))
           ) : (
-            <div className="rounded-lg border border-dashed border-map-border bg-map-surface/30 px-3 py-3 text-[10px] leading-5 text-map-text-muted">
+            <div className="rounded-lg border border-dashed border-map-border bg-map-surface/72 px-3 py-3 text-[10px] leading-5 text-map-text-muted">
               Overlay cards appear here once the workspace has parcel or polygon context.
             </div>
           )}

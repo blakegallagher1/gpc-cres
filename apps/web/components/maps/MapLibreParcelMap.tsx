@@ -2505,10 +2505,10 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
 
       {/* Status bar with coordinates and zoom */}
       {showLayers ? (
-        <div className="map-status-bar absolute inset-x-3 bottom-3 z-10 flex items-center justify-between gap-3 rounded-2xl border border-map-border/80 bg-map-surface-overlay/92 px-3 py-2 text-[11px] shadow-[0_18px_50px_-32px_rgba(15,23,42,0.55)] backdrop-blur-md">
+        <div className="map-status-bar absolute inset-x-3 bottom-3 z-10 flex items-center justify-between gap-3 rounded-2xl border border-map-border/80 bg-map-surface-overlay/97 px-3 py-2 text-[11px] shadow-[0_18px_50px_-32px_rgba(15,23,42,0.55)]">
           <div className="flex min-w-0 items-center gap-2 text-map-text-muted">
             {showLiveStatus ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-map-border/70 bg-map-surface/55 px-2 py-1 text-[10px] text-map-text-secondary">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-map-border/70 bg-map-surface/88 px-2 py-1 text-[10px] text-map-text-secondary">
                 <span
                   aria-hidden="true"
                   className={cn(

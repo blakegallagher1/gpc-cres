@@ -1555,7 +1555,7 @@ export function MapPageClient() {
             <div className="relative flex min-h-0 flex-1">
               <div className="relative min-w-0 flex-1">
                 <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex justify-end">
-                  <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-end gap-2 rounded-2xl border border-map-border bg-map-surface-overlay/94 px-3 py-2 shadow-[0_20px_55px_-34px_rgba(15,23,42,0.72)] backdrop-blur-xl">
+                  <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-end gap-2 rounded-2xl border border-map-border bg-map-surface-overlay/98 px-3 py-2 shadow-[0_20px_55px_-34px_rgba(15,23,42,0.72)]">
                     <span className="mr-1 font-mono text-[10px] uppercase tracking-[0.18em] text-map-text-muted">
                       Operator actions
                     </span>
@@ -1717,7 +1717,7 @@ export function MapPageClient() {
                       <div className="map-stat-value">{sourceLabel}</div>
                     </div>
                   </div>
-                  <section className="space-y-2 rounded-xl border border-map-border/80 bg-map-surface-overlay/60 p-3">
+                  <section className="space-y-2 rounded-xl border border-map-border/80 bg-map-surface-overlay/90 p-3">
                     <div className="space-y-1">
                       <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted">
                         Parcel lookup
@@ -1837,7 +1837,7 @@ export function MapPageClient() {
                     </form>
                   </section>
 
-                  <section className="space-y-2 rounded-xl border border-map-border/80 bg-map-surface-overlay/60 p-3">
+                  <section className="space-y-2 rounded-xl border border-map-border/80 bg-map-surface-overlay/90 p-3">
                     <div className="space-y-1">
                       <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted">
                         Analyze this geography
@@ -1941,7 +1941,7 @@ export function MapPageClient() {
                   initial={false}
                   animate={{ x: sidebarOpen ? -430 : 0 }}
                   transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                  className="pointer-events-auto absolute right-0 top-1/2 flex h-12 min-w-[8.5rem] -translate-y-1/2 items-center justify-center rounded-2xl border border-map-border bg-map-surface-overlay/95 px-3 text-[11px] font-medium text-map-text-muted shadow-[0_18px_50px_-28px_rgba(15,23,42,0.55)] backdrop-blur-md transition-colors hover:text-map-text-primary"
+                  className="pointer-events-auto absolute right-0 top-1/2 flex h-12 min-w-[8.5rem] -translate-y-1/2 items-center justify-center rounded-2xl border border-map-border bg-map-surface-overlay/98 px-3 text-[11px] font-medium text-map-text-muted shadow-[0_18px_50px_-28px_rgba(15,23,42,0.55)] transition-colors hover:text-map-text-primary"
                   aria-label={sidebarOpen ? "Close console" : "Open console"}
                   aria-expanded={sidebarOpen}
                   aria-controls="map-operator-console"
@@ -1960,7 +1960,7 @@ export function MapPageClient() {
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 28 }}
                       transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-                      className="pointer-events-auto absolute inset-y-0 right-0 w-[25rem] overflow-hidden rounded-[1.6rem] border border-map-border bg-map-surface-overlay/96 shadow-[0_28px_80px_-36px_rgba(15,23,42,0.65)] backdrop-blur-xl"
+                      className="pointer-events-auto absolute inset-y-0 right-0 w-[25rem] overflow-hidden rounded-[1.6rem] border border-map-border bg-map-surface-overlay/98 shadow-[0_28px_80px_-36px_rgba(15,23,42,0.65)]"
                     >
                       <MapOperatorConsole
                         parcels={activeParcels}

@@ -216,7 +216,7 @@ function ConversationListItem({
             'mt-4 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-[10px] transition-all',
             compareSelected
               ? 'border-blue-400 bg-blue-500/20 text-blue-300'
-              : 'border-border/60 bg-background/60 text-transparent hover:border-border hover:text-muted-foreground',
+              : 'border-border/60 bg-background/88 text-transparent hover:border-border hover:text-muted-foreground',
           )}
           aria-label={compareSelected ? 'Deselect for comparison' : 'Select for comparison'}
         >
@@ -232,11 +232,11 @@ function ConversationListItem({
           '!h-auto !w-full !justify-start !items-start group gap-3 rounded-[22px] border px-3.5 py-3.5 text-left transition-all duration-200',
           active
             ? 'border-foreground/14 bg-foreground/[0.05] shadow-[0_18px_45px_-40px_rgba(15,23,42,0.5)]'
-            : 'border-transparent bg-transparent hover:border-border/60 hover:bg-background/78',
+            : 'border-transparent bg-transparent hover:border-border/60 hover:bg-background/92',
           compareSelected && 'ring-1 ring-blue-400/40',
         )}
       >
-        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-border/60 bg-background/80 text-muted-foreground">
+        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-border/60 bg-background/92 text-muted-foreground">
           <MessageSquare className="h-3.5 w-3.5" />
         </span>
         <div className="min-w-0 flex-1">
@@ -260,7 +260,7 @@ function ConversationListItem({
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
             {recent ? (
-              <Badge variant="outline" className="rounded-full border-border/60 bg-background/80 px-2 py-0.5 text-[9px] uppercase tracking-[0.16em]">
+              <Badge variant="outline" className="rounded-full border-border/60 bg-background/92 px-2 py-0.5 text-[9px] uppercase tracking-[0.16em]">
                 Recent
               </Badge>
             ) : null}
@@ -275,7 +275,7 @@ function ConversationListItem({
                 {dealName ?? 'Deal'}
               </Badge>
             ) : (
-              <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/80 px-2 py-0.5">
+              <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/92 px-2 py-0.5">
                 General
               </span>
             )}
@@ -453,20 +453,36 @@ export function ConversationSidebar({
               </div>
             )}
           />
-          <div className="rounded-[22px] border border-border/60 bg-muted/[0.35] px-4 py-3 text-xs text-muted-foreground">
-            Reopen a verified thread, search across recent work, or start a new run without leaving the desk.
+          <div className="rounded-[24px] border border-border/70 bg-muted/[0.55] px-4 py-4 shadow-[0_18px_40px_-36px_rgba(15,23,42,0.4)]">
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+              Run Desk
+            </p>
+            <p className="mt-2 text-sm leading-6 text-foreground">
+              Reopen a verified thread, search recent work, or launch a fresh run without leaving the desk.
+            </p>
           </div>
         </div>
 
-        <div className="mt-4 flex items-center gap-2 text-[11px] text-muted-foreground">
-          <span>{conversations.length} saved</span>
-          <span className="text-border">/</span>
-          <span>{hasRecentRecents ? 'Local recents available' : 'No local recents yet'}</span>
+        <div className="mt-4 grid grid-cols-2 gap-2 text-[11px]">
+          <div className="rounded-2xl border border-border/70 bg-background/92 px-3 py-2">
+            <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
+              Saved runs
+            </p>
+            <p className="mt-1 text-sm font-medium text-foreground">{conversations.length}</p>
+          </div>
+          <div className="rounded-2xl border border-border/70 bg-background/92 px-3 py-2">
+            <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
+              Local recents
+            </p>
+            <p className="mt-1 text-sm font-medium text-foreground">
+              {hasRecentRecents ? 'Available' : 'None yet'}
+            </p>
+          </div>
         </div>
       </div>
 
       {/* Filter bar: deal dropdown + search + group toggle */}
-      <div className="flex flex-col gap-3 border-b border-border/60 px-4 py-4">
+      <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/[0.35] px-4 py-4">
         <div className="relative">
           <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
           <Input
@@ -474,7 +490,7 @@ export function ConversationSidebar({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search saved runs"
-            className="h-9 w-full rounded-2xl pl-9 pr-3 text-xs placeholder:text-muted-foreground/70"
+            className="h-10 w-full rounded-2xl border-border/70 bg-background/94 pl-9 pr-3 text-xs placeholder:text-muted-foreground/70"
             disabled={loading}
           />
         </div>
@@ -486,7 +502,7 @@ export function ConversationSidebar({
               value={dealIdFilter ?? '__all__'}
               onValueChange={(value) => setDealIdFilter(value === '__all__' ? null : value)}
             >
-              <SelectTrigger className="h-8 w-full rounded-2xl text-[11px]">
+              <SelectTrigger className="h-9 w-full rounded-2xl border-border/70 bg-background/94 text-[11px]">
                 <Building2 className="mr-1.5 h-3 w-3 shrink-0 text-muted-foreground" />
                 <SelectValue placeholder="Filter by deal" />
               </SelectTrigger>
@@ -505,7 +521,7 @@ export function ConversationSidebar({
               size="sm"
               onClick={() => setGroupByDealEnabled((v) => !v)}
               className={cn(
-                'inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-2.5 text-[10px] font-medium transition-colors',
+                'inline-flex h-9 shrink-0 items-center gap-1 rounded-2xl px-3 text-[10px] font-medium transition-colors',
                 groupByDealEnabled
                   ? 'border-foreground/20 bg-foreground text-background'
                   : 'border-border/70 text-muted-foreground hover:text-foreground',
@@ -518,9 +534,32 @@ export function ConversationSidebar({
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-2 text-[11px]">
+        <div className="space-y-2 text-[11px]">
+          <div className="flex items-center justify-between gap-2 px-1">
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+              View
+            </p>
+            <Button
+              type="button"
+              variant={onlyRecent ? 'secondary' : 'outline'}
+              size="sm"
+              onClick={() => setOnlyRecent((value) => !value)}
+              className={cn(
+                'inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[10px] font-medium transition-colors',
+                onlyRecent
+                  ? 'border-foreground/20 bg-foreground text-background'
+                  : 'border-border/70 bg-background/92 text-muted-foreground hover:text-foreground',
+                !hasRecentRecents && 'opacity-50',
+              )}
+              disabled={!hasRecentRecents}
+              title={hasRecentRecents ? 'Keep local top 5 recents only' : 'No recents available'}
+            >
+              <CalendarClock className="h-3.5 w-3.5" />
+              {onlyRecent ? 'Local recents on' : 'Show all runs'}
+            </Button>
+          </div>
           <Tabs value={filter} onValueChange={(value) => setFilter(value as ConversationFilterMode)} className="w-full">
-            <TabsList className="grid h-auto w-full grid-cols-3 gap-1 rounded-full border border-border/70 bg-background/70 p-1">
+            <TabsList className="grid h-auto w-full grid-cols-3 gap-1 rounded-2xl border border-border/70 bg-background/92 p-1">
               <TabsTrigger value="all" className="h-8 gap-2 rounded-full border-b-0 px-2.5 py-1 text-[11px]">
                 <span>All</span>
                 <Badge variant="secondary" className="px-1.5 py-0 text-[9px]">
@@ -541,28 +580,9 @@ export function ConversationSidebar({
               </TabsTrigger>
             </TabsList>
           </Tabs>
-
-          <Button
-            type="button"
-            variant={onlyRecent ? 'secondary' : 'outline'}
-            size="sm"
-            onClick={() => setOnlyRecent((value) => !value)}
-            className={cn(
-              'inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-medium transition-colors',
-              onlyRecent
-                ? 'border-foreground/20 bg-foreground text-background'
-                : 'border-border/70 text-muted-foreground hover:text-foreground',
-              !hasRecentRecents && 'opacity-50',
-            )}
-            disabled={!hasRecentRecents}
-            title={hasRecentRecents ? 'Keep local top 5 recents only' : 'No recents available'}
-          >
-            <CalendarClock className="h-3.5 w-3.5" />
-            {onlyRecent ? 'Recent 5' : 'Recent runs'}
-          </Button>
         </div>
 
-        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+        <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-background/92 px-3 py-2 text-[11px] text-muted-foreground">
           <div className="inline-flex items-center gap-1.5">
             <Filter className="h-3.5 w-3.5" />
             <span>{filteredConversations.length} shown</span>
@@ -638,7 +658,7 @@ export function ConversationSidebar({
             ))}
           </div>
         ) : filteredConversations.length === 0 ? (
-          <div className="flex flex-col gap-2 rounded-2xl border border-dashed border-border/70 bg-background/60 px-4 py-5 text-sm text-muted-foreground">
+          <div className="flex flex-col gap-2 rounded-2xl border border-dashed border-border/70 bg-background/90 px-4 py-5 text-sm text-muted-foreground">
             <p className="font-medium text-foreground">No conversations match this view.</p>
             <p>Start a new run or widen the filters.</p>
           </div>
@@ -690,7 +710,7 @@ export function ConversationSidebar({
           className={cn(
             'app-shell-panel flex h-10 w-10 items-center justify-center text-muted-foreground shadow-lg transition-colors hover:text-foreground',
             mobile
-              ? 'fixed bottom-4 left-4 z-20 rounded-full border border-border/60 bg-background/92 backdrop-blur-xl lg:hidden'
+              ? 'fixed bottom-4 left-4 z-20 rounded-full border border-border/60 bg-background/96 lg:hidden'
               : 'absolute left-3 top-4 z-20 rounded-2xl',
           )}
           aria-label={mobile ? 'Open history' : 'Open conversation rail'}
@@ -704,14 +724,14 @@ export function ConversationSidebar({
           {open ? (
             <button
               type="button"
-              className="fixed inset-0 z-30 bg-black/45 lg:hidden"
+              className="fixed inset-0 z-30 bg-black/60 lg:hidden"
               aria-label="Close history"
               onClick={onToggle}
             />
           ) : null}
           <div
             className={cn(
-              'fixed inset-y-0 left-0 z-40 flex w-[min(22rem,calc(100vw-1.25rem))] max-w-full flex-col border-r border-border/60 bg-background/96 backdrop-blur-xl transition-transform duration-200 lg:hidden',
+              'fixed inset-y-0 left-0 z-40 flex w-[min(22rem,calc(100vw-1.25rem))] max-w-full flex-col border-r border-border/70 bg-background/96 transition-transform duration-200 lg:hidden',
               open ? 'translate-x-0' : '-translate-x-full',
             )}
           >
@@ -721,7 +741,7 @@ export function ConversationSidebar({
       ) : (
         <div
           className={cn(
-            'flex h-full flex-col border-r border-border/60 bg-background/76 backdrop-blur-xl transition-all duration-200',
+            'flex h-full flex-col border-r border-border/70 bg-background/95 transition-all duration-200',
             open ? 'w-72' : 'w-0 overflow-hidden',
           )}
         >

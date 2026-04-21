@@ -379,14 +379,13 @@ body {
   border: 1px solid oklch(var(--shell-line) / 0.24);
   border-radius: 1.15rem;
   background:
-    linear-gradient(180deg, oklch(var(--shell-surface) / 0.62), oklch(var(--color-background) / 0.42));
+    linear-gradient(180deg, oklch(var(--shell-surface) / 0.96), oklch(var(--color-background) / 0.94));
   box-shadow: none;
-  backdrop-filter: blur(12px);
 }
 
 .workspace-surface-muted {
   background:
-    linear-gradient(180deg, oklch(var(--muted) / 0.26), oklch(var(--color-background) / 0.44));
+    linear-gradient(180deg, oklch(var(--muted) / 0.5), oklch(var(--color-background) / 0.92));
 }
 
 .workspace-section {
@@ -464,17 +463,17 @@ body {
 
 .chat-thread-surface {
   background:
-    linear-gradient(180deg, oklch(var(--background) / 0.8), oklch(var(--background) / 0.58)),
-    linear-gradient(to right, oklch(var(--border) / 0.09) 1px, transparent 1px),
-    linear-gradient(to bottom, oklch(var(--border) / 0.09) 1px, transparent 1px);
+    linear-gradient(180deg, oklch(var(--background) / 0.98), oklch(var(--background) / 0.96)),
+    linear-gradient(to right, oklch(var(--border) / 0.13) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(var(--border) / 0.13) 1px, transparent 1px);
   background-size: auto, 48px 48px, 48px 48px;
 }
 
 .dark .chat-thread-surface {
   background:
-    linear-gradient(180deg, oklch(var(--card) / 0.92), oklch(var(--background) / 0.84)),
-    linear-gradient(to right, oklch(var(--border) / 0.12) 1px, transparent 1px),
-    linear-gradient(to bottom, oklch(var(--border) / 0.12) 1px, transparent 1px);
+    linear-gradient(180deg, oklch(var(--card) / 0.98), oklch(var(--background) / 0.96)),
+    linear-gradient(to right, oklch(var(--border) / 0.16) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(var(--border) / 0.16) 1px, transparent 1px);
   background-size: auto, 48px 48px, 48px 48px;
 }
 
@@ -545,10 +544,10 @@ body {
    ────────────────────────────────────────────────── */
 .dark .map-page {
   /* Surface hierarchy (muted grey-blue, NOT electric/neon) */
-  --map-bg: #1e2230;
-  --map-surface: #252a3a;
-  --map-surface-elevated: #2a2f3e;
-  --map-surface-overlay: rgba(30, 34, 48, 0.95);
+  --map-bg: #1b1f2b;
+  --map-surface: #232836;
+  --map-surface-elevated: #2b3142;
+  --map-surface-overlay: rgba(24, 28, 40, 0.985);
 
   /* Borders */
   --map-border: #323848;
@@ -575,7 +574,6 @@ body {
   border: 1px solid var(--map-border);
   border-radius: 0.5rem;
   color: var(--map-text-primary);
-  backdrop-filter: blur(12px);
 }
 
 /* Buttons inside map panels */

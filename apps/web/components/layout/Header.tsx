@@ -70,7 +70,7 @@ export function Header() {
   return (
     <header
       className={cn(
-        "fixed right-0 top-0 z-30 border-b border-border/50 bg-background/72 backdrop-blur-2xl transition-[left] duration-300",
+        "fixed right-0 top-0 z-30 border-b border-border/60 bg-background/96 transition-[left] duration-300",
         "h-[var(--app-header-height)]",
         isMobile
           ? "left-0 px-3"
@@ -92,7 +92,7 @@ export function Header() {
         >
           <div className={cn("flex items-center", isChatPage ? "gap-2" : "gap-3")}>
             <div className={cn(
-              "hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-background/36 md:flex",
+              "hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/65 bg-background/88 md:flex",
               isChatPage && "h-8 w-8 rounded-lg",
             )}>
               <RouteIcon className="h-5 w-5 text-foreground/85" />
@@ -134,8 +134,8 @@ export function Header() {
           <div className="hidden flex-[0_1_34rem] xl:block">
             <div
               className={cn(
-                "relative flex h-11 items-center rounded-[20px] border border-border/60 bg-background/70 px-3 shadow-[0_18px_45px_-38px_rgba(15,23,42,0.42)] transition-all",
-                searchFocused && "border-foreground/18 bg-background/92"
+                "relative flex h-11 items-center rounded-[20px] border border-border/70 bg-background/94 px-3 shadow-[0_18px_45px_-38px_rgba(15,23,42,0.42)] transition-all",
+                searchFocused && "border-foreground/32 bg-background/98"
               )}
               role="button"
               tabIndex={0}
@@ -174,14 +174,14 @@ export function Header() {
                 <span className="font-mono text-[10px] uppercase tracking-[0.18em]">
                   {WORKSPACE_ROUTE_COUNT} desks
                 </span>
-                <kbd className="rounded-md border border-border/55 bg-background/55 px-1.5 py-0.5 font-mono">
+                <kbd className="rounded-md border border-border/70 bg-background/90 px-1.5 py-0.5 font-mono">
                   {commandKeyLabel === "⌘" ? (
                     <Command className="inline h-3 w-3" />
                   ) : (
                     commandKeyLabel
                   )}
                 </kbd>
-                <kbd className="rounded-md border border-border/55 bg-background/55 px-1.5 py-0.5 font-mono">K</kbd>
+                <kbd className="rounded-md border border-border/70 bg-background/90 px-1.5 py-0.5 font-mono">K</kbd>
               </div>
             </div>
           </div>
@@ -189,8 +189,8 @@ export function Header() {
 
         <div className={cn("flex items-center", isChatPage ? "gap-1.5" : "gap-2")}>
           <div className={cn(
-            "flex items-center gap-1 rounded-[20px] border border-border/60 bg-background/78 p-1 shadow-[0_18px_45px_-38px_rgba(15,23,42,0.42)]",
-            isChatPage && "rounded-2xl bg-background/84",
+            "flex items-center gap-1 rounded-[20px] border border-border/70 bg-background/94 p-1 shadow-[0_18px_45px_-38px_rgba(15,23,42,0.42)]",
+            isChatPage && "rounded-2xl bg-background/95",
           )}>
             <Button
               variant="ghost"

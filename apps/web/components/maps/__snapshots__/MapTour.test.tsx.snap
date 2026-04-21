@@ -24,7 +24,7 @@ exports[`MapTour > renders the themed guide and highlights available steps 1`] =
     Geofences
   </div>
   <div
-    class="workspace-surface rounded-[1.15rem] absolute bottom-3 left-3 z-20 w-[20rem] border-map-border bg-map-surface-overlay text-xs text-map-text-primary shadow-2xl backdrop-blur-md"
+    class="workspace-surface rounded-[1.15rem] absolute bottom-3 left-3 z-20 w-[20rem] border-map-border bg-map-panel/96 text-xs text-map-text-primary shadow-[0_28px_64px_-36px_rgba(15,23,42,0.92)] backdrop-blur-md"
   >
     <div
       class="flex flex-col space-y-1.5 p-4 md:p-5 pb-3"
