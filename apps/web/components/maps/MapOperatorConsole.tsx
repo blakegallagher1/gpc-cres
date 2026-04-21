@@ -230,7 +230,7 @@ export function MapOperatorConsole({
   return (
     <section
       className={cn(
-        "flex h-full min-h-0 w-full flex-col border-l border-map-border bg-map-panel/96 shadow-[0_30px_60px_-32px_rgba(15,23,42,0.92)] backdrop-blur-md",
+        "flex h-full min-h-0 w-full flex-col border-l border-map-border bg-map-panel shadow-[0_30px_60px_-32px_rgba(15,23,42,0.92)]",
         className,
       )}
     >
@@ -275,7 +275,7 @@ export function MapOperatorConsole({
               <div className="map-stat-value">{resultCount}</div>
             </div>
           </div>
-          <div className="rounded-2xl border border-map-border/80 bg-map-panel/90 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+          <div className="rounded-2xl border border-map-border/80 bg-map-panel px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1">
                 <SectionLabel>Cartographer workflow</SectionLabel>
@@ -327,8 +327,8 @@ export function MapOperatorConsole({
         onValueChange={(value) => setTab(value as "operate" | "parcels")}
         className="flex min-h-0 flex-1 flex-col"
       >
-        <div className="border-b border-map-border bg-map-panel/92 px-4 pt-3">
-          <TabsList className="grid w-full grid-cols-2 gap-0 rounded-none border-map-border bg-map-surface/80">
+        <div className="border-b border-map-border bg-map-panel px-4 pt-3">
+          <TabsList className="grid w-full grid-cols-2 gap-0 rounded-none border-map-border bg-map-surface/95">
             <TabsTrigger
               value="operate"
               className="min-h-9 border-b-2 border-transparent px-0 text-[11px] text-map-text-secondary data-[state=active]:border-map-accent data-[state=active]:bg-map-surface data-[state=active]:text-map-text-primary"
@@ -350,7 +350,7 @@ export function MapOperatorConsole({
               initial={reduceMotion ? false : { opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={TAB_TRANSITION}
-              className="space-y-5 bg-map-panel/78 px-4 py-4"
+              className="space-y-5 bg-map-panel px-4 py-4"
             >
               <section className="space-y-2">
                 <SectionLabel>Tools</SectionLabel>

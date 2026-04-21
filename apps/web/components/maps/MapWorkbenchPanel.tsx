@@ -222,7 +222,7 @@ function EmptyWorkflowState({
   action?: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-dashed border-map-border/80 bg-map-panel/80 px-4 py-4">
+    <div className="rounded-2xl border border-dashed border-map-border/80 bg-map-panel px-4 py-4">
       <p className="text-[11px] font-medium text-map-text-primary">{title}</p>
       <p className="mt-1 text-[10px] leading-5 text-map-text-muted">{description}</p>
       {action ? <div className="mt-3">{action}</div> : null}
@@ -518,7 +518,7 @@ export function MapWorkbenchPanel({
       </TooltipProvider>
 
       {!open ? (
-        <div className="pointer-events-auto w-[17.5rem] rounded-[1.4rem] border border-map-border bg-map-panel/95 p-3 shadow-[0_24px_50px_-28px_rgba(15,23,42,0.9)] backdrop-blur-md">
+        <div className="pointer-events-auto w-[17.5rem] rounded-[1.4rem] border border-map-border bg-map-panel p-3 shadow-[0_24px_50px_-28px_rgba(15,23,42,0.9)]">
           <div className="space-y-1">
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-map-text-muted">
               Feature access
@@ -589,7 +589,7 @@ export function MapWorkbenchPanel({
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: -18 }}
             transition={PANEL_TRANSITION}
             className={cn(
-              "pointer-events-auto flex h-full flex-col overflow-hidden rounded-[1.5rem] border border-map-border bg-map-panel/95 shadow-[0_30px_60px_-32px_rgba(15,23,42,0.92)] backdrop-blur-md",
+              "pointer-events-auto flex h-full flex-col overflow-hidden rounded-[1.5rem] border border-map-border bg-map-panel shadow-[0_30px_60px_-32px_rgba(15,23,42,0.92)]",
               WORKBENCH_WIDTH_CLASS,
             )}
           >
@@ -733,7 +733,7 @@ export function MapWorkbenchPanel({
                       variant="outline"
                       aria-label={option}
                       title={option}
-                      className="rounded-xl border-map-border bg-map-surface/55 text-[11px] text-map-text-secondary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
+                      className="rounded-xl border-map-border bg-map-surface/90 text-[11px] text-map-text-secondary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
                     >
                       {option}
                     </ToggleGroupItem>
@@ -1084,7 +1084,7 @@ export function MapWorkbenchPanel({
                     variant="outline"
                     onClick={onUndoDraw}
                     disabled={!drawing}
-                    className="h-7 border-map-border bg-map-surface/45 px-2.5 text-[10px] text-map-text-primary hover:bg-map-surface"
+                    className="h-7 border-map-border bg-map-surface/90 px-2.5 text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
                   >
                     Undo point
                   </Button>
@@ -1094,7 +1094,7 @@ export function MapWorkbenchPanel({
                     variant="outline"
                     onClick={onCancelDraw}
                     disabled={!drawing}
-                    className="h-7 border-map-border bg-map-surface/45 px-2.5 text-[10px] text-map-text-primary hover:bg-map-surface"
+                    className="h-7 border-map-border bg-map-surface/90 px-2.5 text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
                   >
                     Cancel draw
                   </Button>
@@ -1104,7 +1104,7 @@ export function MapWorkbenchPanel({
                     variant="outline"
                     onClick={onClearPolygon}
                     disabled={!hasPolygon}
-                    className="h-7 border-map-border bg-map-surface/45 px-2.5 text-[10px] text-map-text-primary hover:bg-map-surface"
+                    className="h-7 border-map-border bg-map-surface/90 px-2.5 text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
                   >
                     Clear boundary
                   </Button>

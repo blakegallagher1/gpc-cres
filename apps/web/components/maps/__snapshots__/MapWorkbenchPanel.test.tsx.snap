@@ -113,7 +113,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
   </div>
   <aside
     animate="[object Object]"
-    class="pointer-events-auto flex h-full flex-col overflow-hidden rounded-[1.5rem] border border-map-border bg-map-panel/95 shadow-[0_30px_60px_-32px_rgba(15,23,42,0.92)] backdrop-blur-md w-[23rem] max-w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-5.5rem)]"
+    class="pointer-events-auto flex h-full flex-col overflow-hidden rounded-[1.5rem] border border-map-border bg-map-panel shadow-[0_30px_60px_-32px_rgba(15,23,42,0.92)] w-[23rem] max-w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-5.5rem)]"
     data-tour="layers-panel"
     exit="[object Object]"
     transition="[object Object]"
@@ -544,7 +544,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                   <button
                     aria-checked="true"
                     aria-label="Streets"
-                    class="inline-flex items-center justify-center whitespace-nowrap border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent/55 hover:text-accent-foreground h-9 px-3 rounded-xl border-map-border bg-map-surface/55 text-[11px] text-map-text-secondary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
+                    class="inline-flex items-center justify-center whitespace-nowrap border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent/55 hover:text-accent-foreground h-9 px-3 rounded-xl border-map-border bg-map-surface/90 text-[11px] text-map-text-secondary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
                     data-radix-collection-item=""
                     data-state="on"
                     role="radio"
@@ -557,7 +557,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                   <button
                     aria-checked="false"
                     aria-label="Satellite"
-                    class="inline-flex items-center justify-center whitespace-nowrap border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent/55 hover:text-accent-foreground h-9 px-3 rounded-xl border-map-border bg-map-surface/55 text-[11px] text-map-text-secondary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
+                    class="inline-flex items-center justify-center whitespace-nowrap border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent/55 hover:text-accent-foreground h-9 px-3 rounded-xl border-map-border bg-map-surface/90 text-[11px] text-map-text-secondary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
                     data-radix-collection-item=""
                     data-state="off"
                     role="radio"
@@ -570,7 +570,7 @@ exports[`MapWorkbenchPanel > renders the integrated workbench layout when open 1
                   <button
                     aria-checked="false"
                     aria-label="Dark"
-                    class="inline-flex items-center justify-center whitespace-nowrap border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent/55 hover:text-accent-foreground h-9 px-3 rounded-xl border-map-border bg-map-surface/55 text-[11px] text-map-text-secondary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
+                    class="inline-flex items-center justify-center whitespace-nowrap border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent/55 hover:text-accent-foreground h-9 px-3 rounded-xl border-map-border bg-map-surface/90 text-[11px] text-map-text-secondary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
                     data-radix-collection-item=""
                     data-state="off"
                     role="radio"
