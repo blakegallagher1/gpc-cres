@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   deleteConversationForOrg,
   getConversationForOrg,
+  updateConversationTitleForOrg,
 } from "@gpc/server";
 import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
 import { isChatPersistenceUnavailable } from "@/app/api/chat/_lib/errorHandling";
@@ -47,6 +48,70 @@ export async function GET(
 
     return NextResponse.json(
       { error: "Failed to load conversation" },
+      { status: 500 },
+    );
+  }
+}
+
+// PATCH /api/chat/conversations/[id] — rename a conversation
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const authorization = await authorizeApiRoute(req, req.nextUrl.pathname);
+  if (!authorization.ok || !authorization.auth) {
+    return authorization.ok
+      ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      : authorization.response;
+  }
+  const auth = authorization.auth;
+
+  const { id } = await params;
+
+  if (shouldUseAppDatabaseDevFallback()) {
+    return NextResponse.json(
+      { error: "Conversation store unavailable", degraded: true },
+      { status: 503 },
+    );
+  }
+
+  let body: { title?: unknown };
+  try {
+    body = (await req.json()) as { title?: unknown };
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const title = typeof body.title === "string" ? body.title.trim() : null;
+  if (!title) {
+    return NextResponse.json({ error: "title is required" }, { status: 400 });
+  }
+
+  try {
+    const updated = await updateConversationTitleForOrg(auth.orgId, id, title);
+    if (!updated) {
+      return NextResponse.json(
+        { error: "Conversation not found" },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "api.chat.conversations", method: "PATCH" },
+    });
+    if (isChatPersistenceUnavailable(error)) {
+      return NextResponse.json(
+        { error: "Conversation store unavailable", degraded: true },
+        { status: 503 },
+      );
+    }
+
+    console.error("[chat-conversation-rename]", error);
+
+    return NextResponse.json(
+      { error: "Failed to rename conversation" },
       { status: 500 },
     );
   }

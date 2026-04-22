@@ -19,6 +19,7 @@ import {
   type AgentRunWorkflowOutput,
 } from "@entitlement-os/shared";
 import { PrismaChatSession } from "./chat-session.service";
+import { deriveConversationTitle } from "./conversation-route.service";
 import { buildPreferenceContext } from "../services/preference.service";
 import { buildMemoryContext } from "../services/memory-context-builder.service";
 import type { AgentTrustEnvelope } from "@entitlement-os/shared/agent-trust";
@@ -880,7 +881,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
       userId,
       conversationId,
       dealId: contextDeal?.id ?? dealId ?? null,
-      title: message ? message.slice(0, 100) : "Agent run",
+      title: message ? deriveConversationTitle(message) : "Agent run",
       autoCreate: shouldCreateConversation,
     });
     conversationId = chatSession.getConversationId();

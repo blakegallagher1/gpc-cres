@@ -194,6 +194,79 @@ export async function getConversationForOrg(
   };
 }
 
+/**
+ * Derives a short, human-readable title from a raw user message.
+ * Strips common filler prefixes, capitalizes words, and truncates to 50 chars.
+ * Example: "tell me about 7618 copperfield ct" → "7618 Copperfield Ct"
+ */
+export function deriveConversationTitle(rawMessage: string): string {
+  const FILLER_PREFIXES = [
+    /^tell me about\s+/i,
+    /^what(?:'s| is) the\s+/i,
+    /^what(?:'s| is)\s+/i,
+    /^can you\s+/i,
+    /^could you\s+/i,
+    /^please\s+/i,
+    /^i(?:'d| would) like(?: to)?\s+/i,
+    /^show me\s+/i,
+    /^give me\s+/i,
+    /^help me\s+/i,
+    /^run\s+/i,
+    /^get\s+/i,
+    /^find\s+/i,
+    /^look up\s+/i,
+  ];
+
+  // Strip map context prefix if present
+  let text = rawMessage.replace(/^\[Map Context\][\s\S]*?\[\/Map Context\]\s*/i, "").trim();
+
+  // Take first sentence only (split on . ! ? followed by whitespace or end)
+  const sentenceEnd = text.search(/[.!?](\s|$)/);
+  if (sentenceEnd > 0 && sentenceEnd < text.length) {
+    text = text.slice(0, sentenceEnd).trim();
+  }
+
+  // Strip filler prefix
+  for (const pattern of FILLER_PREFIXES) {
+    text = text.replace(pattern, "");
+  }
+
+  // Capitalize each word
+  text = text
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+  // Truncate to 50 chars, breaking at a word boundary
+  if (text.length > 50) {
+    const truncated = text.slice(0, 50);
+    const lastSpace = truncated.lastIndexOf(" ");
+    text = lastSpace > 30 ? truncated.slice(0, lastSpace) : truncated;
+    text = text.replace(/[,;:–—-]+$/, "").trim();
+  }
+
+  return text || "New conversation";
+}
+
+export async function updateConversationTitleForOrg(
+  orgId: string,
+  conversationId: string,
+  title: string,
+): Promise<boolean> {
+  if (!isDatabaseUuid(conversationId)) {
+    return false;
+  }
+
+  const trimmed = title.trim().slice(0, 255);
+  if (!trimmed) return false;
+
+  const updated = await prisma.conversation.updateMany({
+    where: { id: conversationId, orgId },
+    data: { title: trimmed },
+  });
+
+  return updated.count > 0;
+}
+
 export async function deleteConversationForOrg(
   orgId: string,
   conversationId: string,
