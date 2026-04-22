@@ -80,7 +80,7 @@ describe("ChatWorkspaceInspector", () => {
     ).toBe(false);
   });
 
-  it("shows the run brief by default when no verification summary is available", () => {
+  it("shows the trust envelope placeholder when no summary is available", () => {
     render(
       <ChatWorkspaceInspector
         {...BASE_PROPS}
@@ -88,15 +88,11 @@ describe("ChatWorkspaceInspector", () => {
       />,
     );
 
-    expect(screen.getByText("Execution inspector")).toBeInTheDocument();
-    expect(screen.getByText("Set the scope")).toBeInTheDocument();
-    expect(screen.getByText("Stateful thread")).toBeInTheDocument();
-    expect(
-      screen.queryByText("Verification fills in after the first response."),
-    ).not.toBeInTheDocument();
+    expect(screen.getByText("Trust Envelope")).toBeInTheDocument();
+    expect(screen.getByText("Dispatch a run to populate.")).toBeInTheDocument();
   });
 
-  it("renders the verification panel first when a trust summary is present", () => {
+  it("renders the verification panel when a trust summary is present", () => {
     render(
       <ChatWorkspaceInspector
         {...BASE_PROPS}
@@ -118,7 +114,7 @@ describe("ChatWorkspaceInspector", () => {
       />,
     );
 
-    expect(screen.getByText("Set the scope")).toBeInTheDocument();
+    expect(screen.getByText("Dispatch a run to populate.")).toBeInTheDocument();
 
     rerender(
       <ChatWorkspaceInspector

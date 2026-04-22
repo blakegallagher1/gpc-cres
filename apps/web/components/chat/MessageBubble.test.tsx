@@ -124,7 +124,7 @@ describe("MessageBubble", () => {
     expect(screen.queryByText("Structured assistant report")).not.toBeInTheDocument();
   });
 
-  it("renders user text inside high-contrast primary bubble", () => {
+  it("renders user text inside editorial user block", () => {
     const message: ChatMessage = {
       id: "user-plain",
       role: "user",
@@ -135,9 +135,8 @@ describe("MessageBubble", () => {
     render(<MessageBubble message={message} />);
 
     const text = screen.getByText("Please draft the zoning memo and include assumptions.");
-    const bubble = text.closest("div.rounded-2xl");
     expect(text).toBeInTheDocument();
-    expect(bubble).toHaveClass("bg-primary", "text-primary-foreground");
+    expect(screen.getByText("You")).toBeInTheDocument();
     expect(screen.queryByText("Structured assistant report")).not.toBeInTheDocument();
   });
 
@@ -160,7 +159,7 @@ describe("MessageBubble", () => {
 
     render(<MessageBubble message={message} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+    fireEvent.click(screen.getByRole("button", { name: /Copy/i }));
 
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith("Shareable underwriting summary.");

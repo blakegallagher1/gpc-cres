@@ -30,10 +30,9 @@ describe("ConversationSidebar", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Start new run" }));
+    fireEvent.click(screen.getByRole("button", { name: /New run/i }));
 
     expect(onConversationSelect).toHaveBeenCalledWith(null);
-    expect(onToggle).toHaveBeenCalledTimes(1);
   });
 
   it("keeps a collapsed mobile history trigger available for active threads", () => {

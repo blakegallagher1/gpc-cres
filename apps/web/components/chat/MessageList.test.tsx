@@ -49,7 +49,7 @@ function setViewportMetrics({
 }
 
 describe('MessageList autoscroll behavior', () => {
-  it('surfaces the active research lane in the transcript rail', () => {
+  it('renders the run document head with message count', () => {
     render(
       <MessageList
         messages={[
@@ -68,7 +68,8 @@ describe('MessageList autoscroll behavior', () => {
       />,
     );
 
-    expect(screen.getByText('Perplexity web research')).toBeInTheDocument();
+    expect(screen.getByText('Active Run')).toBeInTheDocument();
+    expect(screen.getByText('1 message')).toBeInTheDocument();
   });
 
   it('autoscrolls when user is at the bottom and new messages arrive', () => {

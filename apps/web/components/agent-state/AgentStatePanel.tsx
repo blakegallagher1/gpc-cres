@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { getResearchLaneLabel, type ResearchLaneSelection } from '@/lib/agent/researchRouting';
 import { EvidenceCitation } from '@/types';
@@ -38,297 +37,148 @@ export function AgentStatePanel({
   toolsInvoked,
   packVersionsUsed,
   errorSummary,
-  toolFailureDetails,
-  proofChecks,
-  retryAttempts,
-  retryMaxAttempts,
-  retryMode,
-  fallbackLineage,
-  fallbackReason,
-  retryCount,
 }: AgentStatePanelProps) {
   const [expanded, setExpanded] = useState(false);
-  const normalizedConfidence = Math.max(0, Math.min(1, confidence ?? 0));
-  const confidencePercent = Math.round(normalizedConfidence * 100);
-  const researchLaneLabel = researchLane
-    ? researchLane === "auto"
-      ? "Auto"
-      : getResearchLaneLabel(researchLane)
+  const pct = Math.round(Math.max(0, Math.min(1, confidence ?? 0)) * 100);
+  const laneLabel = researchLane
+    ? researchLane === 'auto' ? 'Auto' : getResearchLaneLabel(researchLane)
     : null;
 
-  const citationGroups = new Map<
-    string,
-    { count: number; sample?: string }
-  >();
-  evidenceCitations?.forEach((citation) => {
-    const key = citation.tool || 'tool';
-    const existing = citationGroups.get(key) ?? { count: 0 };
-    existing.count += 1;
-    if (!existing.sample && citation.url) {
-      existing.sample = citation.url;
-    }
-    citationGroups.set(key, existing);
-  });
+  const evidenceCount = evidenceCitations?.length ?? 0;
+  const gapCount = missingEvidence?.length ?? 0;
+  const toolCount = toolsInvoked?.length ?? 0;
 
   return (
-    <div className="space-y-4 rounded-2xl border border-muted/30 bg-card/60 p-4 text-sm">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            Agent state
-          </p>
-          <h3 className="text-base font-semibold">{lastAgentName}</h3>
-          {researchLaneLabel ? (
-            <div className="mt-2">
-              <Badge variant="outline" className="rounded-full">
-                Lane: {researchLaneLabel}
-              </Badge>
-            </div>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => setExpanded((value) => !value)}
-            className="mt-2 text-xs font-medium text-primary underline-offset-4 hover:underline"
-          >
-            {expanded ? 'Hide details' : 'Show details'}
-          </button>
+    <div className="rounded border border-rule bg-paper-panel ed-shadow-sm">
+      <div className="border-b border-rule px-5 py-4">
+        <div className="mb-2 flex items-baseline justify-between">
+          <span className="ed-eyebrow">Trust Envelope</span>
+          <span className="font-display text-[28px] font-semibold leading-none tracking-[-0.02em] text-ink">
+            {pct}%
+          </span>
         </div>
-        <div className="w-32 text-right">
-          <p className="text-xs text-muted-foreground">Confidence</p>
-          <div className="mt-1 text-lg font-semibold text-foreground">
-            {confidencePercent}%
-          </div>
-          <div className="mt-1 h-2 rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-emerald-500 transition-all"
-              style={{ width: `${confidencePercent}%` }}
-            />
-          </div>
+        <div className="mb-3.5 h-[3px] rounded bg-paper-inset">
+          <div className="h-full rounded bg-ink transition-[width] duration-300" style={{ width: `${pct}%` }} />
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <Mini k="Evidence" v={`${evidenceCount} ref${evidenceCount === 1 ? '' : 's'}`} />
+          <Mini k="Gaps"     v={String(gapCount)} />
+          <Mini k="Tools"    v={String(toolCount)} />
         </div>
       </div>
 
-      {expanded ? (
-        <>
-      {plan && plan.length > 0 ? (
+      <div className="flex items-baseline justify-between px-5 pt-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Plan preview
-          </p>
-          <ol className="mt-2 space-y-1 pl-4 text-xs leading-relaxed text-foreground">
-            {plan.map((step, index) => (
-              <li key={`${step}-${index}`}>{step}</li>
-            ))}
-          </ol>
+          <div className="ed-eyebrow">Last agent</div>
+          <div className="mt-0.5 font-display text-[14px] font-semibold text-ink">{lastAgentName}</div>
         </div>
-      ) : (
-        <p className="text-xs text-muted-foreground">
-          No plan was captured for this turn.
-        </p>
-      )}
-
-      <Separator />
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Active lane
-          </p>
-          <p className="mt-2 text-xs text-foreground">
-            {researchLaneLabel ?? 'No lane recorded for this run.'}
-          </p>
-        </div>
-
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Missing evidence
-          </p>
-          {missingEvidence && missingEvidence.length > 0 ? (
-            <ul className="mt-2 space-y-1 text-xs text-foreground">
-              {missingEvidence.map((item) => (
-                <li key={item} className="flex items-start gap-1">
-                  <span className="text-muted-foreground">•</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-2 text-xs text-muted-foreground">
-              Evidence requirements appear satisfied.
-            </p>
-          )}
-        </div>
-
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Verification steps
-          </p>
-          {verificationSteps && verificationSteps.length > 0 ? (
-            <ul className="mt-2 list-disc space-y-1 pl-4 text-xs leading-relaxed text-foreground">
-              {verificationSteps.map((step, index) => (
-                <li key={`${step}-${index}`}>{step}</li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-2 text-xs text-muted-foreground">
-              No additional verification guidance.
-            </p>
-          )}
-        </div>
-      </div>
-
-      <Separator />
-
-      {(proofChecks !== undefined || retryAttempts !== undefined || retryMode || fallbackLineage || fallbackReason) && (
-        <>
-          <div className="grid gap-4 md:grid-cols-2">
-            {proofChecks && proofChecks.length > 0 ? (
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Proof checks
-                </p>
-                <ul className="mt-2 list-disc space-y-1 pl-4 text-xs leading-relaxed text-foreground">
-                  {proofChecks.map((check) => (
-                    <li key={check}>{check}</li>
-                  ))}
-                </ul>
-              </div>
-            ) : (
-              <div />
-            )}
-            {(retryAttempts !== undefined || retryMode || retryMaxAttempts !== undefined) && (
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Retry policy
-                </p>
-                <div className="mt-2 text-xs text-foreground">
-                  <div>
-                    Attempts: {typeof retryAttempts === "number" ? retryAttempts : 0}
-                    {typeof retryMaxAttempts === "number"
-                      ? ` / ${retryMaxAttempts}`
-                      : ""}
-                  </div>
-                  <div>Mode: {retryMode ?? "default"}</div>
-                </div>
-              </div>
-            )}
-          </div>
-          {(fallbackLineage || fallbackReason) && (
-            <div className="space-y-2">
-              <Separator />
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Fallback lineage
-                </p>
-                {fallbackLineage && fallbackLineage.length > 0 ? (
-                  <ul className="mt-1 space-y-1 text-xs text-foreground">
-                    {fallbackLineage.map((line) => (
-                      <li key={line}>• {line}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="mt-1 text-xs text-muted-foreground">No fallback lineage recorded.</p>
-                )}
-              </div>
-              {fallbackReason && (
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Fallback reason
-                  </p>
-                  <p className="text-xs text-foreground">{fallbackReason}</p>
-                </div>
-              )}
-            </div>
-          )}
-          <Separator />
-        </>
-      )}
-
-      <Separator />
-
-      <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Tool activity
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {toolsInvoked && toolsInvoked.length > 0 ? (
-            toolsInvoked.map((tool) => (
-              <Badge key={tool} variant="outline">
-                {tool}
-              </Badge>
-            ))
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              No tool calls were recorded.
-            </p>
-          )}
-        </div>
-        {packVersionsUsed && packVersionsUsed.length > 0 && (
-          <p className="text-xs text-muted-foreground">
-            Packs used: {packVersionsUsed.join(', ')}
-          </p>
+        {laneLabel && (
+          <span className="rounded-full border border-rule bg-paper-soft px-2.5 py-0.5 font-mono text-[10px] tracking-[0.08em] text-ink-soft">
+            Lane · {laneLabel}
+          </span>
         )}
       </div>
 
-      {citationGroups.size > 0 && (
-        <>
-          <Separator />
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Evidence citations
-            </p>
-            <div className="mt-2 space-y-1">
-              {Array.from(citationGroups.entries()).map(([tool, { count, sample }]) => (
-                <div key={tool} className="flex flex-col gap-0.5 text-xs text-foreground">
-                  <span className="font-medium text-foreground">{tool}</span>
-                  <span className="text-muted-foreground">
-                    {count} citation{count !== 1 ? 's' : ''} {sample ? `• ${sample}` : ''}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="mx-5 mb-3.5 mt-2 text-[11px] font-medium text-ed-accent underline-offset-4 hover:underline"
+      >
+        {expanded ? 'Hide details' : 'Show details'}
+      </button>
+
+      {expanded && (
+        <div className="flex flex-col gap-3.5 border-t border-rule px-5 py-4">
+          {plan && plan.length > 0 ? (
+            <Section title="Plan">
+              <ol className="m-0 space-y-1 p-0 text-[12.5px] leading-[1.5] text-ink">
+                {plan.map((p, i) => (
+                  <li key={i} className="flex gap-2.5">
+                    <span className="font-mono text-[10px] tracking-[0.1em] text-ink-fade">
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <span>{p}</span>
+                  </li>
+                ))}
+              </ol>
+            </Section>
+          ) : null}
+
+          <Separator className="bg-rule-soft" />
+
+          {missingEvidence && missingEvidence.length > 0 ? (
+            <Section title={`Missing evidence · ${missingEvidence.length}`}>
+              <ul className="m-0 space-y-1.5 p-0 text-[12px] leading-[1.45] text-ink">
+                {missingEvidence.map((item) => (
+                  <li key={item} className="flex items-start gap-2">
+                    <span className="text-ed-warn">◇</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          ) : null}
+
+          {toolsInvoked && toolsInvoked.length > 0 ? (
+            <Section title={`Tools · ${toolsInvoked.length}`}>
+              <div className="flex flex-wrap gap-1.5">
+                {toolsInvoked.map((t) => (
+                  <span
+                    key={t}
+                    className="rounded border border-rule-soft bg-paper-soft px-2 py-0.5 font-mono text-[10.5px] text-ink-soft"
+                  >
+                    {t}
                   </span>
-                </div>
-              ))}
+                ))}
+              </div>
+            </Section>
+          ) : null}
+
+          {verificationSteps && verificationSteps.length > 0 ? (
+            <Section title="Verification">
+              <ul className="m-0 space-y-1 p-0 text-[12px] text-ink-soft">
+                {verificationSteps.map((v, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="text-ed-ok">✓</span>
+                    <span>{v}</span>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          ) : null}
+
+          {packVersionsUsed && packVersionsUsed.length > 0 ? (
+            <Section title="Pack versions">
+              <div className="font-mono text-[10.5px] text-ink-fade">{packVersionsUsed.join(' · ')}</div>
+            </Section>
+          ) : null}
+
+          {errorSummary ? (
+            <div className="rounded border border-ed-warn/40 bg-[oklch(var(--ed-warn-soft))] p-3">
+              <p className="ed-eyebrow mb-1 text-ed-warn">Error</p>
+              <p className="m-0 text-[12px] leading-[1.45] text-ink">{errorSummary}</p>
             </div>
-          </div>
-        </>
+          ) : null}
+        </div>
       )}
+    </div>
+  );
+}
 
-      {(errorSummary || (toolFailureDetails && toolFailureDetails.length > 0)) && (
-        <>
-          <Separator />
-          <div className="space-y-2 text-xs">
-            {errorSummary && (
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Error summary
-                </p>
-                <p className="text-foreground">{errorSummary}</p>
-              </div>
-            )}
+function Mini({ k, v }: { k: string; v: string }) {
+  return (
+    <div>
+      <div className="ed-eyebrow">{k}</div>
+      <div className="mt-0.5 text-[14px] font-semibold text-ink">{v}</div>
+    </div>
+  );
+}
 
-            {toolFailureDetails && toolFailureDetails.length > 0 && (
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Tool failures
-                </p>
-                <ul className="mt-1 space-y-1 text-foreground">
-                  {toolFailureDetails.map((failure) => (
-                    <li key={failure}>• {failure}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {retryCount !== undefined && (
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Retry attempts
-                </p>
-                <p className="text-foreground">{retryCount || 0}</p>
-              </div>
-            )}
-          </div>
-        </>
-      )}
-        </>
-      ) : null}
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="ed-eyebrow mb-2">{title}</p>
+      {children}
     </div>
   );
 }

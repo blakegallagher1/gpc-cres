@@ -40,9 +40,59 @@
   --ring-offset-color: var(--color-background);
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
+
+  /* Composed / editorial palette */
+  --color-paper:          oklch(var(--paper));
+  --color-paper-panel:    oklch(var(--paper-panel));
+  --color-paper-soft:     oklch(var(--paper-soft));
+  --color-paper-inset:    oklch(var(--paper-inset));
+  --color-ink:            oklch(var(--ink));
+  --color-ink-soft:       oklch(var(--ink-soft));
+  --color-ink-fade:       oklch(var(--ink-fade));
+  --color-rule:           oklch(var(--rule));
+  --color-rule-soft:      oklch(var(--rule-soft));
+  --color-ed-accent:      oklch(var(--ed-accent));
+  --color-ed-accent-soft: oklch(var(--ed-accent-soft));
+  --color-ed-warn:        oklch(var(--ed-warn));
+  --color-ed-ok:          oklch(var(--ed-ok));
+
+  /* Map dark-theme colors — resolved inside .dark .map-page */
+  --color-map-bg: var(--map-bg);
+  --color-map-surface: var(--map-surface);
+  --color-map-surface-elevated: var(--map-surface-elevated);
+  --color-map-surface-overlay: var(--map-surface-overlay);
+  --color-map-panel: var(--map-surface-overlay);
+  --color-map-border: var(--map-border);
+  --color-map-border-subtle: var(--map-border-subtle);
+  --color-map-text-primary: var(--map-text-primary);
+  --color-map-text-secondary: var(--map-text-secondary);
+  --color-map-text-muted: var(--map-text-muted);
+  --color-map-accent: var(--map-accent);
+  --color-map-accent-muted: var(--map-accent-muted);
+  --color-map-accent-surface: var(--map-accent-surface);
+  --color-map-status-green: var(--map-status-green);
+  --color-map-status-yellow: var(--map-status-yellow);
+  --color-map-status-red: var(--map-status-red);
 }
 
 :root {
+  /* Map color defaults (overridden inside .dark .map-page) */
+  --map-bg: #1b1f2b;
+  --map-surface: #232836;
+  --map-surface-elevated: #2b3142;
+  --map-surface-overlay: #181c28;
+  --map-border: #323848;
+  --map-border-subtle: #2a2f3e;
+  --map-text-primary: #e2e4ea;
+  --map-text-secondary: #9ca0ae;
+  --map-text-muted: #6b7080;
+  --map-accent: #6c8cff;
+  --map-accent-muted: #4a5a8a;
+  --map-accent-surface: #293046;
+  --map-status-green: #4ade80;
+  --map-status-yellow: #facc15;
+  --map-status-red: #f87171;
+
   --background: 1 0 0;
   --foreground: 0.141 0.005 285.82;
   --card: 1 0 0;
@@ -77,6 +127,22 @@
   --shell-line: 0.87 0.01 258.34;
   --shell-grid: 0.53 0.016 285.94;
   --shell-accent: 0.72 0.05 237.2;
+
+  /* Composed / editorial layer — warm paper + ink + institutional green */
+  --paper:           0.985 0.002 75;
+  --paper-panel:     1 0 0;
+  --paper-soft:      0.965 0.004 75;
+  --paper-inset:     0.95 0.005 75;
+  --ink:             0.19 0.006 75;
+  --ink-soft:        0.42 0.008 75;
+  --ink-fade:        0.58 0.01 75;
+  --rule:            0.90 0.005 75;
+  --rule-soft:       0.93 0.004 75;
+  --ed-accent:       0.38 0.08 160;
+  --ed-accent-soft:  0.96 0.02 160;
+  --ed-warn:         0.62 0.13 55;
+  --ed-warn-soft:    0.97 0.025 55;
+  --ed-ok:           0.55 0.12 150;
 }
 
 @keyframes accordion-down {
@@ -547,7 +613,7 @@ body {
   --map-bg: #1b1f2b;
   --map-surface: #232836;
   --map-surface-elevated: #2b3142;
-  --map-surface-overlay: rgba(24, 28, 40, 0.985);
+  --map-surface-overlay: #181c28;
 
   /* Borders */
   --map-border: #323848;
@@ -561,7 +627,7 @@ body {
   /* Accents — kept desaturated */
   --map-accent: #6c8cff;
   --map-accent-muted: #4a5a8a;
-  --map-accent-surface: rgba(108, 140, 255, 0.08);
+  --map-accent-surface: #293046;
 
   /* Status colors (toned for dark bg) */
   --map-status-green: #4ade80;
@@ -729,4 +795,37 @@ body {
   html {
     scroll-behavior: auto;
   }
+}
+
+/* ──────────────────────────────────────────────────
+   COMPOSED CHAT REDESIGN — Editorial layer helpers
+   ────────────────────────────────────────────────── */
+.ed-shadow-sm { box-shadow: 0 1px 2px rgba(20, 20, 20, 0.04); }
+.ed-shadow-md { box-shadow: 0 1px 3px rgba(20, 20, 20, 0.04); }
+.ed-shadow-lg { box-shadow: 0 2px 10px rgba(20, 20, 20, 0.04); }
+
+.ed-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: oklch(var(--ink-fade));
+}
+.ed-eyebrow-tight {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: oklch(var(--ink-fade));
+}
+
+@keyframes ed-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+.ed-pulse { animation: ed-pulse 1.2s ease-in-out infinite; }
+
+.chat-surface :focus-visible {
+  outline: 2px solid oklch(var(--ed-accent));
+  outline-offset: 1px;
+  border-radius: 3px;
 }

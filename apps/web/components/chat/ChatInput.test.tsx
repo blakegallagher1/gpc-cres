@@ -15,11 +15,11 @@ describe("ChatInput", () => {
     );
 
     const textarea = screen.getByPlaceholderText(
-      /Ask anything\. Name the matter, outcome, or source you need\./i,
+      /Ask the coordinator/i,
     ) as HTMLTextAreaElement;
     textarea.value = "Store this memory now";
 
-    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    fireEvent.submit(textarea.closest("form")!);
 
     expect(onSend).toHaveBeenCalledWith("Store this memory now", undefined, {
       researchLane: "auto",
@@ -37,10 +37,10 @@ describe("ChatInput", () => {
       />,
     );
 
-    fireEvent.change(screen.getByPlaceholderText(/Ask anything\. Name the matter, outcome, or source you need\./i), {
+    fireEvent.change(screen.getByPlaceholderText(/Ask the coordinator/i), {
       target: { value: "Screen this property" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    fireEvent.submit(screen.getByPlaceholderText(/Ask the coordinator/i).closest("form")!);
 
     expect(onSend).toHaveBeenCalledWith("Screen this property", undefined, {
       researchLane: "auto",
@@ -86,10 +86,10 @@ describe("ChatInput", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Controls/i }));
     fireEvent.click(screen.getByRole("button", { name: /Web research/i }));
-    fireEvent.change(screen.getByPlaceholderText(/Ask anything\. Name the matter, outcome, or source you need\./i), {
+    fireEvent.change(screen.getByPlaceholderText(/Ask the coordinator/i), {
       target: { value: "Find the latest zoning update and cite sources" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    fireEvent.submit(screen.getByPlaceholderText(/Ask the coordinator/i).closest("form")!);
 
     expect(onSend).toHaveBeenCalledWith(
       "Find the latest zoning update and cite sources",
@@ -114,7 +114,7 @@ describe("ChatInput", () => {
     expect(screen.getByRole("button", { name: /Web research/i })).toBeInTheDocument();
   });
 
-  it("collapses the composer chrome while a run is streaming", () => {
+  it("shows stop button while a run is streaming", () => {
     render(
       <ChatInput
         onSend={() => {}}
@@ -123,9 +123,6 @@ describe("ChatInput", () => {
       />,
     );
 
-    expect(screen.getByText("Run in progress")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Controls/i })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Stop run/i })).toBeInTheDocument();
-    expect(screen.queryByText(/State the task clearly/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Stop/i })).toBeInTheDocument();
   });
 });

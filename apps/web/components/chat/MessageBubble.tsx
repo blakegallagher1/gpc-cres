@@ -9,7 +9,6 @@ import {
   AlertTriangle,
   ChevronDown,
   ClipboardCopy,
-  ClipboardList,
   ExternalLink,
   FileText,
   GitBranch,
@@ -30,7 +29,7 @@ import {
 } from '@/components/ui/tooltip';
 import { formatOperatorTime } from '@/lib/formatters/operatorFormatters';
 import { cn } from '@/lib/utils';
-import { getAgentColor, getAgentBorderColor, formatAgentLabel } from './AgentIndicator';
+import { getAgentColor, getAgentBorderColor, formatAgentLabel, getAgentRole } from './AgentIndicator';
 import { ToolCallCard } from './ToolCallCard';
 import { TriageResultCard } from './TriageResultCard';
 import { ArtifactDownloadCard } from './ArtifactDownloadCard';
@@ -87,18 +86,6 @@ function formatTrustDuration(ms?: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-function getTrustBarColor(confidence: number): string {
-  if (confidence >= 80) return 'bg-emerald-500';
-  if (confidence >= 50) return 'bg-amber-500';
-  return 'bg-red-500';
-}
-
-function getTrustBarTrack(confidence: number): string {
-  if (confidence >= 80) return 'bg-emerald-500/15';
-  if (confidence >= 50) return 'bg-amber-500/15';
-  return 'bg-red-500/15';
-}
-
 function TrustIndicator({
   trust,
   messageId,
@@ -118,49 +105,43 @@ function TrustIndicator({
   const missingCount = trust.missingEvidence?.length ?? 0;
 
   return (
-    <div className="mt-2 rounded-lg border border-border bg-muted px-3 py-2">
-      {/* Compact bar — clickable */}
+    <div className="mt-3 rounded border border-rule bg-paper-soft px-3 py-2">
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center gap-2 text-left"
+        className="flex w-full items-center gap-2.5 text-left"
       >
-        <Shield className="h-3 w-3 shrink-0 text-muted-foreground" />
-        {/* Confidence bar */}
-        <div className={cn('h-1.5 w-20 shrink-0 rounded-full', getTrustBarTrack(pct))}>
+        <span className="ed-eyebrow">Confidence</span>
+        <div className="h-[3px] w-20 shrink-0 rounded bg-paper-inset">
           <div
-            className={cn('h-full rounded-full transition-all', getTrustBarColor(pct))}
+            className="h-full rounded bg-ink transition-all"
             style={{ width: `${Math.min(pct, 100)}%` }}
           />
         </div>
-        <span className="flex-1 font-mono text-[10px] text-muted-foreground">
-          {pct}% confidence · {toolCount} tool{toolCount !== 1 ? 's' : ''} · {citationCount} citation{citationCount !== 1 ? 's' : ''}
+        <span className="flex-1 font-mono text-[10.5px] text-ink-fade">
+          {pct}% · {toolCount} tool{toolCount !== 1 ? 's' : ''} · {citationCount} citation{citationCount !== 1 ? 's' : ''}
         </span>
         {missingCount > 0 && (
-          <span className="font-mono text-[10px] text-amber-600 dark:text-amber-400">
-            {missingCount} evidence gap{missingCount !== 1 ? 's' : ''}
+          <span className="font-mono text-[10.5px] text-ed-warn">
+            {missingCount} gap{missingCount !== 1 ? 's' : ''}
           </span>
         )}
         <ChevronDown
           className={cn(
-            'h-3 w-3 shrink-0 text-muted-foreground transition-transform',
+            'h-3 w-3 shrink-0 text-ink-fade transition-transform',
             expanded && 'rotate-180',
           )}
         />
       </button>
 
-      {/* Expanded details */}
       {expanded && (
-        <div className="mt-2 space-y-2 border-t border-border pt-2">
-          {/* Evidence citations */}
+        <div className="mt-2 space-y-2.5 border-t border-rule-soft pt-2">
           {trust.evidenceCitations && trust.evidenceCitations.length > 0 && (
             <div>
-              <p className="font-mono text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                Evidence Citations
-              </p>
+              <p className="ed-eyebrow mb-1">Evidence cited</p>
               <ul className="mt-1 space-y-0.5">
                 {trust.evidenceCitations.map((cite, i) => (
-                  <li key={i} className="font-mono text-[10px] text-foreground/70">
+                  <li key={i} className="font-mono text-[10.5px] text-ink-soft">
                     {typeof cite.label === 'string' ? cite.label : JSON.stringify(cite)}
                   </li>
                 ))}
@@ -168,33 +149,28 @@ function TrustIndicator({
             </div>
           )}
 
-          {/* Missing evidence */}
           {trust.missingEvidence && trust.missingEvidence.length > 0 && (
             <div>
-              <p className="font-mono text-[10px] font-medium uppercase tracking-wide text-amber-600 dark:text-amber-400">
-                Missing Evidence
-              </p>
+              <p className="ed-eyebrow mb-1 text-ed-warn">Proof gaps</p>
               <ul className="mt-1 space-y-0.5">
                 {trust.missingEvidence.map((item, i) => (
-                  <li key={i} className="font-mono text-[10px] text-amber-700 dark:text-amber-300">
-                    {item}
+                  <li key={i} className="flex items-start gap-2 text-[10.5px] text-ink">
+                    <span className="font-bold text-ed-warn">◇</span>
+                    <span>{item}</span>
                   </li>
                 ))}
               </ul>
             </div>
           )}
 
-          {/* Tools invoked */}
           {trust.toolsInvoked && trust.toolsInvoked.length > 0 && (
             <div>
-              <p className="font-mono text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                Tools Invoked
-              </p>
+              <p className="ed-eyebrow mb-1">Tools invoked</p>
               <div className="mt-1 flex flex-wrap gap-1">
                 {trust.toolsInvoked.map((tool, i) => (
                   <span
                     key={i}
-                    className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[10px] text-foreground/70"
+                    className="rounded border border-rule-soft bg-paper-inset px-1.5 py-0.5 font-mono text-[10px] text-ink-soft"
                   >
                     {tool}
                   </span>
@@ -203,18 +179,16 @@ function TrustIndicator({
             </div>
           )}
 
-          {/* Duration */}
-          <p className="font-mono text-[10px] text-muted-foreground">
+          <p className="font-mono text-[10px] text-ink-fade">
             Duration: {formatTrustDuration(trust.durationMs)}
           </p>
 
-          {/* Verify button */}
           {onVerify && (
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="h-6 rounded-full px-3 text-[10px]"
+              className="h-6 rounded border-rule px-3 text-[10px] text-ink-soft"
               onClick={() => onVerify(messageId)}
             >
               Verify
@@ -251,40 +225,32 @@ function ToolResultCard({ name, result }: { name: string; result: unknown }) {
     Array.isArray(parsedResult) && !objectArray ? parsedResult : null;
 
   return (
-    <Card className="my-2 border-border bg-background">
-      <CardContent className="flex flex-col gap-2 p-3 text-xs">
-        <div className="flex items-center gap-2 font-mono text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-          <FileText className="h-3.5 w-3.5" />
+    <div className="my-2 rounded border border-rule-soft bg-paper-soft">
+      <div className="flex flex-col gap-2 p-3 text-xs">
+        <div className="flex items-center gap-2 font-mono text-[11px] font-semibold tracking-[0.02em] text-ink">
+          <FileText className="h-3.5 w-3.5 text-ink-soft" />
           <span>{name}</span>
         </div>
-        <ScrollArea className="max-h-64 rounded-xl border border-border bg-muted">
+        <ScrollArea className="max-h-64 rounded border border-rule-soft bg-paper-panel">
           {objectEntries.length > 0 ? (
-            <div className="divide-y divide-border">
+            <div className="divide-y divide-rule-soft">
               {objectEntries.map(([key, value]) => (
                 <div key={key} className="grid grid-cols-[minmax(0,140px)_1fr] gap-3 px-3 py-2 text-xs">
-                  <p className="font-mono uppercase tracking-[0.12em] text-muted-foreground">
-                    {key}
-                  </p>
-                  <p className="break-words text-foreground/85">{formatToolResultValue(value)}</p>
+                  <p className="ed-eyebrow">{key}</p>
+                  <p className="break-words text-ink-soft">{formatToolResultValue(value)}</p>
                 </div>
               ))}
             </div>
           ) : objectArray ? (
             <div className="flex flex-col gap-2 p-3">
               {objectArray.slice(0, 5).map((entry, index) => (
-                <div key={`${name}-${index}`} className="rounded-lg border border-border bg-background px-3 py-2">
-                  <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-                    Item {index + 1}
-                  </p>
+                <div key={`${name}-${index}`} className="rounded border border-rule-soft bg-paper-panel px-3 py-2">
+                  <p className="ed-eyebrow mb-2">Item {index + 1}</p>
                   <div className="space-y-2">
                     {Object.entries(entry).map(([key, value]) => (
                       <div key={`${index}-${key}`} className="grid grid-cols-[minmax(0,120px)_1fr] gap-3 text-xs">
-                        <p className="font-mono uppercase tracking-[0.12em] text-muted-foreground">
-                          {key}
-                        </p>
-                        <p className="break-words text-foreground/85">
-                          {formatToolResultValue(value)}
-                        </p>
+                        <p className="ed-eyebrow">{key}</p>
+                        <p className="break-words text-ink-soft">{formatToolResultValue(value)}</p>
                       </div>
                     ))}
                   </div>
@@ -292,19 +258,19 @@ function ToolResultCard({ name, result }: { name: string; result: unknown }) {
               ))}
             </div>
           ) : primitiveArray ? (
-            <ul className="flex list-disc flex-col gap-1 px-6 py-3 text-xs text-foreground/85">
+            <ul className="flex list-disc flex-col gap-1 px-6 py-3 text-xs text-ink-soft">
               {primitiveArray.slice(0, 10).map((item, index) => (
                 <li key={`${name}-${index}`}>{formatToolResultValue(item)}</li>
               ))}
             </ul>
           ) : (
-            <div className="p-3 text-foreground/80">
+            <div className="p-3 text-ink">
               <StructuredMessageRenderer content={resultText} />
             </div>
           )}
         </ScrollArea>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -369,9 +335,9 @@ function EventHeader({
   rightAction?: ReactNode;
 }) {
   return (
-    <div className="mb-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+    <div className="mb-1 flex items-center justify-between gap-2 text-xs text-ink-fade">
       <span>
-        <span className="font-mono font-medium text-foreground">{title}</span>
+        <span className="font-mono font-medium text-ink">{title}</span>
         {agentName ? ` · ${agentName}` : ''}
       </span>
       {rightAction}
@@ -428,34 +394,10 @@ function MessageActions({
 
   const hasSource = Boolean(sourceUrl);
   const actions = [
-    {
-      key: 'copy',
-      label: 'Copy',
-      icon: ClipboardCopy,
-      onClick: onCopy,
-      disabled: false,
-    },
-    {
-      key: 'reopen',
-      label: 'Reopen',
-      icon: RefreshCcw,
-      onClick: onReopen,
-      disabled: !conversationId,
-    },
-    {
-      key: 'share',
-      label: 'Share link',
-      icon: LinkIcon,
-      onClick: onCopyLink,
-      disabled: !shareHref,
-    },
-    {
-      key: 'source',
-      label: 'Open source',
-      icon: ExternalLink,
-      onClick: onOpenSource,
-      disabled: !hasSource,
-    },
+    { key: 'copy', label: 'Copy', icon: ClipboardCopy, onClick: onCopy, disabled: false },
+    { key: 'reopen', label: 'Reopen', icon: RefreshCcw, onClick: onReopen, disabled: !conversationId },
+    { key: 'share', label: 'Share link', icon: LinkIcon, onClick: onCopyLink, disabled: !shareHref },
+    { key: 'source', label: 'Open source', icon: ExternalLink, onClick: onOpenSource, disabled: !hasSource },
   ].filter((action) => !action.disabled);
 
   return (
@@ -468,10 +410,10 @@ function MessageActions({
               <TooltipTrigger asChild>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   onClick={action.onClick}
-                  className="h-7 rounded-full px-2.5 text-xs text-muted-foreground"
+                  className="h-7 rounded border border-rule px-2.5 text-xs text-ink-fade hover:text-ink"
                 >
                   <Icon className="h-3 w-3" />
                   {action.label}
@@ -494,27 +436,26 @@ function SystemEventFrame({
   children: ReactNode;
 }) {
   return (
-    <Card className={className}>
-      <CardContent className="px-3 py-2.5">{children}</CardContent>
-    </Card>
+    <div className={className}>
+      <div className="px-3 py-2.5">{children}</div>
+    </div>
   );
 }
 
-/** Event styling: left-border accent color + muted panel surface. */
 const eventStyles: Record<string, { border: string; bg: string; text: string }> = {
-  agent_progress: { border: 'border-l-indigo-500', bg: 'bg-indigo-500/8', text: 'text-indigo-700 dark:text-indigo-200' },
-  agent_switch: { border: 'border-l-amber-500', bg: 'bg-amber-500/8', text: 'text-amber-700 dark:text-amber-200' },
-  handoff: { border: 'border-l-indigo-400', bg: 'bg-indigo-500/8', text: 'text-indigo-700 dark:text-indigo-200' },
-  tool_start: { border: 'border-l-slate-500', bg: 'bg-muted', text: 'text-foreground' },
-  tool_end: { border: 'border-l-slate-500', bg: 'bg-muted', text: 'text-foreground' },
-  tool_approval: { border: 'border-l-amber-500', bg: 'bg-amber-500/8', text: 'text-amber-700 dark:text-amber-200' },
-  agent_summary: { border: 'border-l-emerald-500', bg: 'bg-emerald-500/8', text: 'text-emerald-700 dark:text-emerald-200' },
-  error: { border: 'border-l-red-500', bg: 'bg-destructive/8', text: 'text-destructive' },
-  tool_result: { border: 'border-l-violet-500', bg: 'bg-violet-500/8', text: 'text-violet-700 dark:text-violet-200' },
+  agent_progress: { border: 'border-l-indigo-500', bg: 'bg-paper-soft', text: 'text-indigo-700 dark:text-indigo-200' },
+  agent_switch: { border: 'border-l-amber-500', bg: 'bg-paper-soft', text: 'text-amber-700 dark:text-amber-200' },
+  handoff: { border: 'border-l-indigo-400', bg: 'bg-paper-soft', text: 'text-indigo-700 dark:text-indigo-200' },
+  tool_start: { border: 'border-l-slate-500', bg: 'bg-paper-inset', text: 'text-ink' },
+  tool_end: { border: 'border-l-slate-500', bg: 'bg-paper-inset', text: 'text-ink' },
+  tool_approval: { border: 'border-l-amber-500', bg: 'bg-paper-soft', text: 'text-amber-700 dark:text-amber-200' },
+  agent_summary: { border: 'border-l-emerald-500', bg: 'bg-paper-soft', text: 'text-emerald-700 dark:text-emerald-200' },
+  error: { border: 'border-l-red-500', bg: 'bg-paper-soft', text: 'text-destructive' },
+  tool_result: { border: 'border-l-violet-500', bg: 'bg-paper-soft', text: 'text-violet-700 dark:text-violet-200' },
 };
 
 function getEventStyle(kind: string) {
-  return eventStyles[kind] ?? { border: 'border-l-slate-500', bg: 'bg-muted', text: 'text-foreground' };
+  return eventStyles[kind] ?? { border: 'border-l-slate-500', bg: 'bg-paper-inset', text: 'text-ink' };
 }
 
 function getEffectiveEventKind(
@@ -549,7 +490,7 @@ function renderSystemContent(
   if (!eventKind) return null;
 
   const wrapperClass = cn(
-    'rounded-xl border border-border border-l-[3px] px-3 py-2.5 text-sm',
+    'rounded border border-rule-soft border-l-[3px] text-sm',
     style.border,
     style.bg,
   );
@@ -562,7 +503,7 @@ function renderSystemContent(
           agentName={message.agentName}
           rightAction={Icon ? <Icon className={cn('h-3 w-3', style.text)} /> : undefined}
         />
-        <p className="text-xs text-muted-foreground">{message.content}</p>
+        <p className="text-xs text-ink-soft">{message.content}</p>
         {Array.isArray(message.toolCalls) && message.toolCalls.length > 0 && (
           <div className="mt-2 flex flex-col gap-1">
             <p className={cn('font-mono text-[11px] font-medium', style.text)}>Tools in-flight</p>
@@ -590,7 +531,7 @@ function renderSystemContent(
         />
         <div className="flex items-center gap-2 text-xs">
           <AgentStatusChip agentName={message.agentName} mode="active" />
-          <span className="text-muted-foreground">Active agent changed.</span>
+          <span className="text-ink-soft">Active agent changed.</span>
         </div>
       </SystemEventFrame>
     );
@@ -607,7 +548,7 @@ function renderSystemContent(
         />
         <div className="flex items-center gap-2 text-xs">
           <AgentStatusChip agentName={handoffTarget} mode="handoff" />
-          <span className="text-muted-foreground">{message.content}</span>
+          <span className="text-ink-soft">{message.content}</span>
         </div>
       </SystemEventFrame>
     );
@@ -624,7 +565,7 @@ function renderSystemContent(
         />
         <div className="flex items-center gap-2 text-xs">
           <ToolStatusChip toolName={toolName} status={status} />
-          <span className="text-muted-foreground">{message.content}</span>
+          <span className="text-ink-soft">{message.content}</span>
         </div>
       </SystemEventFrame>
     );
@@ -646,7 +587,7 @@ function renderSystemContent(
           title="Tool Approval Required"
           rightAction={Icon ? <Icon className={cn('h-3 w-3', style.text)} /> : undefined}
         />
-        <p className="text-xs text-muted-foreground">{message.content}</p>
+        <p className="text-xs text-ink-soft">{message.content}</p>
         {runId && toolCallId ? (
           <ToolApprovalPrompt
             runId={runId}
@@ -673,21 +614,21 @@ function renderSystemContent(
           rightAction={Icon ? <Icon className={cn('h-3 w-3', style.text)} /> : undefined}
         />
         <div className="grid gap-1 font-mono text-xs sm:grid-cols-2">
-          <p className="text-muted-foreground">
-            Confidence: <strong className="text-emerald-600 dark:text-emerald-400">{completion}</strong>
+          <p className="text-ink-soft">
+            Confidence: <strong className="text-ed-ok">{completion}</strong>
           </p>
-          <p className="text-muted-foreground">
-            Evidence gaps: <strong className="text-amber-600 dark:text-amber-400">{message.trust?.missingEvidence?.length ?? 0}</strong>
+          <p className="text-ink-soft">
+            Evidence gaps: <strong className="text-ed-warn">{message.trust?.missingEvidence?.length ?? 0}</strong>
           </p>
-          <p className="text-muted-foreground">
-            Tools: <strong className="text-foreground">{message.trust?.toolsInvoked?.length ?? 0}</strong>
+          <p className="text-ink-soft">
+            Tools: <strong className="text-ink">{message.trust?.toolsInvoked?.length ?? 0}</strong>
           </p>
-          <p className="text-muted-foreground">
-            Duration: <strong className="text-foreground">{message.trust?.durationMs ?? 'n/a'} ms</strong>
+          <p className="text-ink-soft">
+            Duration: <strong className="text-ink">{message.trust?.durationMs ?? 'n/a'} ms</strong>
           </p>
         </div>
         {message.trust?.errorSummary ? (
-          <p className="mt-2 rounded-xl border border-amber-500/35 bg-amber-500/10 px-2 py-1 text-xs text-amber-700 dark:text-amber-300">
+          <p className="mt-2 rounded border border-ed-warn/40 bg-[oklch(var(--ed-warn-soft))] px-2 py-1 text-xs text-ink">
             {message.trust.errorSummary}
           </p>
         ) : null}
@@ -707,17 +648,15 @@ function renderSystemContent(
         <div className="flex items-start gap-2">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
           <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <p className="font-mono text-[11px] font-medium uppercase tracking-wide text-destructive">
-              Agent Error
-            </p>
+            <p className="ed-eyebrow text-destructive">Agent Error</p>
             <p className="text-xs text-destructive/90">{sanitizedError.message}</p>
             {toolName ? (
-              <p className="font-mono text-[10px] text-muted-foreground">
-                Failed during: <span className="text-foreground/70">{toolName}</span>
+              <p className="font-mono text-[10px] text-ink-fade">
+                Failed during: <span className="text-ink-soft">{toolName}</span>
               </p>
             ) : null}
             {sanitizedError.correlationId ? (
-              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+              <code className="rounded bg-paper-inset px-1.5 py-0.5 font-mono text-[10px] text-ink-fade">
                 {sanitizedError.correlationId}
               </code>
             ) : null}
@@ -728,7 +667,7 @@ function renderSystemContent(
                   variant="outline"
                   size="sm"
                   onClick={onRetry}
-                  className="h-7 rounded-full px-3 text-xs text-muted-foreground"
+                  className="h-7 rounded border-rule px-3 text-xs text-ink-fade"
                 >
                   <RefreshCcw className="mr-1.5 h-3 w-3" />
                   Retry this message
@@ -770,192 +709,199 @@ export function MessageBubble({
   const isSystemEvent = effectiveEventKind !== undefined && effectiveEventKind !== 'assistant';
   const hasEvent = effectiveEventKind !== undefined;
   const systemContent = renderSystemContent(message, conversationId, onToolApprovalEvents, onRetry);
-  const showAssistantAvatar = !isUser && !isSystemEvent;
 
-  const agentBorder = !isUser && message.agentName
-    ? getAgentBorderColor(message.agentName)
-    : 'border-l-border';
+  const time = message.createdAt ? formatDateDisplay(message.createdAt) : '';
+
+  if (isSystemEvent) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.18, ease: 'easeOut' }}
+        className="pl-4"
+      >
+        {systemContent}
+      </motion.div>
+    );
+  }
+
+  if (isUser) {
+    return (
+      <UserBlock message={message} time={time}>
+        <StructuredMessageRenderer content={message.content} />
+        {!hasEvent ? (
+          <MessageActions conversationId={conversationId} messageId={message.id} message={message} />
+        ) : null}
+      </UserBlock>
+    );
+  }
+
+  const agentName = message.agentName ?? 'Coordinator';
+  const swatch = getAgentColor(agentName);
+  const label = formatAgentLabel(agentName);
+  const role = getAgentRole(agentName);
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2, ease: 'easeOut' }}
-      className={cn(
-        'flex w-full gap-3',
-        isUser ? 'justify-end' : 'justify-start',
-        isSystemEvent && 'pl-11',
-      )}
+      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
     >
-      {/* Assistant avatar */}
-      {showAssistantAvatar ? (
-        <div className="app-shell-panel mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
-          <span className="font-mono text-[10px] font-medium text-foreground">G</span>
-        </div>
-      ) : isUser ? (
-        <ClipboardList className="mt-2 h-7 w-7 shrink-0 text-muted-foreground" />
-      ) : null}
-
-      <div
+      <Card
         className={cn(
-          'flex flex-col gap-1',
-          isSystemEvent ? 'max-w-[92%]' : 'max-w-[84%]',
-          isUser && 'items-end',
+          'overflow-hidden rounded border bg-paper-panel p-0',
+          'border-rule',
         )}
       >
-        {/* Agent label */}
-        {!isSystemEvent && !isUser && message.agentName && (
-          <div className="flex items-center gap-1.5 pb-0.5">
-            <span
-              className={cn(
-                'h-1.5 w-1.5 rounded-full',
-                getAgentColor(message.agentName),
-              )}
-            />
-            <span className="font-mono text-[11px] font-medium text-muted-foreground">
-              {formatAgentLabel(message.agentName)}
-            </span>
+        <div className="flex items-center justify-between gap-3 border-b border-rule-soft bg-paper-soft px-4 py-2.5">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className={cn('h-2.5 w-2.5 shrink-0', swatch)} style={{ borderRadius: 1 }} />
+            <span className="font-display text-[13px] font-semibold text-ink">{label}</span>
+            <span className="ed-eyebrow-tight">{role}</span>
           </div>
-        )}
-
-        {isSystemEvent ? (
-          <div className="py-0.5">{systemContent}</div>
-        ) : (
-          <>
-            {isUser ? (
-              <div className="rounded-2xl bg-primary px-4 py-3 text-sm leading-relaxed text-primary-foreground shadow-[0_18px_48px_-32px_rgba(15,23,42,0.45)]">
-                <StructuredMessageRenderer content={message.content} />
-                {!hasEvent ? (
-                  <MessageActions
-                    conversationId={conversationId}
-                    messageId={message.id}
-                    message={message}
-                  />
-                ) : null}
-              </div>
-            ) : (
-              <Card
-                className={cn(
-                  'border border-border border-l-[3px] bg-background text-foreground',
-                  agentBorder,
-                )}
-              >
-                <CardContent className="px-4 py-3 text-sm leading-relaxed">
-                  <StructuredMessageRenderer content={message.content} />
-                  {Array.isArray(message.mapFeatures) && message.mapFeatures.length > 0 ? (
-                    <MiniMapMessage
-                      features={message.mapFeatures}
-                      onParcelClick={(parcel) => {
-                        mapDispatch({ type: 'SELECT_PARCELS', parcelIds: [parcel.parcelId] });
-                      }}
-                    />
-                  ) : null}
-                  {message.trust && message.trust.confidence != null && !hasEvent ? (
-                    <TrustIndicator
-                      trust={message.trust}
-                      messageId={message.id}
-                      onVerify={onVerifyTrust}
-                    />
-                  ) : null}
-                  {!hasEvent ? (
-                    <MessageActions
-                      conversationId={conversationId}
-                      messageId={message.id}
-                      message={message}
-                    />
-                  ) : null}
-                </CardContent>
-              </Card>
-            )}
-
-            {Array.isArray(message.toolCalls) && message.toolCalls.length > 0 ? (
-              message.toolCalls.map((tc, i) => {
-                // Detect browser_task tool and render special card
-                if (tc.name === 'browser_task' && tc.result) {
-                  const parsed = typeof tc.result === 'string'
-                    ? safeParseJSON(tc.result)
-                    : tc.result;
-                  if (parsed && typeof parsed === 'object') {
-                    const r = parsed as {
-                      success?: boolean;
-                      data?: unknown;
-                      error?: string;
-                      screenshots?: string[];
-                      turns?: number;
-                      modeUsed?: string;
-                      cost?: { inputTokens: number; outputTokens: number };
-                      finalMessage?: string;
-                      source?: { url: string; fetchedAt: string };
-                      url?: string;
-                    };
-                    return (
-                      <BrowserSessionCard
-                        key={`${message.id}-browser-${i}`}
-                        url={r.source?.url ?? r.url ?? ''}
-                        success={r.success ?? false}
-                        screenshots={r.screenshots ?? []}
-                        turns={r.turns ?? 0}
-                        modeUsed={r.modeUsed ?? 'native'}
-                        cost={r.cost}
-                        data={r.data}
-                        error={r.error}
-                        finalMessage={r.finalMessage}
-                        source={r.source}
-                      />
-                    );
-                  }
-                }
-                return (
-                  <ToolCallCard
-                    key={`${message.id}-tool-${i}`}
-                    name={tc.name}
-                    args={tc.args}
-                    result={
-                      typeof tc.result === 'string'
-                        ? tc.result
-                        : tc.result
-                          ? JSON.stringify(tc.result)
-                          : undefined
-                    }
-                  />
-                );
-              })
-            ) : null}
-
-            {message.triageResult ? (
-              <TriageResultCard
-                decision={message.triageResult.decision}
-                score={message.triageResult.score}
-                categories={message.triageResult.categories}
-                disqualifiers={message.triageResult.disqualifiers}
-              />
-            ) : null}
-
-            {message.artifacts ? (
-              message.artifacts.map((art, i) => (
-                <ArtifactDownloadCard
-                  key={`${message.id}-artifact-${i}`}
-                  name={art.name}
-                  fileType={art.fileType}
-                  version={art.version}
-                  downloadUrl={art.downloadUrl}
-                />
-              ))
-            ) : null}
-          </>
-        )}
-
-        <p className={cn('font-mono text-[10px] text-muted-foreground', isUser ? 'text-right' : 'text-left')}>
-          {formatDateDisplay(message.createdAt)}
-        </p>
-      </div>
-
-      {/* User avatar */}
-      {isUser && (
-        <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary">
-          <span className="font-mono text-[10px] font-medium text-primary-foreground">U</span>
+          <div className="flex items-baseline gap-2.5">
+            {time && <span className="font-mono text-[10.5px] text-ink-fade">{time}</span>}
+          </div>
         </div>
-      )}
+        <CardContent className="px-5 py-3.5 text-[14px] leading-[1.6] text-ink">
+          <StructuredMessageRenderer content={message.content} />
+          {Array.isArray(message.mapFeatures) && message.mapFeatures.length > 0 ? (
+            <MiniMapMessage
+              features={message.mapFeatures}
+              onParcelClick={(parcel) => {
+                mapDispatch({ type: 'SELECT_PARCELS', parcelIds: [parcel.parcelId] });
+              }}
+            />
+          ) : null}
+          {message.trust && message.trust.confidence != null && !hasEvent ? (
+            <TrustIndicator
+              trust={message.trust}
+              messageId={message.id}
+              onVerify={onVerifyTrust}
+            />
+          ) : null}
+          {!hasEvent ? (
+            <MessageActions
+              conversationId={conversationId}
+              messageId={message.id}
+              message={message}
+            />
+          ) : null}
+        </CardContent>
+      </Card>
+
+      {Array.isArray(message.toolCalls) && message.toolCalls.length > 0 ? (
+        message.toolCalls.map((tc, i) => {
+          if (tc.name === 'browser_task' && tc.result) {
+            const parsed = typeof tc.result === 'string'
+              ? safeParseJSON(tc.result)
+              : tc.result;
+            if (parsed && typeof parsed === 'object') {
+              const r = parsed as {
+                success?: boolean;
+                data?: unknown;
+                error?: string;
+                screenshots?: string[];
+                turns?: number;
+                modeUsed?: string;
+                cost?: { inputTokens: number; outputTokens: number };
+                finalMessage?: string;
+                source?: { url: string; fetchedAt: string };
+                url?: string;
+              };
+              return (
+                <BrowserSessionCard
+                  key={`${message.id}-browser-${i}`}
+                  url={r.source?.url ?? r.url ?? ''}
+                  success={r.success ?? false}
+                  screenshots={r.screenshots ?? []}
+                  turns={r.turns ?? 0}
+                  modeUsed={r.modeUsed ?? 'native'}
+                  cost={r.cost}
+                  data={r.data}
+                  error={r.error}
+                  finalMessage={r.finalMessage}
+                  source={r.source}
+                />
+              );
+            }
+          }
+          return (
+            <ToolCallCard
+              key={`${message.id}-tool-${i}`}
+              name={tc.name}
+              args={tc.args}
+              result={
+                typeof tc.result === 'string'
+                  ? tc.result
+                  : tc.result
+                    ? JSON.stringify(tc.result)
+                    : undefined
+              }
+            />
+          );
+        })
+      ) : null}
+
+      {message.triageResult ? (
+        <TriageResultCard
+          decision={message.triageResult.decision}
+          score={message.triageResult.score}
+          categories={message.triageResult.categories}
+          disqualifiers={message.triageResult.disqualifiers}
+        />
+      ) : null}
+
+      {message.artifacts ? (
+        message.artifacts.map((art, i) => (
+          <ArtifactDownloadCard
+            key={`${message.id}-artifact-${i}`}
+            name={art.name}
+            fileType={art.fileType}
+            version={art.version}
+            downloadUrl={art.downloadUrl}
+          />
+        ))
+      ) : null}
+    </motion.div>
+  );
+}
+
+function UserBlock({ message, time, children }: { message: ChatMessage; time: string; children?: ReactNode }) {
+  const [copied, setCopied] = useState(false);
+  const onCopy = async () => {
+    const ok = await writeClipboardTextSafely(message.content ?? '');
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
+  };
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18, ease: 'easeOut' }}
+    >
+      <div className="group rounded border border-rule border-l-[3px] border-l-ink bg-paper-panel px-4 py-3.5">
+        <div className="mb-1.5 flex items-center justify-between">
+          <div className="flex items-baseline gap-2.5">
+            <span className="text-[12.5px] font-semibold text-ink">You</span>
+            {time && <span className="font-mono text-[10.5px] text-ink-fade">{time}</span>}
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-7 rounded opacity-0 transition-opacity group-hover:opacity-100"
+            onClick={onCopy}
+            aria-label="Copy message"
+          >
+            <ClipboardCopy className="h-3.5 w-3.5 text-ink-fade" />
+          </Button>
+        </div>
+        <div className="text-[14.5px] font-medium leading-[1.55] text-ink">{children}</div>
+        {copied && <span className="ed-eyebrow mt-1 block text-ed-ok">Copied</span>}
+      </div>
     </motion.div>
   );
 }
