@@ -7,17 +7,29 @@ import {
   useRef,
   useState,
 } from 'react';
+import Link from 'next/link';
+import {
+  BarChart3,
+  Bell,
+  Bot,
+  Database,
+  ListChecks,
+  MessageSquare,
+  Plus,
+  Settings,
+  SunMedium,
+} from 'lucide-react';
 import { AgentTrustEnvelope } from '@/types';
 import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
 import { AgentIndicator } from './AgentIndicator';
 import { ConversationSidebar } from './ConversationSidebar';
 import { DealSelector } from './DealSelector';
-import {
-  ChatWorkspaceHero,
-} from './ChatWorkspacePanels';
 import { useCuaModel } from './CuaModelToggle';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { parseSSEStream } from '@/lib/chat/stream';
+import { sanitizeChatErrorMessage } from '@/lib/chat/errorHandling';
 import { useStableOptions } from '@/lib/hooks/useStableOptions';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import {
@@ -426,6 +438,29 @@ export function ChatContainer() {
     }
   }, []);
 
+  const handleConversationDeleted = useCallback(
+    (deletedId: string) => {
+      setConversations((prev) => prev.filter((conv) => conv.id !== deletedId));
+      setRecentConversationIds((prev) =>
+        createRecentState(prev.filter((id) => id !== deletedId)),
+      );
+      // If the deleted conversation was active, clear it
+      if (conversationId === deletedId) {
+        setConversationState(null);
+      }
+    },
+    [conversationId, setConversationState],
+  );
+
+  const handleConversationRenamed = useCallback(
+    (renamedId: string, newTitle: string) => {
+      setConversations((prev) =>
+        prev.map((conv) => (conv.id === renamedId ? { ...conv, title: newTitle } : conv)),
+      );
+    },
+    [],
+  );
+
   const reloadConversations = useCallback(async () => {
     setIsLoadingConversations(true);
     try {
@@ -682,14 +717,17 @@ export function ChatContainer() {
             }
           }
         } catch (err) {
+          const rawMsg = err instanceof Error ? err.message : 'Upload failed';
+          const sanitized = sanitizeChatErrorMessage(`Error uploading files: ${rawMsg}`);
           setMessages((current) =>
             current.concat([
               {
                 id: crypto.randomUUID(),
                 role: 'system',
-                content: `Error uploading files: ${err instanceof Error ? err.message : 'Upload failed'}`,
+                content: sanitized.message,
                 createdAt: new Date().toISOString(),
                 eventKind: 'error',
+                metadata: sanitized.correlationId ? { correlationId: sanitized.correlationId } : undefined,
               },
             ]),
           );
@@ -778,15 +816,17 @@ export function ChatContainer() {
           return;
         }
 
-        const message = error instanceof Error ? error.message : 'Something went wrong.';
+        const rawMsg = error instanceof Error ? error.message : 'Something went wrong.';
+        const sanitized = sanitizeChatErrorMessage(rawMsg);
         setMessages((current) =>
           current.concat([
             {
               id: crypto.randomUUID(),
               role: 'system',
-              content: `Error: ${message}`,
+              content: sanitized.message,
               createdAt: new Date().toISOString(),
               eventKind: 'error',
+              metadata: sanitized.correlationId ? { correlationId: sanitized.correlationId } : undefined,
             },
           ]),
         );
@@ -805,6 +845,14 @@ export function ChatContainer() {
     setIsStreaming(false);
     setCurrentAgent(null);
   }, []);
+
+  const handleRetry = useCallback(() => {
+    // Find the last user message and resend it
+    const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user');
+    if (lastUserMessage) {
+      void handleSend(lastUserMessage.content);
+    }
+  }, [messages, handleSend]);
 
   const handleToolApprovalEvents = useCallback(
     (events: ChatStreamEvent[]) => {
@@ -842,9 +890,29 @@ export function ChatContainer() {
   });
   const showLaunchComposer = visibleMessages.length === 0;
   const showHistoryRail = !isMobile || conversationId !== null || visibleMessages.length > 0;
+  const desktopHistoryOpen = isMobile ? isHistoryOpen : true;
   const handleQuickActionSelect = useCallback((prompt: string) => {
     void handleSend(prompt);
   }, [handleSend]);
+  const shellNavItems = [
+    { href: '/chat', label: 'Chat', icon: MessageSquare, active: true },
+    { href: '/runs', label: 'Runs', icon: ListChecks, active: false },
+    { href: '/reference', label: 'Sources', icon: Database, active: false },
+    { href: '/workflows', label: 'Tasks', icon: ListChecks, active: false },
+    { href: '/command-center', label: 'Analytics', icon: BarChart3, active: false },
+    { href: '/settings', label: 'Settings', icon: Settings, active: false },
+  ] as const;
+  const statCards = [
+    { label: 'Active deals', value: selectedDealId ? '1' : '0' },
+    { label: 'Tracked parcels', value: selectedDealId ? '1' : '0' },
+    { label: 'Pipeline stage', value: selectedDealStatus ?? '—' },
+    { label: 'Open tasks', value: isStreaming ? '1' : '—' },
+  ] as const;
+  const stageChips = [
+    { label: 'Files', prompt: 'Use the current files in the workspace as the primary source set before answering.' },
+    { label: 'Sources', prompt: 'Use the strongest verified sources and keep citations attached to the response.' },
+    { label: 'Prompt library', prompt: 'Show the strongest prompt pattern for this task, then run it against the current scope.' },
+  ] as const;
   const chatInput = (
     <ChatInput
       onSend={stableChatInputOptions.onSend}
@@ -858,16 +926,84 @@ export function ChatContainer() {
   );
 
   return (
-    <div className="flex h-[calc(100svh-var(--app-header-height))] min-h-[calc(100svh-var(--app-header-height))] overflow-hidden bg-background">
-      <div className="mx-auto flex h-full w-full max-w-[1360px] flex-col px-3 py-4 md:px-6 md:py-6">
-        <section className="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg border border-border bg-background shadow-sm">
+    <div className="flex h-[calc(100svh-var(--app-header-height))] min-h-[calc(100svh-var(--app-header-height))] overflow-hidden bg-[#0b0c0f] text-white">
+      <aside className="hidden w-[92px] shrink-0 flex-col border-r border-white/8 bg-[#101113] px-2.5 py-4 xl:flex">
+        <div className="mb-3 flex items-center justify-center rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-3 text-white/90">
+          <MessageSquare className="h-5 w-5" />
+        </div>
+        <div className="flex flex-1 flex-col gap-2">
+          {shellNavItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'flex items-center gap-3 rounded-2xl px-3 py-3 text-[14px] transition-colors',
+                  item.active
+                    ? 'bg-white/[0.06] text-white'
+                    : 'text-white/62 hover:bg-white/[0.04] hover:text-white',
+                )}
+              >
+                <Icon className="h-4.5 w-4.5" />
+                <span className="truncate">{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+        <div className="mt-auto flex items-center justify-center rounded-full border border-white/10 bg-white/[0.04] py-3 text-lg font-semibold text-white/90">
+          G
+        </div>
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex items-center justify-between border-b border-white/8 bg-[#121314] px-6 py-4">
+          <div className="flex items-center gap-4">
+            <div className="hidden items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-2 text-[14px] text-white/88 md:flex">
+              <span className="font-medium">Gallagher Property Company</span>
+            </div>
+            <h1 className="text-[2rem] font-semibold tracking-[-0.04em] text-white">Chat</h1>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-12 w-12 rounded-2xl border-white/10 bg-white/[0.03] text-white/72 hover:bg-white/[0.08] hover:text-white"
+            >
+              <SunMedium className="h-5 w-5" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-12 w-12 rounded-2xl border-white/10 bg-white/[0.03] text-white/72 hover:bg-white/[0.08] hover:text-white"
+            >
+              <Bell className="h-5 w-5" />
+            </Button>
+            <Button
+              type="button"
+              className="h-12 rounded-2xl bg-white px-5 text-[1rem] font-medium text-black hover:bg-white/92"
+              onClick={() => {
+                setConversationId(null);
+                setMessages([]);
+                setIsHistoryOpen(true);
+              }}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              New run
+            </Button>
+          </div>
+        </header>
+
+        <section className="relative min-h-0 min-w-0 flex-1 overflow-hidden border-t border-white/4">
           <div className="flex h-full min-h-0 min-w-0">
             {showHistoryRail ? (
               <ConversationSidebar
                 conversations={conversations}
                 activeConversationId={conversationId}
                 onConversationSelect={loadConversation}
-                open={isHistoryOpen}
+                open={desktopHistoryOpen}
                 onToggle={() => setIsHistoryOpen((current) => !current)}
                 onRefresh={reloadConversations}
                 loading={isLoadingConversations}
@@ -875,34 +1011,72 @@ export function ChatContainer() {
                 recentConversationIds={recentConversationIds}
                 mobile={isMobile}
                 showCollapsedTrigger={!isMobile || conversationId !== null || visibleMessages.length > 0}
+                onConversationDeleted={handleConversationDeleted}
+                onConversationRenamed={handleConversationRenamed}
               />
             ) : null}
 
-            <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+            <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col bg-[#111214]">
+              <div className="flex items-center justify-center border-b border-white/8 px-6 py-3">
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-[14px] text-white/78">
+                  <Bot className="h-4 w-4" />
+                  GPT-5.4
+                </div>
+              </div>
+
               {showLaunchComposer ? (
                 <>
                   <div className="min-h-0 flex-1 overflow-y-auto">
-                    <ChatWorkspaceHero
-                      activeAgentLabel={activeAgentLabel}
-                      conversationCount={conversations.length}
-                      cuaModel={cuaModel}
-                      dealSelector={(
-                        <DealSelector
-                          selectedDealId={selectedDealId}
-                          onSelect={setSelectedDealId}
-                        />
-                      )}
-                      dealStatus={selectedDealStatus}
-                      launchState
-                      scopeLabel={scopeLabel}
-                      threadStatusLabel={threadStatusLabel}
-                      transportLabel={transportLabel}
-                      isMobile={isMobile}
-                      onOpenHistory={() => setIsHistoryOpen(true)}
-                      onOpenInspector={() => undefined}
-                      onCuaModelChange={setCuaModel}
-                      onQuickActionSelect={handleQuickActionSelect}
-                    />
+                    <div className="border-b border-white/8 px-6 py-5">
+                      <div className="grid gap-4 lg:grid-cols-4">
+                        {statCards.map((card) => (
+                          <div
+                            key={card.label}
+                            className="rounded-[22px] border border-white/8 bg-white/[0.035] px-5 py-5"
+                          >
+                            <p className="text-[14px] text-white/55">{card.label}</p>
+                            <p className="mt-2 text-[2.1rem] font-semibold tracking-[-0.05em] text-white">
+                              {card.value}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="px-6 py-6">
+                      <div className="mb-8 flex items-center gap-4 border-b border-white/8 pb-6">
+                        <span className="text-[15px] text-white/68">Client matter</span>
+                        <div className="min-w-[240px] max-w-[360px] flex-1">
+                          <DealSelector
+                            selectedDealId={selectedDealId}
+                            onSelect={setSelectedDealId}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mx-auto flex max-w-[980px] min-h-[420px] flex-col items-center justify-center text-center">
+                        <h2 className="text-[4rem] font-semibold tracking-[-0.08em] text-white">
+                          Ask anything.
+                        </h2>
+                        <p className="mt-5 max-w-[820px] text-[18px] leading-9 text-white/46">
+                          Name the matter, decision, memo, table, or next move you need back.
+                          <br />
+                          Use @ only when you want to pin the run to a specific source set.
+                        </p>
+                        <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+                          {stageChips.map((chip) => (
+                            <button
+                              key={chip.label}
+                              type="button"
+                              onClick={() => handleQuickActionSelect(chip.prompt)}
+                              className="rounded-full border border-white/10 bg-transparent px-8 py-4 text-[16px] text-white/78 transition-colors hover:bg-white/[0.05] hover:text-white"
+                            >
+                              {chip.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
 
                     {currentAgent ? (
                       <div className="px-4 pb-2 sm:px-5">
@@ -911,31 +1085,34 @@ export function ChatContainer() {
                     ) : null}
                   </div>
 
-                  {chatInput}
+                  <div className="border-t border-white/8 px-6 py-5">{chatInput}</div>
                 </>
               ) : (
                 <>
-                  <ChatWorkspaceHero
-                    activeAgentLabel={activeAgentLabel}
-                    conversationCount={conversations.length}
-                    cuaModel={cuaModel}
-                    dealSelector={(
-                      <DealSelector
-                        selectedDealId={selectedDealId}
-                        onSelect={setSelectedDealId}
-                      />
-                    )}
-                    dealStatus={selectedDealStatus}
-                    launchState={false}
-                    scopeLabel={scopeLabel}
-                    threadStatusLabel={threadStatusLabel}
-                    transportLabel={transportLabel}
-                    isMobile={isMobile}
-                    onOpenHistory={() => setIsHistoryOpen(true)}
-                    onOpenInspector={() => undefined}
-                    onCuaModelChange={setCuaModel}
-                    onQuickActionSelect={handleQuickActionSelect}
-                  />
+                  <div className="border-b border-white/8 px-6 py-5">
+                    <div className="grid gap-4 lg:grid-cols-4">
+                      {statCards.map((card) => (
+                        <div
+                          key={card.label}
+                          className="rounded-[22px] border border-white/8 bg-white/[0.035] px-5 py-5"
+                        >
+                          <p className="text-[14px] text-white/55">{card.label}</p>
+                          <p className="mt-2 text-[2.1rem] font-semibold tracking-[-0.05em] text-white">
+                            {card.value}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-6 flex items-center gap-4">
+                      <span className="text-[15px] text-white/68">Client matter</span>
+                      <div className="min-w-[240px] max-w-[360px] flex-1">
+                        <DealSelector
+                          selectedDealId={selectedDealId}
+                          onSelect={setSelectedDealId}
+                        />
+                      </div>
+                    </div>
+                  </div>
 
                   {currentAgent ? (
                     <div className="px-4 pb-2 sm:px-5">
@@ -950,6 +1127,7 @@ export function ChatContainer() {
                       conversationId={conversationId}
                       onSuggestionClick={stableMessageListOptions.onSuggestionClick}
                       onToolApprovalEvents={handleToolApprovalEvents}
+                      onRetry={handleRetry}
                       emptyState={{
                         eyebrow: 'Verified run workspace',
                         title: 'Ask the matter. Keep the proof attached.',
@@ -983,7 +1161,7 @@ export function ChatContainer() {
                     />
                   </div>
 
-                  {chatInput}
+                  <div className="border-t border-white/8 px-6 py-5">{chatInput}</div>
                 </>
               )}
             </div>

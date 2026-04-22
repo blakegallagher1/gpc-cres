@@ -237,10 +237,10 @@ describe("ChatContainer", () => {
         }),
       );
       expect(screen.getByText("Ask anything.")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Draft memo" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Files" })).toBeInTheDocument();
       expect(
         screen.getByText(
-          /Start with the brief\. Add deal context, sources, or routing only when the run needs stronger control\./i,
+          /Name the matter, decision, memo, table, or next move you need back\./i,
         ),
       ).toBeInTheDocument();
       expect(screen.getByTestId("conversation-sidebar")).toHaveAttribute("data-open", "true");
@@ -270,7 +270,7 @@ describe("ChatContainer", () => {
       });
 
       expect(screen.getByText("Ask anything.")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Draft memo" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Files" })).toBeInTheDocument();
       expect(screen.queryByTestId("conversation-sidebar")).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "History", exact: true })).not.toBeInTheDocument();
       expect(
@@ -298,8 +298,6 @@ describe("ChatContainer", () => {
         );
       });
 
-      expect(await screen.findByText(/Saved thread/)).toBeInTheDocument();
-      expect(screen.getByText(/finance/)).toBeInTheDocument();
       expect(screen.getByTestId("conversation-sidebar")).toHaveAttribute(
         "data-active-conversation-id",
         RESTORED_SUMMARY_CONVERSATION_ID,
