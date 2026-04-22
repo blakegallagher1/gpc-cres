@@ -55,6 +55,8 @@
   --color-ed-accent-soft: oklch(var(--ed-accent-soft));
   --color-ed-warn:        oklch(var(--ed-warn));
   --color-ed-ok:          oklch(var(--ed-ok));
+  --color-paper-map:      oklch(var(--paper-map));
+  --color-ed-red:         oklch(var(--ed-red));
 
   /* Map dark-theme colors — resolved inside .dark .map-page */
   --color-map-bg: var(--map-bg);
@@ -143,6 +145,8 @@
   --ed-warn:         0.62 0.13 55;
   --ed-warn-soft:    0.97 0.025 55;
   --ed-ok:           0.55 0.12 150;
+  --paper-map:       0.945 0.014 82;
+  --ed-red:          0.58 0.18 28;
 }
 
 @keyframes accordion-down {
