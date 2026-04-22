@@ -1547,7 +1547,10 @@ export function MapPageClient() {
             latencyLabel={latencyLabel}
             selectedParcelIds={selectedParcelIds}
             highlightParcelIds={trackedParcelIds}
-            overlayOverrides={overlays}
+            overlayOverrides={(() => {
+              const { toggle: _t, activeCount: _c, ...bools } = overlays;
+              return bools;
+            })()}
           />
 
           {/* Floating tool rail */}
