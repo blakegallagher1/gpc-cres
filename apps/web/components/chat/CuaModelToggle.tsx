@@ -58,8 +58,8 @@ export function CuaModelToggle({ model, onModelChange, className }: CuaModelTogg
             className={cn(
               'h-7 gap-1.5 rounded-full px-2.5 font-mono text-[10px] tracking-wide',
               isMini
-                ? 'border-border/70 bg-background text-foreground hover:bg-muted'
-                : 'border-border/70 bg-background text-foreground hover:bg-muted',
+                ? 'border-border bg-background text-foreground hover:bg-muted'
+                : 'border-border bg-background text-foreground hover:bg-muted',
               className,
             )}
           >

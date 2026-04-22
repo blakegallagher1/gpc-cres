@@ -15,7 +15,7 @@ interface ParcelColorModeControlProps {
 
 export function ParcelColorModeControl({ value, onChange }: ParcelColorModeControlProps) {
   return (
-    <div className="flex items-center rounded-md border border-border/60 bg-background/80 text-xs backdrop-blur-sm">
+    <div className="flex items-center rounded-md border border-border bg-background text-xs">
       {MODES.map((mode) => (
         <button
           key={mode.value}
@@ -24,7 +24,7 @@ export function ParcelColorModeControl({ value, onChange }: ParcelColorModeContr
           className={`px-2.5 py-1 transition-colors first:rounded-l-md last:rounded-r-md ${
             value === mode.value
               ? "bg-primary text-primary-foreground font-medium"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
           }`}
         >
           {mode.label}

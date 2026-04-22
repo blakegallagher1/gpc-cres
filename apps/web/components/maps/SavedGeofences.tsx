@@ -202,7 +202,7 @@ function AlertCriteriaPanel({
   ];
 
   return (
-    <div className="mt-2 flex flex-col gap-2 rounded-lg border border-map-border bg-map-surface/85 px-2.5 py-2">
+    <div className="mt-2 flex flex-col gap-2 rounded-lg border border-map-border bg-map-surface px-2.5 py-2">
       <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-map-text-muted">
         Monitor for
       </p>
@@ -427,7 +427,7 @@ export function SavedGeofences({ currentPolygon, onApply }: SavedGeofencesProps)
           Array.from({ length: 3 }).map((_, index) => (
             <div
               key={index}
-              className="rounded-xl border border-map-border bg-map-surface/75 px-3 py-3"
+              className="rounded-xl border border-map-border bg-map-surface px-3 py-3"
             >
               <Skeleton className="h-3 w-28 bg-map-surface-elevated" />
               <Skeleton className="mt-2 h-2.5 w-20 bg-map-surface-elevated" />
@@ -435,7 +435,7 @@ export function SavedGeofences({ currentPolygon, onApply }: SavedGeofencesProps)
           ))
         ) : null}
         {!loading && items.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-map-border bg-map-surface/70 px-3 py-3 text-[11px] leading-5 text-map-text-muted">
+          <div className="rounded-xl border border-dashed border-map-border bg-map-surface px-3 py-3 text-[11px] leading-5 text-map-text-muted">
             No saved geofences yet. Draw a polygon, name it, and save it for repeat parcel scans.
           </div>
         ) : null}
@@ -445,7 +445,7 @@ export function SavedGeofences({ currentPolygon, onApply }: SavedGeofencesProps)
           return (
             <div
               key={item.id}
-              className="rounded-xl border border-map-border bg-map-surface/82 px-3 py-2.5"
+              className="rounded-xl border border-map-border bg-map-surface px-3 py-2.5"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">

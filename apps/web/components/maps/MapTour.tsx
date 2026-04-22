@@ -76,7 +76,7 @@ export function MapTour() {
             setIndex(0);
             setOpen(true);
           }}
-          className="absolute bottom-3 left-3 z-20 border-map-border bg-map-panel/95 text-[11px] text-map-text-primary shadow-[0_20px_48px_-28px_rgba(15,23,42,0.92)] backdrop-blur-md hover:bg-map-surface-elevated"
+          className="absolute bottom-3 left-3 z-20 border-map-border bg-map-panel text-[11px] text-map-text-primary shadow-[0_20px_48px_-28px_rgba(15,23,42,0.92)] hover:bg-map-surface-elevated"
         >
           Map Guide
         </Button>
@@ -84,7 +84,7 @@ export function MapTour() {
   }
 
   return (
-    <Card className="absolute bottom-3 left-3 z-20 w-[20rem] border-map-border bg-map-panel/96 text-xs text-map-text-primary shadow-[0_28px_64px_-36px_rgba(15,23,42,0.92)] backdrop-blur-md">
+    <Card className="absolute bottom-3 left-3 z-20 w-[20rem] border-map-border bg-map-panel text-xs text-map-text-primary shadow-[0_28px_64px_-36px_rgba(15,23,42,0.92)]">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <div>

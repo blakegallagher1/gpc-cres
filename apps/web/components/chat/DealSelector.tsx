@@ -131,7 +131,7 @@ export function DealSelector({ selectedDealId, onSelect }: DealSelectorProps) {
             variant="ghost"
             size="icon"
             onClick={() => handleSelect(null)}
-            className="absolute right-1 size-7 rounded-lg text-muted-foreground hover:bg-accent/70 hover:text-foreground"
+            className="absolute right-1 size-7 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
             aria-label="Clear deal selection"
             title="Clear deal selection"
           >

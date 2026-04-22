@@ -303,7 +303,7 @@ export function DealContingenciesPanel({
       </CardHeader>
       <CardContent className="space-y-3">
         {showAddForm && (
-          <div className="rounded border border-border/60 bg-muted/30 p-3 space-y-2">
+          <div className="rounded border border-border bg-muted p-3 space-y-2">
             <div className="grid gap-2 sm:grid-cols-2">
               <label className="flex flex-col gap-1 text-xs">
                 <span className="text-muted-foreground">Category</span>
@@ -312,7 +312,7 @@ export function DealContingenciesPanel({
                   onChange={(e) =>
                     setNewCategory(e.target.value as ContingencyCategory)
                   }
-                  className="rounded border border-border/60 bg-background px-2 py-1 text-sm"
+                  className="rounded border border-border bg-background px-2 py-1 text-sm"
                 >
                   {CATEGORIES.map((c) => (
                     <option key={c} value={c}>
@@ -403,7 +403,7 @@ export function DealContingenciesPanel({
           return (
             <div
               key={row.id}
-              className="rounded border border-border/60 bg-card/30 p-3 space-y-2"
+              className="rounded border border-border bg-card/30 p-3 space-y-2"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
@@ -483,7 +483,7 @@ export function DealContingenciesPanel({
                     onChange={(e) =>
                       updateStatus(row.id, e.target.value as ContingencyStatus)
                     }
-                    className="rounded border border-border/60 bg-background px-2 py-1 text-xs"
+                    className="rounded border border-border bg-background px-2 py-1 text-xs"
                   >
                     {STATUSES.map((s) => (
                       <option key={s} value={s}>

@@ -287,7 +287,7 @@ function PerformanceSection({ dealId }: { dealId: string }) {
                         ? p.vacancyUnits / p.totalUnits
                         : null;
                     return (
-                      <tr key={p.id} className="border-b border-border/50">
+                      <tr key={p.id} className="border-b border-border">
                         <td className="py-1 pr-2 font-mono">
                           {formatMonth(p.periodYear, p.periodMonth)}
                         </td>
@@ -512,7 +512,7 @@ function CapExSection({ dealId }: { dealId: string }) {
             {data.items.map((item) => (
               <div
                 key={item.id}
-                className="flex flex-wrap items-start gap-2 rounded border border-border/60 bg-card/30 p-2"
+                className="flex flex-wrap items-start gap-2 rounded border border-border bg-card/30 p-2"
               >
                 <div className="flex-1 min-w-[200px]">
                   <div className="flex items-center gap-2 text-xs">
@@ -705,7 +705,7 @@ function TenantEventsSection({ dealId }: { dealId: string }) {
         )}
 
         {events.length > 0 && (
-          <ol className="space-y-2 border-l-2 border-border/60 pl-3">
+          <ol className="space-y-2 border-l-2 border-border pl-3">
             {events.map((ev) => (
               <li key={ev.id} className="text-sm">
                 <div className="flex items-center gap-2 text-xs">

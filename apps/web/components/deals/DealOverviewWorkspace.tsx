@@ -239,8 +239,8 @@ function Surface({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-border/60 bg-background">
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border/50 px-4 py-4 md:px-5">
+    <section className="rounded-2xl border border-border bg-background">
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border px-4 py-4 md:px-5">
         <div className="space-y-2">
           <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
             {eyebrow}
@@ -262,7 +262,7 @@ function DetailTable({ rows }: { rows: DetailRow[] }) {
     <table className="w-full border-collapse text-sm">
       <tbody>
         {rows.map((row) => (
-          <tr key={row.label} className="border-b border-border/45 align-top last:border-b-0">
+          <tr key={row.label} className="border-b border-border align-top last:border-b-0">
             <th className="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
               {row.label}
             </th>
@@ -296,7 +296,7 @@ function InlineList({
   return (
     <ul className="space-y-2 text-sm leading-6 text-foreground">
       {items.map((item) => (
-        <li key={item} className="border-b border-border/45 pb-2 last:border-b-0 last:pb-0">
+        <li key={item} className="border-b border-border pb-2 last:border-b-0 last:pb-0">
           {item}
         </li>
       ))}
@@ -753,7 +753,7 @@ export function DealOverviewWorkspace({
             </div>
 
             {deal.packContext ? (
-              <div className="rounded-xl border border-border/50 px-3 py-3">
+              <div className="rounded-xl border border-border px-3 py-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                     Pack status
@@ -785,7 +785,7 @@ export function DealOverviewWorkspace({
             {openDeadlines > 0 ? (
               <DeadlineBar tasks={deal.tasks} />
             ) : (
-              <div className="rounded-xl border border-dashed border-border/60 px-3 py-4 text-sm text-muted-foreground">
+              <div className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
                 No open dated tasks are attached to this file.
               </div>
             )}
@@ -793,7 +793,7 @@ export function DealOverviewWorkspace({
             {screeningParcelId ? (
               <ScreeningScorecard parcelId={screeningParcelId} />
             ) : (
-              <div className="rounded-xl border border-dashed border-border/60 px-3 py-4 text-sm text-muted-foreground">
+              <div className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
                 Add a parcel with screening coverage to surface flood, soils, wetlands, and EPA flags here.
               </div>
             )}

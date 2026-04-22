@@ -229,7 +229,7 @@ function StructureEditor({
       </div>
 
       {/* Computed equity split */}
-      <div className="flex gap-4 text-xs text-muted-foreground bg-muted/50 rounded-md p-2">
+      <div className="flex gap-4 text-xs text-muted-foreground bg-muted rounded-md p-2">
         <span>
           LP Equity: {fmt(structure.totalEquity * (1 - structure.gpCoinvestPct / 100))}
         </span>
@@ -410,7 +410,7 @@ function WaterfallResultsDisplay({ results }: { results: WaterfallResults }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              <TableRow className="bg-muted/30">
+              <TableRow className="bg-muted">
                 <TableCell className="font-medium">0</TableCell>
                 <TableCell className="text-right tabular-nums text-destructive">
                   ({fmt(results.lpEquity + results.gpEquity)})

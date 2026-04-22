@@ -166,7 +166,7 @@ export function ArtifactList({ artifacts, dealId, dealStatus, onArtifactGenerate
 
       {artifacts.length === 0 ? (
         <div className="rounded-xl border-2 border-dashed border-muted-foreground/20 p-10 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-muted/50">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-muted">
             <Package className="h-6 w-6 text-muted-foreground" />
           </div>
           <p className="font-mono text-sm font-medium text-foreground">No artifacts yet</p>

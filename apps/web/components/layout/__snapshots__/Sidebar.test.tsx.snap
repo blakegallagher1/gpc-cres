@@ -2,16 +2,16 @@
 
 exports[`Sidebar > renders the development and investment navigation frame 1`] = `
 <aside
-  class="fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border/65 bg-background/96 transition-[width,transform] duration-300 w-[var(--app-sidebar-expanded)]"
+  class="fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border bg-background transition-[width,transform] duration-300 w-[var(--app-sidebar-expanded)]"
 >
   <div
-    class="flex h-[var(--app-header-height)] items-center border-b border-border/60 px-5"
+    class="flex h-[var(--app-header-height)] items-center border-b border-border px-5"
   >
     <div
       class="flex min-w-0 items-center gap-3"
     >
       <div
-        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] border border-border/65 bg-muted/[0.45] shadow-[0_16px_36px_-28px_rgba(15,23,42,0.42)]"
+        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] border border-border bg-muted shadow-[0_16px_36px_-28px_rgba(15,23,42,0.42)]"
       >
         <svg
           aria-hidden="true"
@@ -60,7 +60,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
     </div>
   </div>
   <div
-    class="border-b border-border/60 px-4 py-4"
+    class="border-b border-border px-4 py-4"
   >
     <p
       class="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground"
@@ -68,7 +68,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
       System Index
     </p>
     <div
-      class="mt-3 rounded-[24px] border border-border/65 bg-muted/[0.55] p-4 shadow-[0_18px_45px_-40px_rgba(15,23,42,0.45)]"
+      class="mt-3 rounded-[24px] border border-border bg-muted p-4 shadow-[0_18px_45px_-40px_rgba(15,23,42,0.45)]"
     >
       <div
         class="flex items-center justify-between gap-3"
@@ -86,7 +86,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           </p>
         </div>
         <span
-          class="rounded-full border border-border/70 bg-background/92 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground"
+          class="rounded-full border border-border bg-background px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground"
         >
           9
            routes
@@ -96,7 +96,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
         class="mt-4 grid grid-cols-2 gap-2"
       >
         <div
-          class="rounded-2xl border border-border/70 bg-background/92 px-3 py-2.5"
+          class="rounded-2xl border border-border bg-background px-3 py-2.5"
         >
           <p
             class="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground"
@@ -110,7 +110,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           </p>
         </div>
         <div
-          class="rounded-2xl border border-border/70 bg-background/92 px-3 py-2.5"
+          class="rounded-2xl border border-border bg-background px-3 py-2.5"
         >
           <p
             class="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground"
@@ -130,7 +130,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
     class="flex-1 overflow-y-auto px-3 py-5"
   >
     <div
-      class="mb-4 border-b border-border/50 pb-4"
+      class="mb-4 border-b border-border pb-4"
     >
       <a
         aria-current="page"
@@ -143,7 +143,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           transition="[object Object]"
         />
         <span
-          class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-border/70 bg-background/90 text-foreground"
+          class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-border bg-background text-foreground"
         >
           <svg
             aria-hidden="true"
@@ -183,7 +183,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
       class="mb-5"
     >
       <button
-        class="mb-2 flex w-full min-h-[44px] items-center justify-between gap-2 rounded-2xl px-3 py-1.5 text-left transition-colors hover:bg-background/74"
+        class="mb-2 flex w-full min-h-[44px] items-center justify-between gap-2 rounded-2xl px-3 py-1.5 text-left transition-colors hover:bg-muted"
       >
         <div
           class="flex items-center gap-2 min-w-0"
@@ -212,7 +212,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           </p>
         </div>
         <span
-          class="rounded-full border border-border/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground flex-shrink-0"
+          class="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground flex-shrink-0"
         >
           3
         </span>
@@ -225,7 +225,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           href="/command-center"
         >
           <span
-            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/78 group-hover:text-foreground"
+            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border group-hover:bg-muted group-hover:text-foreground"
           >
             <svg
               aria-hidden="true"
@@ -290,7 +290,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           href="/deals"
         >
           <span
-            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/78 group-hover:text-foreground"
+            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border group-hover:bg-muted group-hover:text-foreground"
           >
             <svg
               aria-hidden="true"
@@ -337,7 +337,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           href="/map"
         >
           <span
-            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/78 group-hover:text-foreground"
+            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border group-hover:bg-muted group-hover:text-foreground"
           >
             <svg
               aria-hidden="true"
@@ -384,7 +384,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
       class="mb-5"
     >
       <button
-        class="mb-2 flex w-full min-h-[44px] items-center justify-between gap-2 rounded-2xl px-3 py-1.5 text-left transition-colors hover:bg-background/74"
+        class="mb-2 flex w-full min-h-[44px] items-center justify-between gap-2 rounded-2xl px-3 py-1.5 text-left transition-colors hover:bg-muted"
       >
         <div
           class="flex items-center gap-2 min-w-0"
@@ -413,7 +413,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           </p>
         </div>
         <span
-          class="rounded-full border border-border/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground flex-shrink-0"
+          class="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground flex-shrink-0"
         >
           3
         </span>
@@ -426,7 +426,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           href="/opportunities"
         >
           <span
-            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/78 group-hover:text-foreground"
+            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border group-hover:bg-muted group-hover:text-foreground"
           >
             <svg
               aria-hidden="true"
@@ -477,7 +477,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           href="/market"
         >
           <span
-            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/78 group-hover:text-foreground"
+            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border group-hover:bg-muted group-hover:text-foreground"
           >
             <svg
               aria-hidden="true"
@@ -526,7 +526,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           href="/portfolio"
         >
           <span
-            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/78 group-hover:text-foreground"
+            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border group-hover:bg-muted group-hover:text-foreground"
           >
             <svg
               aria-hidden="true"
@@ -570,7 +570,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
       class="mb-5"
     >
       <button
-        class="mb-2 flex w-full min-h-[44px] items-center justify-between gap-2 rounded-2xl px-3 py-1.5 text-left transition-colors hover:bg-background/74"
+        class="mb-2 flex w-full min-h-[44px] items-center justify-between gap-2 rounded-2xl px-3 py-1.5 text-left transition-colors hover:bg-muted"
       >
         <div
           class="flex items-center gap-2 min-w-0"
@@ -599,7 +599,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           </p>
         </div>
         <span
-          class="rounded-full border border-border/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground flex-shrink-0"
+          class="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground flex-shrink-0"
         >
           3
         </span>
@@ -612,7 +612,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           href="/agents"
         >
           <span
-            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/78 group-hover:text-foreground"
+            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border group-hover:bg-muted group-hover:text-foreground"
           >
             <svg
               aria-hidden="true"
@@ -671,7 +671,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           href="/automation"
         >
           <span
-            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/78 group-hover:text-foreground"
+            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border group-hover:bg-muted group-hover:text-foreground"
           >
             <svg
               aria-hidden="true"
@@ -711,7 +711,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
           href="/reference"
         >
           <span
-            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/78 group-hover:text-foreground"
+            class="relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border group-hover:bg-muted group-hover:text-foreground"
           >
             <svg
               aria-hidden="true"
@@ -761,7 +761,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
     </div>
   </nav>
   <div
-    class="mt-2 border-t border-border/50 px-3 py-3"
+    class="mt-2 border-t border-border px-3 py-3"
   >
     <div
       class="flex items-center gap-2"
@@ -772,7 +772,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
         title="Settings"
       >
         <span
-          class="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/78 group-hover:text-foreground"
+          class="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border group-hover:bg-muted group-hover:text-foreground"
         >
           <svg
             aria-hidden="true"
@@ -809,7 +809,7 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
         title="Admin"
       >
         <span
-          class="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/78 group-hover:text-foreground"
+          class="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border transition-colors border-transparent bg-transparent text-muted-foreground group-hover:border-border group-hover:bg-muted group-hover:text-foreground"
         >
           <svg
             aria-hidden="true"
@@ -838,13 +838,13 @@ exports[`Sidebar > renders the development and investment navigation frame 1`] =
     </div>
   </div>
   <div
-    class="border-t border-border/60 p-3"
+    class="border-t border-border p-3"
   >
     <div
-      class="app-shell-panel flex items-center gap-3 rounded-[22px] border border-border/70 bg-background/95 px-3 py-3 shadow-[0_18px_45px_-42px_rgba(15,23,42,0.45)]"
+      class="app-shell-panel flex items-center gap-3 rounded-[22px] border border-border bg-background px-3 py-3 shadow-[0_18px_45px_-42px_rgba(15,23,42,0.45)]"
     >
       <div
-        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/75 bg-background/92 font-mono text-xs font-semibold uppercase tracking-[0.22em] text-foreground/80"
+        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-background font-mono text-xs font-semibold uppercase tracking-[0.22em] text-foreground/80"
       >
         G
       </div>

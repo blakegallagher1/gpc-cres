@@ -26,7 +26,7 @@ export function ParcelComparisonSheet({ open, parcels, onClose }: ParcelComparis
 
   return (
     <div className="absolute bottom-0 left-0 right-0 z-30 p-3">
-      <Card className="mx-auto max-w-7xl border-map-border bg-map-panel/96 shadow-[0_28px_64px_-36px_rgba(15,23,42,0.92)] backdrop-blur-md">
+      <Card className="mx-auto max-w-7xl border-map-border bg-map-panel shadow-[0_28px_64px_-36px_rgba(15,23,42,0.92)]">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">

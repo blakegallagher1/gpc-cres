@@ -227,7 +227,7 @@ export default function TaxStrategyPage() {
 
                     {/* Candidate properties */}
                     {candidateProperties.length > 0 && (
-                      <div className="rounded-lg bg-muted/50 p-3">
+                      <div className="rounded-lg bg-muted p-3">
                         <p className="text-xs font-medium text-muted-foreground mb-2">
                           Candidate Replacement Properties
                         </p>
@@ -349,7 +349,7 @@ export default function TaxStrategyPage() {
                           </Badge>
                         </div>
                         {(investmentAmount > 0 || event.description) && (
-                          <div className="grid grid-cols-3 gap-4 rounded-lg bg-muted/50 p-3">
+                          <div className="grid grid-cols-3 gap-4 rounded-lg bg-muted p-3">
                             {investmentAmount > 0 && (
                               <div>
                                 <p className="text-xs text-muted-foreground">

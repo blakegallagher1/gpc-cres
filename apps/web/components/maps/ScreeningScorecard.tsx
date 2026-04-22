@@ -121,7 +121,7 @@ export function ScreeningScorecard({ parcelId, className }: Props) {
   if (!parcelId) return null;
   if (isLoading) {
     return (
-      <div className={cn("flex flex-col gap-2 rounded-lg border border-border/40 bg-muted/20 p-3", className)}>
+      <div className={cn("flex flex-col gap-2 rounded-lg border border-border bg-muted p-3", className)}>
         <Skeleton className="h-4 w-32" />
         <div className="mt-2 grid grid-cols-2 gap-2">
           {[1, 2, 3, 4].map((i) => (
@@ -179,7 +179,7 @@ export function ScreeningScorecard({ parcelId, className }: Props) {
             key={item.label}
             className={cn(
               "flex items-start gap-2 rounded-lg border px-2.5 py-2 text-xs",
-              item.ok ? "border-border/40" : "border-red-500/30 bg-red-500/5",
+              item.ok ? "border-border" : "border-red-500/30 bg-red-500/5",
             )}
           >
             <item.icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -207,7 +207,7 @@ export function ScreeningScorecard({ parcelId, className }: Props) {
         const dimensions = deriveWaterfallDimensions(screening);
         const investabilityScore = computeInvestabilityScore(dimensions);
         return (
-          <div className="mt-3 rounded-lg border border-border/40 bg-muted/10 p-3">
+          <div className="mt-3 rounded-lg border border-border bg-muted p-3">
             <div className="flex items-center justify-between">
               <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                 Investability Score
@@ -226,7 +226,7 @@ export function ScreeningScorecard({ parcelId, className }: Props) {
                     <span className="w-16 shrink-0 text-right font-medium text-muted-foreground">
                       {dim.label}
                     </span>
-                    <div className="relative h-3 flex-1 overflow-hidden rounded-full bg-muted/30">
+                    <div className="relative h-3 flex-1 overflow-hidden rounded-full bg-muted">
                       <div
                         className={cn("absolute inset-y-0 left-0 rounded-full", colors.bar)}
                         style={{ width: `${barWidthPercent}%` }}

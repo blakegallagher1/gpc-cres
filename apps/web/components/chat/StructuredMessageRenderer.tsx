@@ -101,9 +101,9 @@ function renderMarkdownTable(rows: string[]): ReactElement[] {
   const bodyRows = parsedRows.slice(2).filter((row) => row.some(Boolean));
 
   return [
-    <Card key="markdown-table" className="my-2 overflow-hidden border-border/60 bg-background/75">
+    <Card key="markdown-table" className="my-2 overflow-hidden border-border bg-background">
       <Table className="min-w-full text-xs">
-        <TableHeader className="bg-muted/35">
+        <TableHeader className="bg-muted">
           <TableRow>
             {headers.map((header, i) => (
               <TableHead key={`${header}-${i}`} className="h-auto px-3 py-2 text-left font-medium normal-case tracking-normal">
@@ -178,7 +178,7 @@ function renderMarkdownText(content: string): MarkdownNode[] {
       nodes.push(
         <ScrollArea
           key={`code-${index}`}
-          className="my-2 max-h-64 rounded-lg border border-border/60 bg-muted/35"
+          className="my-2 max-h-64 rounded-lg border border-border bg-muted"
         >
           <pre className="p-2 text-xs">{fenceLines.join("\n")}</pre>
         </ScrollArea>,
@@ -259,9 +259,9 @@ function renderObjectArrayTable(
   return (
     <div className="flex flex-col gap-1.5">
       <p className="font-medium text-xs text-muted-foreground">{title}</p>
-      <Card className="overflow-hidden border-border/60 bg-background/75">
+      <Card className="overflow-hidden border-border bg-background">
         <Table className="min-w-full text-xs">
-          <TableHeader className="bg-muted/35">
+          <TableHeader className="bg-muted">
             <TableRow>
               {headers.map((header) => (
                 <TableHead
@@ -297,7 +297,7 @@ function FinancialKpiCards({ metrics }: { metrics: FinancialKpi[] }) {
       {metrics.map((metric) => (
         <div
           key={`${metric.label}-${metric.source}`}
-          className="rounded-lg border border-border/50 bg-muted/30 p-2"
+          className="rounded-lg border border-border bg-muted p-2"
         >
           <p className="truncate text-[11px] font-medium text-muted-foreground">
             {metric.label}
@@ -322,7 +322,7 @@ function SectionCard({
   children: ReactNode;
 }) {
   return (
-    <Card className="border-border/60 bg-background/80 text-xs">
+    <Card className="border-border bg-background text-xs">
       <CardContent className="flex flex-col gap-2 p-2.5">
         <h4 className="font-medium text-muted-foreground">{title}</h4>
         <Separator />
@@ -343,7 +343,7 @@ function CollapsibleSection({
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <Card className="border-border/60 bg-background/75">
+      <Card className="border-border bg-background">
         <CollapsibleTrigger asChild>
           <Button
             type="button"
@@ -513,7 +513,7 @@ export function StructuredMessageRenderer({ content }: StructuredMessageRenderer
       {showRaw ? (
         <ScrollArea
           id="structured-message-raw"
-          className="max-h-64 rounded-lg border border-border/60 bg-muted/40"
+          className="max-h-64 rounded-lg border border-border bg-muted"
         >
           <pre className="whitespace-pre-wrap p-2 text-xs">{parsed.raw}</pre>
         </ScrollArea>

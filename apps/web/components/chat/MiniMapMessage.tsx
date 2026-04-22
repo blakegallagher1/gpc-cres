@@ -221,7 +221,7 @@ export const MiniMapMessage = memo(function MiniMapMessage({
     }));
 
   return (
-    <Card className={`mt-3 overflow-hidden border-border/70 bg-background/80 ${className ?? ""}`}>
+    <Card className={`mt-3 overflow-hidden border-border bg-background ${className ?? ""}`}>
       <CardHeader className="px-3 py-2.5">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">

@@ -188,7 +188,7 @@ export default function MemoryTab({
                   (data.rows as VerifiedFactRow[]).map((row) => (
                     <Fragment key={row.id}>
                       <TableRow
-                        className="cursor-pointer hover:bg-muted/50"
+                        className="cursor-pointer hover:bg-muted"
                         onClick={() => setExpandedId(expandedId === row.id ? null : row.id)}
                       >
                         <TableCell className="truncate max-w-[160px]">
@@ -228,7 +228,7 @@ export default function MemoryTab({
                       </TableRow>
                       {expandedId === row.id && (
                         <TableRow>
-                          <TableCell colSpan={7} className="bg-muted/30 p-4">
+                          <TableCell colSpan={7} className="bg-muted p-4">
                             <pre className="text-xs overflow-x-auto">
                               {JSON.stringify(row.payloadJson, null, 2)}
                             </pre>

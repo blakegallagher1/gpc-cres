@@ -723,7 +723,7 @@ function ExtractionCard({
     <div className="border rounded-lg">
       {/* Header */}
       <button
-        className="w-full flex items-center gap-3 p-3 text-left hover:bg-muted/50 transition-colors"
+        className="w-full flex items-center gap-3 p-3 text-left hover:bg-muted transition-colors"
         onClick={() => setExpanded(!expanded)}
       >
         <div className="shrink-0">
@@ -869,7 +869,7 @@ function ExtractionCard({
                         />
                       )}
                     </div>
-                    <div className="rounded border bg-muted/30 px-2 py-1.5">
+                    <div className="rounded border bg-muted px-2 py-1.5">
                       <div className="flex items-center justify-between gap-1">
                         <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                           Source Provenance
@@ -915,7 +915,7 @@ function ExtractionCard({
           {/* Show extra keys from LLM not in schema */}
           {Object.keys(editedData).filter((k) => !fieldKeys.includes(k)).length > 0 && (
             <div className="rounded border divide-y">
-              <div className="px-3 py-1.5 bg-muted/50">
+              <div className="px-3 py-1.5 bg-muted">
                 <span className="text-xs font-medium text-muted-foreground">Additional Fields</span>
               </div>
               {Object.keys(editedData)

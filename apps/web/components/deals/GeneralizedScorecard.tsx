@@ -88,7 +88,7 @@ export function GeneralizedScorecard({ scores }: GeneralizedScorecardProps) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       {groupScores(scores).map((group) => (
-        <Card key={group.module} className="border-border/70 bg-muted/20">
+        <Card key={group.module} className="border-border bg-muted">
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -107,7 +107,7 @@ export function GeneralizedScorecard({ scores }: GeneralizedScorecardProps) {
           </CardHeader>
           <CardContent className="space-y-3">
             {group.items.map((item) => (
-              <div key={item.id} className="rounded-lg border border-border/60 bg-background/70 p-3">
+              <div key={item.id} className="rounded-lg border border-border bg-background p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium">{formatLabel(item.dimension)}</p>

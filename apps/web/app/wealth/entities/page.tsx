@@ -310,7 +310,7 @@ export default function EntitiesPage() {
                 return (
                   <div
                     key={entity.id}
-                    className="flex items-center gap-3 rounded-lg border p-3 hover:bg-accent/30 transition-colors"
+                    className="flex items-center gap-3 rounded-lg border p-3 hover:bg-accent transition-colors"
                   >
                     <div className="rounded-lg bg-primary/10 p-2">
                       <Icon className="h-4 w-4 text-primary" />

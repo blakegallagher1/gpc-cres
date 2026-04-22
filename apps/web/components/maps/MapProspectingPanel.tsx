@@ -183,7 +183,7 @@ export function MapProspectingPanel({
             )}
 
             {!polygon && (
-              <div className="rounded-lg border border-map-border bg-map-surface/50 px-3 py-2 text-[10px] text-map-text-muted">
+              <div className="rounded-lg border border-map-border bg-map-surface px-3 py-2 text-[10px] text-map-text-muted">
                 Draw a boundary on the map to activate prospecting filters.
               </div>
             )}

@@ -23,7 +23,7 @@ exports[`SavedGeofences > renders the saved geofence list with active polygon co
       </p>
     </div>
     <button
-      class="inline-flex items-center justify-center whitespace-nowrap border font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground rounded-lg px-3 h-7 text-[10px]"
+      class="inline-flex items-center justify-center whitespace-nowrap border font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-lg px-3 h-7 text-[10px]"
       type="button"
     >
       Refresh
@@ -44,7 +44,7 @@ exports[`SavedGeofences > renders the saved geofence list with active polygon co
     class="flex gap-1.5"
   >
     <input
-      class="flex w-full rounded-xl border px-3 py-2 backdrop-blur-sm file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-w-0 h-8 flex-1 border-map-border bg-map-surface text-[11px] text-map-text-primary placeholder:text-map-text-muted"
+      class="flex w-full rounded-xl border px-3 py-2 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-w-0 h-8 flex-1 border-map-border bg-map-surface text-[11px] text-map-text-primary placeholder:text-map-text-muted"
       placeholder="Geofence name"
       value=""
     />
@@ -76,7 +76,7 @@ exports[`SavedGeofences > renders the saved geofence list with active polygon co
           class="flex flex-col gap-1.5 pr-2"
         >
           <div
-            class="rounded-xl border border-map-border bg-map-surface/82 px-3 py-2.5"
+            class="rounded-xl border border-map-border bg-map-surface px-3 py-2.5"
           >
             <div
               class="flex items-start justify-between gap-2"
@@ -121,7 +121,7 @@ exports[`SavedGeofences > renders the saved geofence list with active polygon co
                 class="flex items-center gap-1"
               >
                 <div
-                  class="inline-flex items-center rounded-full border font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary/65 text-secondary-foreground hover:bg-secondary/90 px-2 py-0.5 text-[9px]"
+                  class="inline-flex items-center rounded-full border font-mono uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary px-2 py-0.5 text-[9px]"
                 >
                   Active
                 </div>
@@ -163,7 +163,7 @@ exports[`SavedGeofences > renders the saved geofence list with active polygon co
               class="mt-2 flex items-center gap-2"
             >
               <button
-                class="inline-flex items-center justify-center whitespace-nowrap border font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground rounded-lg h-7 px-2.5 text-[10px]"
+                class="inline-flex items-center justify-center whitespace-nowrap border font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-lg h-7 px-2.5 text-[10px]"
                 title="Baton Rouge Core"
                 type="button"
               >

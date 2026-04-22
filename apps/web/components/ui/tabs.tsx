@@ -44,7 +44,7 @@ const TabsList = React.forwardRef<
   <TabsListBase
     ref={ref}
     className={cn(
-      "inline-flex min-h-10 items-center justify-center gap-1 rounded-xl border-b border-border/70 bg-transparent p-0 text-muted-foreground",
+      "inline-flex min-h-10 items-center justify-center gap-1 rounded-xl border-b border-border bg-transparent p-0 text-muted-foreground",
       className
     )}
     {...props}

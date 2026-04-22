@@ -37,7 +37,7 @@ function EntityNode({ entity, children, allEntities, depth }: EntityNodeProps) {
     <div>
       <div
         className={cn(
-          "group flex items-center gap-2 rounded-lg border px-3 py-2.5 transition-colors hover:bg-accent/50 cursor-pointer",
+          "group flex items-center gap-2 rounded-lg border px-3 py-2.5 transition-colors hover:bg-accent cursor-pointer",
           ENTITY_COLORS[entity.type]
         )}
         style={{ marginLeft: depth * 24 }}

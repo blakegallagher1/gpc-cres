@@ -47,7 +47,7 @@ export function TriageResultCard({
   const style = decisionStyles[decision];
 
   return (
-    <Card className="my-3 border-border/70 bg-background/75">
+    <Card className="my-3 border-border bg-background">
       <CardHeader className="flex flex-col gap-3 p-4">
         <div className="flex items-center gap-4">
           <Badge
@@ -110,7 +110,7 @@ export function TriageResultCard({
                           {cat.score}/{cat.maxScore}
                         </span>
                       </div>
-                      <div className="h-1.5 w-full rounded-full bg-muted/60">
+                      <div className="h-1.5 w-full rounded-full bg-muted">
                         <div
                           className={cn('h-1.5 rounded-full transition-all', barColor(pct))}
                           style={{ width: `${pct}%` }}

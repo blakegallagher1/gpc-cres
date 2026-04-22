@@ -15,7 +15,7 @@ interface StatusBadgeProps {
 }
 
 const toneClasses: Record<StatusBadgeTone, string> = {
-  slate: "border-border/70 bg-muted/55 text-foreground",
+  slate: "border-border bg-muted text-foreground",
   amber: "border-amber-200 bg-amber-100 text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-100",
   blue: "border-blue-200 bg-blue-100 text-blue-900 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-100",
   indigo: "border-indigo-200 bg-indigo-100 text-indigo-900 dark:border-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-100",

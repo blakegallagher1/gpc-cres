@@ -95,7 +95,7 @@ export function Sidebar() {
 
       <aside
         className={cn(
-          "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border/65 bg-background/96 transition-[width,transform] duration-300",
+          "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border bg-background transition-[width,transform] duration-300",
           "w-[var(--app-sidebar-expanded)]",
           isMobile
             ? cn(
@@ -107,9 +107,9 @@ export function Sidebar() {
               : "w-[var(--app-sidebar-expanded)]"
         )}
         >
-        <div className="flex h-[var(--app-header-height)] items-center border-b border-border/60 px-5">
+        <div className="flex h-[var(--app-header-height)] items-center border-b border-border px-5">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] border border-border/65 bg-muted/[0.45] shadow-[0_16px_36px_-28px_rgba(15,23,42,0.42)]">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] border border-border bg-muted shadow-[0_16px_36px_-28px_rgba(15,23,42,0.42)]">
               <Building2 className="h-5 w-5 text-foreground/85" />
             </div>
             {isExpanded && (
@@ -126,28 +126,28 @@ export function Sidebar() {
         </div>
 
         {isExpanded && (
-          <div className="border-b border-border/60 px-4 py-4">
+          <div className="border-b border-border px-4 py-4">
             <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
               System Index
             </p>
-            <div className="mt-3 rounded-[24px] border border-border/65 bg-muted/[0.55] p-4 shadow-[0_18px_45px_-40px_rgba(15,23,42,0.45)]">
+            <div className="mt-3 rounded-[24px] border border-border bg-muted p-4 shadow-[0_18px_45px_-40px_rgba(15,23,42,0.45)]">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <span className="text-sm font-medium text-foreground">{todayLabel}</span>
                   <p className="mt-1 text-xs text-muted-foreground">Workspace status</p>
                 </div>
-                <span className="rounded-full border border-border/70 bg-background/92 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                <span className="rounded-full border border-border bg-background px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                   {WORKSPACE_ROUTE_COUNT} routes
                 </span>
               </div>
               <div className="mt-4 grid grid-cols-2 gap-2">
-                <div className="rounded-2xl border border-border/70 bg-background/92 px-3 py-2.5">
+                <div className="rounded-2xl border border-border bg-background px-3 py-2.5">
                   <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
                     Active desk
                   </p>
                   <p className="mt-1 text-sm font-medium text-foreground">{activeGroup.label}</p>
                 </div>
-                <div className="rounded-2xl border border-border/70 bg-background/92 px-3 py-2.5">
+                <div className="rounded-2xl border border-border bg-background px-3 py-2.5">
                   <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
                     Current view
                   </p>
@@ -161,7 +161,7 @@ export function Sidebar() {
         <nav className="flex-1 overflow-y-auto px-3 py-5">
           {/* Pinned Chat Item */}
           {isExpanded && (
-            <div className="mb-4 border-b border-border/50 pb-4">
+            <div className="mb-4 border-b border-border pb-4">
               {(() => {
                 const Icon = PINNED_NAV_ITEM.icon;
                 const isActive = activeRoute.href === PINNED_NAV_ITEM.href;
@@ -191,8 +191,8 @@ export function Sidebar() {
                       className={cn(
                         "relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors",
                         isActive
-                          ? "border-border/70 bg-background/90 text-foreground"
-                          : "border-transparent bg-transparent text-muted-foreground group-hover:border-border/70 group-hover:bg-background/82 group-hover:text-foreground"
+                          ? "border-border bg-background text-foreground"
+                          : "border-transparent bg-transparent text-muted-foreground group-hover:border-border group-hover:bg-muted group-hover:text-foreground"
                       )}
                     >
                       <Icon className="h-4 w-4" />
@@ -217,7 +217,7 @@ export function Sidebar() {
                 {isExpanded && (
                   <button
                     onClick={() => toggleGroupCollapse(group.label)}
-                    className="mb-2 flex w-full min-h-[44px] items-center justify-between gap-2 rounded-2xl px-3 py-1.5 text-left transition-colors hover:bg-background/74"
+                    className="mb-2 flex w-full min-h-[44px] items-center justify-between gap-2 rounded-2xl px-3 py-1.5 text-left transition-colors hover:bg-muted"
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       {isCollapsed ? (
@@ -229,7 +229,7 @@ export function Sidebar() {
                         {group.label}
                       </p>
                     </div>
-                    <span className="rounded-full border border-border/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground flex-shrink-0">
+                    <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground flex-shrink-0">
                       {group.items.length}
                     </span>
                   </button>
@@ -261,15 +261,15 @@ export function Sidebar() {
                             <motion.span
                               layoutId="workspace-active-pill"
                               transition={reduceMotion ? { duration: 0 } : SIDEBAR_TRANSITION}
-                              className="absolute inset-0 rounded-2xl border border-border/70 bg-background/90"
+                              className="absolute inset-0 rounded-2xl border border-border bg-background"
                             />
                           )}
                           <span
                             className={cn(
                               "relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-colors",
                               isActive
-                                ? "border-border/70 bg-background/90 text-foreground"
-                                : "border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/78 group-hover:text-foreground"
+                                ? "border-border bg-background text-foreground"
+                                : "border-transparent bg-transparent text-muted-foreground group-hover:border-border group-hover:bg-muted group-hover:text-foreground"
                             )}
                           >
                             <Icon className="h-4 w-4" />
@@ -294,7 +294,7 @@ export function Sidebar() {
 
         {/* Footer Items */}
         {isExpanded && (
-          <div className="mt-2 border-t border-border/50 px-3 py-3">
+          <div className="mt-2 border-t border-border px-3 py-3">
             <div className="flex items-center gap-2">
               {FOOTER_NAV_ITEMS.map((item) => {
                 const Icon = item.icon;
@@ -319,15 +319,15 @@ export function Sidebar() {
                       <motion.span
                         layoutId="workspace-active-pill"
                         transition={reduceMotion ? { duration: 0 } : SIDEBAR_TRANSITION}
-                        className="absolute inset-0 rounded-xl border border-border/70 bg-background/90"
+                        className="absolute inset-0 rounded-xl border border-border bg-background"
                       />
                     )}
                     <span
                       className={cn(
                         "relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border transition-colors",
                         isActive
-                          ? "border-border/70 bg-background/90 text-foreground"
-                          : "border-transparent bg-transparent text-muted-foreground group-hover:border-border/60 group-hover:bg-background/78 group-hover:text-foreground"
+                          ? "border-border bg-background text-foreground"
+                          : "border-transparent bg-transparent text-muted-foreground group-hover:border-border group-hover:bg-muted group-hover:text-foreground"
                       )}
                     >
                       <Icon className="h-3 w-3" />
@@ -342,9 +342,9 @@ export function Sidebar() {
           </div>
         )}
 
-        <div className="border-t border-border/60 p-3">
-          <div className="app-shell-panel flex items-center gap-3 rounded-[22px] border border-border/70 bg-background/95 px-3 py-3 shadow-[0_18px_45px_-42px_rgba(15,23,42,0.45)]">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/75 bg-background/92 font-mono text-xs font-semibold uppercase tracking-[0.22em] text-foreground/80">
+        <div className="border-t border-border p-3">
+          <div className="app-shell-panel flex items-center gap-3 rounded-[22px] border border-border bg-background px-3 py-3 shadow-[0_18px_45px_-42px_rgba(15,23,42,0.45)]">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-background font-mono text-xs font-semibold uppercase tracking-[0.22em] text-foreground/80">
               G
             </div>
             {isExpanded && (

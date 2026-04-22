@@ -350,11 +350,11 @@ export function CommandCenterWorkspace() {
             </div>
           </div>
 
-          <div className="grid gap-4 border-t border-border/40 pt-4 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">
+          <div className="grid gap-4 border-t border-border pt-4 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">
             {heroSignals.map((item) => (
               <div
                 key={item.label}
-                className="border-b border-border/35 pb-4 last:border-b-0 last:pb-0"
+                className="border-b border-border pb-4 last:border-b-0 last:pb-0"
               >
                 <p className="workspace-section-kicker">{item.label}</p>
                 <p
@@ -497,21 +497,21 @@ export function CommandCenterWorkspace() {
             <div className="workspace-list mt-4 text-sm">
               <Link
                 href="/runs"
-                className="workspace-list-row items-center justify-between transition-colors hover:bg-muted/18"
+                className="workspace-list-row items-center justify-between transition-colors hover:bg-muted"
               >
                 <span>Review recent runs</span>
                 <RefreshCw className="h-4 w-4 text-muted-foreground" />
               </Link>
               <Link
                 href="/agents"
-                className="workspace-list-row items-center justify-between transition-colors hover:bg-muted/18"
+                className="workspace-list-row items-center justify-between transition-colors hover:bg-muted"
               >
                 <span>Open specialist roster</span>
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </Link>
               <Link
                 href="/automation"
-                className="workspace-list-row items-center justify-between transition-colors hover:bg-muted/18"
+                className="workspace-list-row items-center justify-between transition-colors hover:bg-muted"
               >
                 <span>Review automation health</span>
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />

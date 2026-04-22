@@ -342,7 +342,7 @@ export function CommandPalette() {
     <>
       <Button
         variant="outline"
-        className="relative h-9 w-full justify-start rounded-md bg-muted/50 text-sm font-normal text-muted-foreground shadow-none hover:bg-muted sm:pr-12 md:w-40 lg:w-64"
+        className="relative h-9 w-full justify-start rounded-md bg-muted text-sm font-normal text-muted-foreground shadow-none hover:bg-muted sm:pr-12 md:w-40 lg:w-64"
         onClick={() => setCommandPaletteOpen(true)}
       >
         <Search className="mr-2 h-4 w-4" />

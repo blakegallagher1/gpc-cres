@@ -211,7 +211,7 @@ export default function KnowledgeTab({
                 data.rows.map((row) => (
                   <Fragment key={row.id}>
                     <TableRow
-                      className="cursor-pointer hover:bg-muted/50"
+                      className="cursor-pointer hover:bg-muted"
                       onClick={() =>
                         setExpandedId(expandedId === row.id ? null : row.id)
                       }
@@ -245,7 +245,7 @@ export default function KnowledgeTab({
                     </TableRow>
                     {expandedId === row.id && (
                       <TableRow>
-                        <TableCell colSpan={5} className="bg-muted/30 p-4">
+                        <TableCell colSpan={5} className="bg-muted p-4">
                           <div className="space-y-2 text-sm">
                             <div>
                               <span className="font-medium">Full content:</span>

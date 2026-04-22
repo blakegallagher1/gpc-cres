@@ -153,7 +153,7 @@ export default function AgentsPage() {
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-4">
                     <div
-                      className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-border/60 bg-background/65"
+                      className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-border bg-background"
                       style={{ backgroundColor: `${agent.color}20` }}
                     >
                       <Bot

@@ -132,7 +132,7 @@ function LayerActionButton({
         "group flex min-h-[4.25rem] w-full flex-col rounded-2xl border px-3 py-3 text-left transition-colors",
         active
           ? "border-map-accent bg-map-accent/12 text-map-text-primary"
-          : "border-map-border bg-map-surface/85 text-map-text-primary hover:border-map-accent-muted hover:bg-map-surface-elevated",
+          : "border-map-border bg-map-surface text-map-text-primary hover:border-map-accent-muted hover:bg-map-surface-elevated",
       )}
     >
       <span className="flex items-center justify-between gap-2 text-[11px] font-medium">
@@ -178,7 +178,7 @@ function LayerPresetButton({
         "flex min-h-[4.7rem] flex-col rounded-2xl border px-3 py-3 text-left transition-colors",
         active
           ? "border-map-accent bg-map-accent/12 text-map-text-primary"
-          : "border-map-border bg-map-surface/85 text-map-text-primary hover:border-map-accent-muted hover:bg-map-surface-elevated",
+          : "border-map-border bg-map-surface text-map-text-primary hover:border-map-accent-muted hover:bg-map-surface-elevated",
       )}
     >
       <span className="text-[11px] font-medium">{label}</span>
@@ -203,7 +203,7 @@ function ToolButton({ active, label, onClick, icon }: ToolButtonProps) {
         "inline-flex min-h-11 items-center gap-2 rounded-2xl border px-3 py-2 text-left text-[11px] font-medium transition-colors",
         active
           ? "border-map-accent bg-map-accent text-white"
-          : "border-map-border bg-map-surface/80 text-map-text-primary hover:border-map-accent-muted hover:bg-map-surface-elevated hover:text-map-text-primary",
+          : "border-map-border bg-map-surface text-map-text-primary hover:border-map-accent-muted hover:bg-map-surface-elevated hover:text-map-text-primary",
       )}
     >
       <span className="shrink-0">{icon}</span>
@@ -271,10 +271,10 @@ function WorkflowSection({
         <CollapsibleTrigger asChild>
           <button
             type="button"
-            className="flex w-full items-start gap-3 rounded-2xl px-1 py-1 text-left transition-colors hover:bg-map-surface/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-map-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-map-surface-overlay"
+            className="flex w-full items-start gap-3 rounded-2xl px-1 py-1 text-left transition-colors hover:bg-map-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-map-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-map-surface-overlay"
             aria-controls={`map-workbench-section-${id}`}
           >
-            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-map-border/70 bg-map-surface/85 text-map-text-primary">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-map-border bg-map-surface text-map-text-primary">
               {icon}
             </span>
             <span className="min-w-0 flex-1">
@@ -293,7 +293,7 @@ function WorkflowSection({
             </span>
             <span
               className={cn(
-                  "mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-map-border/70 bg-map-surface/80 text-map-text-muted transition-transform duration-200",
+                  "mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-map-border bg-map-surface text-map-text-muted transition-transform duration-200",
                 open ? "rotate-180" : "rotate-0",
               )}
             >
@@ -468,7 +468,7 @@ export function MapWorkbenchPanel({
                 variant={open ? "outline" : "default"}
                 onClick={onToggleOpen}
                 className={cn(
-                  "relative h-11 min-w-[7.5rem] justify-start gap-2 border-map-border bg-map-panel/95 px-3 shadow-[0_16px_32px_-20px_rgba(15,23,42,0.9)] transition-all",
+                  "relative h-11 min-w-[7.5rem] justify-start gap-2 border-map-border bg-map-panel px-3 shadow-[0_16px_32px_-20px_rgba(15,23,42,0.9)] transition-all",
                   open
                     ? "text-map-text-primary hover:bg-map-surface-elevated"
                     : "text-map-text-primary hover:bg-map-surface-elevated hover:text-map-accent",
@@ -496,7 +496,7 @@ export function MapWorkbenchPanel({
             type="button"
             variant="outline"
             onClick={onScreenshot}
-            className="h-10 min-w-[7.5rem] justify-start gap-2 border-map-border bg-map-panel/95 px-3 text-map-text-primary shadow-[0_16px_32px_-20px_rgba(15,23,42,0.9)] hover:bg-map-surface-elevated"
+            className="h-10 min-w-[7.5rem] justify-start gap-2 border-map-border bg-map-panel px-3 text-map-text-primary shadow-[0_16px_32px_-20px_rgba(15,23,42,0.9)] hover:bg-map-surface-elevated"
             title="Export screenshot (S)"
             aria-label="Export map screenshot"
           >
@@ -507,7 +507,7 @@ export function MapWorkbenchPanel({
             type="button"
             variant="outline"
             onClick={onToggleFullscreen}
-            className="h-10 min-w-[7.5rem] justify-start gap-2 border-map-border bg-map-panel/95 px-3 text-map-text-primary shadow-[0_16px_32px_-20px_rgba(15,23,42,0.9)] hover:bg-map-surface-elevated"
+            className="h-10 min-w-[7.5rem] justify-start gap-2 border-map-border bg-map-panel px-3 text-map-text-primary shadow-[0_16px_32px_-20px_rgba(15,23,42,0.9)] hover:bg-map-surface-elevated"
             title="Toggle fullscreen (F)"
             aria-label="Toggle map fullscreen"
           >
@@ -657,17 +657,17 @@ export function MapWorkbenchPanel({
                 onOpenChange={updateSection("working-set")}
               >
                 <div className="grid grid-cols-3 gap-2 text-[10px]">
-                  <div className="rounded-2xl border border-map-border/70 bg-map-surface/80 px-3 py-3">
+                  <div className="rounded-2xl border border-map-border bg-map-surface px-3 py-3">
                     <p className="text-map-text-muted">Selected</p>
                     <p className="mt-1 text-lg font-semibold text-map-text-primary">{selectedCount}</p>
                   </div>
-                  <div className="rounded-2xl border border-map-border/70 bg-map-surface/80 px-3 py-3">
+                  <div className="rounded-2xl border border-map-border bg-map-surface px-3 py-3">
                     <p className="text-map-text-muted">Boundary</p>
                     <p className="mt-1 text-sm font-semibold text-map-text-primary">
                       {hasPolygon ? "Live" : "None"}
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-map-border/70 bg-map-surface/80 px-3 py-3">
+                  <div className="rounded-2xl border border-map-border bg-map-surface px-3 py-3">
                     <p className="text-map-text-muted">Layers</p>
                     <p className="mt-1 text-sm font-semibold text-map-text-primary">{overlayCount}</p>
                   </div>
@@ -679,7 +679,7 @@ export function MapWorkbenchPanel({
                     variant="outline"
                     disabled={selectedCount < 2}
                     onClick={onOpenCompare}
-                    className="h-8 border-map-border bg-map-surface/80 text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
+                    className="h-8 border-map-border bg-map-surface text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
                   >
                     Compare selected parcels
                   </Button>
@@ -689,7 +689,7 @@ export function MapWorkbenchPanel({
                     variant="outline"
                     disabled={!hasPolygon}
                     onClick={onClearPolygon}
-                    className="h-8 border-map-border bg-map-surface/80 text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
+                    className="h-8 border-map-border bg-map-surface text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
                   >
                     Clear active boundary
                   </Button>
@@ -733,7 +733,7 @@ export function MapWorkbenchPanel({
                       variant="outline"
                       aria-label={option}
                       title={option}
-                      className="rounded-xl border-map-border bg-map-surface/90 text-[11px] text-map-text-secondary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
+                      className="rounded-xl border-map-border bg-map-surface text-[11px] text-map-text-secondary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
                     >
                       {option}
                     </ToggleGroupItem>
@@ -903,7 +903,7 @@ export function MapWorkbenchPanel({
                     size="sm"
                     variant="outline"
                     onClick={() => onApplyPreset("full-stack")}
-                    className="h-7 border-map-border bg-map-surface/80 px-2.5 text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
+                    className="h-7 border-map-border bg-map-surface px-2.5 text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
                   >
                     Full stack
                   </Button>
@@ -912,7 +912,7 @@ export function MapWorkbenchPanel({
                     size="sm"
                     variant="outline"
                     onClick={() => onApplyPreset("zoning-scan")}
-                    className="h-7 border-map-border bg-map-surface/80 px-2.5 text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
+                    className="h-7 border-map-border bg-map-surface px-2.5 text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
                   >
                     Zoning scan
                   </Button>
@@ -921,7 +921,7 @@ export function MapWorkbenchPanel({
                     size="sm"
                     variant="outline"
                     onClick={() => onApplyPreset("environmental")}
-                    className="h-7 border-map-border bg-map-surface/80 px-2.5 text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
+                    className="h-7 border-map-border bg-map-surface px-2.5 text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
                   >
                     Environmental
                   </Button>
@@ -999,7 +999,7 @@ export function MapWorkbenchPanel({
                             size="sm"
                             aria-label={preset.label}
                             title={preset.label}
-                            className="justify-start rounded-xl border-map-border bg-map-surface/80 px-3 text-[10px] text-map-text-primary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
+                            className="justify-start rounded-xl border-map-border bg-map-surface px-3 text-[10px] text-map-text-primary data-[state=on]:border-map-accent data-[state=on]:bg-map-accent data-[state=on]:text-white"
                           >
                             {preset.label}
                           </ToggleGroupItem>
@@ -1013,7 +1013,7 @@ export function MapWorkbenchPanel({
                       size="sm"
                       variant="outline"
                       onClick={onOpenCompare}
-                      className="mt-3 h-8 w-full border-map-border bg-map-surface/80 text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
+                      className="mt-3 h-8 w-full border-map-border bg-map-surface text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
                     >
                       Open compare sheet
                     </Button>
@@ -1084,7 +1084,7 @@ export function MapWorkbenchPanel({
                     variant="outline"
                     onClick={onUndoDraw}
                     disabled={!drawing}
-                    className="h-7 border-map-border bg-map-surface/90 px-2.5 text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
+                    className="h-7 border-map-border bg-map-surface px-2.5 text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
                   >
                     Undo point
                   </Button>
@@ -1094,7 +1094,7 @@ export function MapWorkbenchPanel({
                     variant="outline"
                     onClick={onCancelDraw}
                     disabled={!drawing}
-                    className="h-7 border-map-border bg-map-surface/90 px-2.5 text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
+                    className="h-7 border-map-border bg-map-surface px-2.5 text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
                   >
                     Cancel draw
                   </Button>
@@ -1104,7 +1104,7 @@ export function MapWorkbenchPanel({
                     variant="outline"
                     onClick={onClearPolygon}
                     disabled={!hasPolygon}
-                    className="h-7 border-map-border bg-map-surface/90 px-2.5 text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
+                    className="h-7 border-map-border bg-map-surface px-2.5 text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
                   >
                     Clear boundary
                   </Button>
@@ -1142,19 +1142,19 @@ export function MapWorkbenchPanel({
                 onOpenChange={updateSection("help")}
               >
                 <div className="grid grid-cols-2 gap-2 text-[10px] text-map-text-secondary">
-                  <div className="rounded-xl border border-map-border/70 bg-map-surface/80 px-3 py-2">
+                  <div className="rounded-xl border border-map-border bg-map-surface px-3 py-2">
                     <p className="font-medium text-map-text-primary">L</p>
                     <p className="mt-1">Toggle the workbench.</p>
                   </div>
-                  <div className="rounded-xl border border-map-border/70 bg-map-surface/80 px-3 py-2">
+                  <div className="rounded-xl border border-map-border bg-map-surface px-3 py-2">
                     <p className="font-medium text-map-text-primary">D</p>
                     <p className="mt-1">Start or finish polygon drawing.</p>
                   </div>
-                  <div className="rounded-xl border border-map-border/70 bg-map-surface/80 px-3 py-2">
+                  <div className="rounded-xl border border-map-border bg-map-surface px-3 py-2">
                     <p className="font-medium text-map-text-primary">S</p>
                     <p className="mt-1">Export a screenshot.</p>
                   </div>
-                  <div className="rounded-xl border border-map-border/70 bg-map-surface/80 px-3 py-2">
+                  <div className="rounded-xl border border-map-border bg-map-surface px-3 py-2">
                     <p className="font-medium text-map-text-primary">F</p>
                     <p className="mt-1">Toggle fullscreen mode.</p>
                   </div>
@@ -1168,7 +1168,7 @@ export function MapWorkbenchPanel({
                     size="sm"
                     variant="outline"
                     onClick={onScreenshot}
-                    className="h-8 border-map-border bg-map-surface/80 text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
+                    className="h-8 border-map-border bg-map-surface text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
                   >
                     <Camera className="mr-1.5 h-3.5 w-3.5" />
                     Screenshot
@@ -1178,7 +1178,7 @@ export function MapWorkbenchPanel({
                     size="sm"
                     variant="outline"
                     onClick={onToggleFullscreen}
-                    className="h-8 border-map-border bg-map-surface/80 text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
+                    className="h-8 border-map-border bg-map-surface text-[10px] text-map-text-primary hover:bg-map-surface-elevated"
                   >
                     <Maximize2 className="mr-1.5 h-3.5 w-3.5" />
                     Fullscreen
@@ -1188,13 +1188,13 @@ export function MapWorkbenchPanel({
                 {(dataFreshnessLabel || latencyLabel) ? (
                   <div className="mt-4 grid gap-2 text-[10px] text-map-text-secondary">
                     {dataFreshnessLabel ? (
-                      <div className="rounded-xl border border-map-border/70 bg-map-surface/80 px-3 py-2">
+                      <div className="rounded-xl border border-map-border bg-map-surface px-3 py-2">
                         <p className="font-medium text-map-text-primary">Data freshness</p>
                         <p className="mt-1">{dataFreshnessLabel}</p>
                       </div>
                     ) : null}
                     {latencyLabel ? (
-                      <div className="rounded-xl border border-map-border/70 bg-map-surface/80 px-3 py-2">
+                      <div className="rounded-xl border border-map-border bg-map-surface px-3 py-2">
                         <p className="font-medium text-map-text-primary">Response latency</p>
                         <p className="mt-1">{latencyLabel}</p>
                       </div>

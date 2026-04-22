@@ -137,7 +137,7 @@ export function WorkflowTimeline({
                 ) : null}
               </div>
 
-              <div className="flex-1 rounded-lg border border-border/60 bg-background/60 p-3">
+              <div className="flex-1 rounded-lg border border-border bg-background p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-sm font-medium">{stage.name}</p>
                   <Badge variant="outline" className={stateStyles[state].badge}>

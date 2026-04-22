@@ -23,8 +23,8 @@ function Pill({ children, accent, index }: { children: React.ReactNode; accent?:
       className={cn(
         "pointer-events-auto inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium tracking-wide",
         accent
-          ? "bg-map-accent/20 text-map-accent ring-1 ring-map-accent/30"
-          : "bg-map-surface/92 text-map-text-secondary ring-1 ring-map-border/50",
+          ? "bg-map-accent-surface text-map-accent ring-1 ring-map-accent-muted"
+          : "bg-map-surface text-map-text-secondary ring-1 ring-map-border",
       )}
     >
       {children}

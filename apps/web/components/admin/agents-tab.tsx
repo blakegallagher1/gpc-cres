@@ -182,7 +182,7 @@ export default function AgentsTab({ data, isLoading, page, onPageChange, error, 
                 data.runs.map((run) => (
                   <Fragment key={run.id}>
                     <TableRow
-                      className="cursor-pointer hover:bg-muted/50"
+                      className="cursor-pointer hover:bg-muted"
                       onClick={() => setExpandedId(expandedId === run.id ? null : run.id)}
                     >
                       <TableCell>
@@ -201,7 +201,7 @@ export default function AgentsTab({ data, isLoading, page, onPageChange, error, 
                     </TableRow>
                     {expandedId === run.id && run.error && (
                       <TableRow>
-                        <TableCell colSpan={5} className="bg-muted/30 p-4">
+                        <TableCell colSpan={5} className="bg-muted p-4">
                           <div className="text-sm">
                             <span className="font-medium text-destructive">Error:</span>
                             <pre className="mt-1 text-xs overflow-x-auto whitespace-pre-wrap">

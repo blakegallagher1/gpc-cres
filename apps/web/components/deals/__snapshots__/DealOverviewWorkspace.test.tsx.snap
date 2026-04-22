@@ -8,10 +8,10 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
     class="space-y-5"
   >
     <section
-      class="rounded-2xl border border-border/60 bg-background"
+      class="rounded-2xl border border-border bg-background"
     >
       <div
-        class="flex flex-wrap items-end justify-between gap-3 border-b border-border/50 px-4 py-4 md:px-5"
+        class="flex flex-wrap items-end justify-between gap-3 border-b border-border px-4 py-4 md:px-5"
       >
         <div
           class="space-y-2"
@@ -57,7 +57,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
               >
                 <tbody>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -75,7 +75,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -93,7 +93,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -118,7 +118,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -132,7 +132,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -146,7 +146,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -160,7 +160,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -174,7 +174,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -188,7 +188,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -219,7 +219,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
               >
                 <tbody>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -237,7 +237,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -255,7 +255,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -273,7 +273,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -287,7 +287,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -301,7 +301,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -315,7 +315,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -333,7 +333,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -351,7 +351,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -369,7 +369,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -387,7 +387,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -405,7 +405,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -419,7 +419,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -452,7 +452,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
               >
                 <tbody>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -470,7 +470,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -488,7 +488,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -506,7 +506,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -524,7 +524,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -542,7 +542,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -560,7 +560,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -578,7 +578,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -596,7 +596,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -629,7 +629,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
               >
                 <tbody>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -643,7 +643,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -657,7 +657,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -671,7 +671,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -685,7 +685,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -699,7 +699,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -713,7 +713,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -727,7 +727,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -741,7 +741,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                     </td>
                   </tr>
                   <tr
-                    class="border-b border-border/45 align-top last:border-b-0"
+                    class="border-b border-border align-top last:border-b-0"
                   >
                     <th
                       class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -755,12 +755,12 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                         class="space-y-2 text-sm leading-6 text-foreground"
                       >
                         <li
-                          class="border-b border-border/45 pb-2 last:border-b-0 last:pb-0"
+                          class="border-b border-border pb-2 last:border-b-0 last:pb-0"
                         >
                           Landscape buffer at frontage
                         </li>
                         <li
-                          class="border-b border-border/45 pb-2 last:border-b-0 last:pb-0"
+                          class="border-b border-border pb-2 last:border-b-0 last:pb-0"
                         >
                           Truck route signage
                         </li>
@@ -775,10 +775,10 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
       </div>
     </section>
     <section
-      class="rounded-2xl border border-border/60 bg-background"
+      class="rounded-2xl border border-border bg-background"
     >
       <div
-        class="flex flex-wrap items-end justify-between gap-3 border-b border-border/50 px-4 py-4 md:px-5"
+        class="flex flex-wrap items-end justify-between gap-3 border-b border-border px-4 py-4 md:px-5"
       >
         <div
           class="space-y-2"
@@ -802,7 +802,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
           </div>
         </div>
         <a
-          class="inline-flex items-center justify-center whitespace-nowrap border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-9 rounded-lg px-3"
+          class="inline-flex items-center justify-center whitespace-nowrap border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-lg px-3"
           href="/deals/deal-1?tab=documents"
         >
           Open documents
@@ -827,7 +827,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
             >
               <tbody>
                 <tr
-                  class="border-b border-border/45 align-top last:border-b-0"
+                  class="border-b border-border align-top last:border-b-0"
                 >
                   <th
                     class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -841,7 +841,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                       class="flex flex-wrap items-center gap-2"
                     >
                       <div
-                        class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80"
+                        class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-destructive text-destructive-foreground hover:bg-destructive"
                       >
                         Stale
                       </div>
@@ -854,7 +854,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                   </td>
                 </tr>
                 <tr
-                  class="border-b border-border/45 align-top last:border-b-0"
+                  class="border-b border-border align-top last:border-b-0"
                 >
                   <th
                     class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -868,12 +868,12 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                       class="space-y-2 text-sm leading-6 text-foreground"
                     >
                       <li
-                        class="border-b border-border/45 pb-2 last:border-b-0 last:pb-0"
+                        class="border-b border-border pb-2 last:border-b-0 last:pb-0"
                       >
                         Stormwater memo
                       </li>
                       <li
-                        class="border-b border-border/45 pb-2 last:border-b-0 last:pb-0"
+                        class="border-b border-border pb-2 last:border-b-0 last:pb-0"
                       >
                         Phase I environmental report
                       </li>
@@ -881,7 +881,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                   </td>
                 </tr>
                 <tr
-                  class="border-b border-border/45 align-top last:border-b-0"
+                  class="border-b border-border align-top last:border-b-0"
                 >
                   <th
                     class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -895,7 +895,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                   </td>
                 </tr>
                 <tr
-                  class="border-b border-border/45 align-top last:border-b-0"
+                  class="border-b border-border align-top last:border-b-0"
                 >
                   <th
                     class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -913,7 +913,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                   </td>
                 </tr>
                 <tr
-                  class="border-b border-border/45 align-top last:border-b-0"
+                  class="border-b border-border align-top last:border-b-0"
                 >
                   <th
                     class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -931,7 +931,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                   </td>
                 </tr>
                 <tr
-                  class="border-b border-border/45 align-top last:border-b-0"
+                  class="border-b border-border align-top last:border-b-0"
                 >
                   <th
                     class="w-[9.5rem] py-3 pr-4 text-left font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
@@ -980,7 +980,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                 class="space-y-2 text-sm leading-6 text-foreground"
               >
                 <li
-                  class="border-b border-border/45 pb-2 last:border-b-0 last:pb-0"
+                  class="border-b border-border pb-2 last:border-b-0 last:pb-0"
                 >
                   Legacy drainage servitude
                 </li>
@@ -998,7 +998,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                 class="space-y-2 text-sm leading-6 text-foreground"
               >
                 <li
-                  class="border-b border-border/45 pb-2 last:border-b-0 last:pb-0"
+                  class="border-b border-border pb-2 last:border-b-0 last:pb-0"
                 >
                   Utility easement along rear boundary
                 </li>
@@ -1016,7 +1016,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                 class="space-y-2 text-sm leading-6 text-foreground"
               >
                 <li
-                  class="border-b border-border/45 pb-2 last:border-b-0 last:pb-0"
+                  class="border-b border-border pb-2 last:border-b-0 last:pb-0"
                 >
                   Neighbor fence overlaps by 1.2 feet
                 </li>
@@ -1027,10 +1027,10 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
       </div>
     </section>
     <section
-      class="rounded-2xl border border-border/60 bg-background"
+      class="rounded-2xl border border-border bg-background"
     >
       <div
-        class="flex flex-wrap items-end justify-between gap-3 border-b border-border/50 px-4 py-4 md:px-5"
+        class="flex flex-wrap items-end justify-between gap-3 border-b border-border px-4 py-4 md:px-5"
       >
         <div
           class="space-y-2"
@@ -1054,7 +1054,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
           </div>
         </div>
         <a
-          class="inline-flex items-center justify-center whitespace-nowrap border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-9 rounded-lg px-3"
+          class="inline-flex items-center justify-center whitespace-nowrap border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-lg px-3"
           href="/deals/deal-1/financial-model"
         >
           Open pro forma
@@ -1069,10 +1069,10 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
       </div>
     </section>
     <section
-      class="rounded-2xl border border-border/60 bg-background"
+      class="rounded-2xl border border-border bg-background"
     >
       <div
-        class="flex flex-wrap items-end justify-between gap-3 border-b border-border/50 px-4 py-4 md:px-5"
+        class="flex flex-wrap items-end justify-between gap-3 border-b border-border px-4 py-4 md:px-5"
       >
         <div
           class="space-y-2"
@@ -1096,7 +1096,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
           </div>
         </div>
         <a
-          class="inline-flex items-center justify-center whitespace-nowrap border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background/42 hover:bg-accent/40 hover:text-accent-foreground h-9 rounded-lg px-3"
+          class="inline-flex items-center justify-center whitespace-nowrap border text-sm font-medium tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-lg px-3"
           href="/deals/deal-1?tab=tasks"
         >
           Open tasks
@@ -1111,10 +1111,10 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
       </div>
     </section>
     <section
-      class="rounded-2xl border border-border/60 bg-background"
+      class="rounded-2xl border border-border bg-background"
     >
       <div
-        class="flex flex-wrap items-end justify-between gap-3 border-b border-border/50 px-4 py-4 md:px-5"
+        class="flex flex-wrap items-end justify-between gap-3 border-b border-border px-4 py-4 md:px-5"
       >
         <div
           class="space-y-2"
@@ -1153,10 +1153,10 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
     class="space-y-5"
   >
     <section
-      class="rounded-2xl border border-border/60 bg-background"
+      class="rounded-2xl border border-border bg-background"
     >
       <div
-        class="flex flex-wrap items-end justify-between gap-3 border-b border-border/50 px-4 py-4 md:px-5"
+        class="flex flex-wrap items-end justify-between gap-3 border-b border-border px-4 py-4 md:px-5"
       >
         <div
           class="space-y-2"
@@ -1180,7 +1180,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
           </div>
         </div>
         <div
-          class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80"
+          class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-destructive text-destructive-foreground hover:bg-destructive"
         >
           1
            open
@@ -1219,7 +1219,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
             </span>
           </div>
           <div
-            class="rounded-xl border border-border/50 px-3 py-3"
+            class="rounded-xl border border-border px-3 py-3"
           >
             <div
               class="flex flex-wrap items-center gap-2"
@@ -1230,7 +1230,7 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
                 Pack status
               </span>
               <div
-                class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80"
+                class="inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-destructive text-destructive-foreground hover:bg-destructive"
               >
                 Stale
               </div>
@@ -1257,10 +1257,10 @@ exports[`DealOverviewWorkspace > renders the redesigned underwriting composition
       Risk register panel
     </div>
     <section
-      class="rounded-2xl border border-border/60 bg-background"
+      class="rounded-2xl border border-border bg-background"
     >
       <div
-        class="flex flex-wrap items-end justify-between gap-3 border-b border-border/50 px-4 py-4 md:px-5"
+        class="flex flex-wrap items-end justify-between gap-3 border-b border-border px-4 py-4 md:px-5"
       >
         <div
           class="space-y-2"

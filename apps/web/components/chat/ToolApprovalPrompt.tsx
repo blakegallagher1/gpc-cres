@@ -73,7 +73,7 @@ export function ToolApprovalPrompt({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full border border-current/15 bg-background/55 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em]">
+            <span className="inline-flex items-center gap-1 rounded-full border border-current bg-background px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em]">
               {status === 'done' ? (
                 <CheckCircle2 className="h-3 w-3" />
               ) : status === 'error' ? (
@@ -91,7 +91,7 @@ export function ToolApprovalPrompt({
                     ? 'Submitting decision'
                     : 'Approval required'}
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-current/15 bg-background/55 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em]">
+            <span className="inline-flex items-center gap-1 rounded-full border border-current bg-background px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em]">
               <ShieldCheck className="h-3 w-3" />
               {toolName}
             </span>
@@ -106,14 +106,14 @@ export function ToolApprovalPrompt({
           </p>
         </div>
 
-        <div className="inline-flex items-center gap-1 rounded-full border border-current/15 bg-background/55 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em]">
+        <div className="inline-flex items-center gap-1 rounded-full border border-current bg-background px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em]">
           <Clock3 className="h-3 w-3" />
           {status === 'submitting' ? 'Processing' : status === 'done' ? 'Resolved' : 'Pending'}
         </div>
       </div>
 
       {args ? (
-        <pre className="mt-3 max-h-32 overflow-auto whitespace-pre-wrap rounded-xl border border-current/15 bg-background/72 p-3 text-[11px] text-foreground">
+        <pre className="mt-3 max-h-32 overflow-auto whitespace-pre-wrap rounded-xl border border-current bg-background p-3 text-[11px] text-foreground">
           {JSON.stringify(args, null, 2)}
         </pre>
       ) : null}

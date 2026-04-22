@@ -140,7 +140,7 @@ export function ParcelDetailCard({
       exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98, y: 6 }}
       transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] as const }}
       className={cn(
-        "pointer-events-auto absolute z-40 w-[22rem] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-map-border/80 bg-map-panel/96 shadow-[0_26px_60px_-34px_rgba(15,23,42,0.92)] ring-1 ring-map-accent/15 backdrop-blur-md",
+        "pointer-events-auto absolute z-40 w-[22rem] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-map-border bg-map-panel shadow-[0_26px_60px_-34px_rgba(15,23,42,0.92)] ring-1 ring-map-border",
       )}
       style={{
         left: position.left,
@@ -169,7 +169,7 @@ export function ParcelDetailCard({
 
       <div className="px-3 py-3">
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)}>
-          <TabsList className="grid h-8 w-full grid-cols-5 bg-map-surface/85 text-[10px]">
+          <TabsList className="grid h-8 w-full grid-cols-5 bg-map-surface text-[10px]">
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="comps">Comps</TabsTrigger>
             <TabsTrigger value="owner">Owner</TabsTrigger>
@@ -191,7 +191,7 @@ export function ParcelDetailCard({
               const signal = computeAcquisitionSignal(parcel);
               const hbu = getHighestBestUse(parcel.currentZoning);
               return (
-                <div className="rounded-xl border border-map-border bg-map-surface/82 p-2.5">
+                <div className="rounded-xl border border-map-border bg-map-surface p-2.5">
                   <div className="mb-2 text-[9px] uppercase tracking-[0.18em] text-map-text-muted">Quick Economics</div>
                   <div className="flex flex-wrap items-center gap-2 text-[10px]">
                     <span
@@ -239,7 +239,7 @@ export function ParcelDetailCard({
           </TabsContent>
 
           <TabsContent value="comps" className="mt-3 space-y-3">
-            <div className="rounded-xl border border-map-border bg-map-surface/82 p-3">
+            <div className="rounded-xl border border-map-border bg-map-surface p-3">
               <div className="flex items-center gap-2 text-[11px] font-medium text-map-text-primary">
                 <FileSearch className="h-3.5 w-3.5 text-map-accent" />
                 Comparable search
@@ -273,7 +273,7 @@ export function ParcelDetailCard({
           </TabsContent>
 
           <TabsContent value="deals" className="mt-3 space-y-3">
-            <div className="rounded-xl border border-map-border bg-map-surface/82 p-3">
+            <div className="rounded-xl border border-map-border bg-map-surface p-3">
               <div className="flex items-center gap-2 text-[11px] font-medium text-map-text-primary">
                 <FolderPlus className="h-3.5 w-3.5 text-map-accent" />
                 Deal workflow
@@ -315,7 +315,7 @@ export function ParcelDetailCard({
             {truth ? (
               <SavedIntelSection truth={truth} />
             ) : (
-              <div className="rounded-xl border border-map-border bg-map-surface/82 p-3 text-[10px] text-map-text-muted">
+              <div className="rounded-xl border border-map-border bg-map-surface p-3 text-[10px] text-map-text-muted">
                 No saved intel for this parcel yet.
               </div>
             )}
@@ -352,7 +352,7 @@ function SavedIntelSection({ truth }: { truth: ClientTruthView }) {
   if (rows.length === 0) return null;
 
   return (
-    <div className="rounded-xl border border-map-border bg-map-surface/82 p-2.5">
+    <div className="rounded-xl border border-map-border bg-map-surface p-2.5">
       <div className="mb-2 text-[9px] uppercase tracking-[0.18em] text-map-text-muted">Saved Intel</div>
       <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10px]">
         {rows.map(({ key, label, displayVal, hasConflict, wasCorrected }) => (
@@ -376,7 +376,7 @@ function SavedIntelSection({ truth }: { truth: ClientTruthView }) {
 
 function DetailField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-map-border bg-map-surface/82 px-2.5 py-2">
+    <div className="rounded-lg border border-map-border bg-map-surface px-2.5 py-2">
       <div className="text-[9px] uppercase tracking-[0.18em] text-map-text-muted">{label}</div>
       <div className="mt-1 truncate text-[10px] text-map-text-primary">{value}</div>
     </div>

@@ -80,10 +80,10 @@ export function ArtifactDownloadCard({
   const suggestions = getNextArtifactSuggestions(artifactType);
 
   return (
-    <Card className="my-2 border-border/70 bg-background/75">
+    <Card className="my-2 border-border bg-background">
       <CardContent className="flex flex-col gap-2 p-3">
         <div className="flex items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-muted/25">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border bg-muted">
             <Icon className={cn('h-5 w-5', accentText)} />
           </div>
           <div className="min-w-0 flex-1">
@@ -123,12 +123,12 @@ export function ArtifactDownloadCard({
               Generate Next
             </Button>
             {menuOpen && (
-              <div className="mt-1 rounded-lg border border-border/60 bg-background shadow-md">
+              <div className="mt-1 rounded-lg border border-border bg-background shadow-md">
                 {suggestions.map((s, i) => (
                   <button
                     key={i}
                     type="button"
-                    className="flex w-full items-center px-3 py-2 text-left text-xs text-foreground/80 hover:bg-muted/50 first:rounded-t-lg last:rounded-b-lg"
+                    className="flex w-full items-center px-3 py-2 text-left text-xs text-foreground/80 hover:bg-muted first:rounded-t-lg last:rounded-b-lg"
                     onClick={() => {
                       onGenerateNext(s.prompt);
                       setMenuOpen(false);

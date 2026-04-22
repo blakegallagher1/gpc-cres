@@ -326,7 +326,7 @@ export function TriageResultPanel({ triage, sources, onRunAction, onTaskComplete
                     ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                     : anyRunning
                       ? "bg-blue-500/10 text-blue-500 cursor-not-allowed"
-                      : "bg-primary/10 text-primary hover:bg-primary/20"
+                      : "bg-primary/10 text-primary hover:bg-primary"
                 )}
                 disabled={anyRunning || allDone}
                 onClick={handleRunAll}
@@ -353,7 +353,7 @@ export function TriageResultPanel({ triage, sources, onRunAction, onTaskComplete
                   <div
                     className={cn(
                       "flex items-start gap-2 rounded-md border p-2.5 transition-colors",
-                      onRunAction && !isDone && !isActive && "cursor-pointer hover:border-primary/50 hover:bg-muted/50",
+                      onRunAction && !isDone && !isActive && "cursor-pointer hover:border-primary/50 hover:bg-muted",
                       isDone && "border-emerald-500/30 bg-emerald-500/5",
                       isActive && "border-blue-500/30 bg-blue-500/5",
                       isError && "border-red-500/30 bg-red-500/5"
@@ -408,7 +408,7 @@ export function TriageResultPanel({ triage, sources, onRunAction, onTaskComplete
 
                   {/* Agent output (streaming or final) */}
                   {(isActive || (isDone && result.expanded)) && result.output && (
-                    <div className="ml-5 rounded-b-md border border-t-0 bg-muted/30 p-3">
+                    <div className="ml-5 rounded-b-md border border-t-0 bg-muted p-3">
                       <pre className="whitespace-pre-wrap text-xs leading-relaxed text-foreground/80">
                         {result.output}
                         {isActive && <span className="animate-pulse">|</span>}
@@ -428,7 +428,7 @@ export function TriageResultPanel({ triage, sources, onRunAction, onTaskComplete
           <h4 className="mb-2 text-sm font-medium">Assumptions</h4>
           <div className="space-y-1.5">
             {triage.assumptions.map((a, i) => (
-              <div key={i} className="rounded-md bg-muted/50 p-2.5">
+              <div key={i} className="rounded-md bg-muted p-2.5">
                 <p className="text-sm">{a.assumption}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">Impact: {a.impact}</p>
               </div>

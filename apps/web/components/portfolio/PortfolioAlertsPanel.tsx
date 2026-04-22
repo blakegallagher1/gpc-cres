@@ -163,7 +163,7 @@ export function PortfolioAlertsPanel({
           return (
             <div
               key={alert.id}
-              className="rounded border border-border/60 bg-card/30 p-2"
+              className="rounded border border-border bg-card/30 p-2"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-start gap-2">

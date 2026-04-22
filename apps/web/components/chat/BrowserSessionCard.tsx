@@ -66,7 +66,7 @@ function estimateDuration(turns: number): string {
 
 function JSONViewer({ data }: { data: unknown }) {
   return (
-    <ScrollArea className="max-h-64 rounded-xl border border-border/60 bg-muted/35">
+    <ScrollArea className="max-h-64 rounded-xl border border-border bg-muted">
       <pre className="whitespace-pre-wrap p-3 font-mono text-xs text-foreground/80">
         {typeof data === 'string' ? data : JSON.stringify(data, null, 2)}
       </pre>
@@ -122,7 +122,7 @@ export function BrowserSessionCard({
   return (
     <Card
       className={cn(
-        'my-3 border-border/70 bg-background/75',
+        'my-3 border-border bg-background',
         !success && 'border-destructive/40 ring-1 ring-destructive/20'
       )}
     >
@@ -147,7 +147,7 @@ export function BrowserSessionCard({
       {/* Screenshot Preview */}
       <CardContent className="flex flex-col gap-3 p-4">
         {lastScreenshot ? (
-          <div className="rounded-lg border border-border/60 bg-muted/35 overflow-hidden">
+          <div className="rounded-lg border border-border bg-muted overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={lastScreenshot}
@@ -156,7 +156,7 @@ export function BrowserSessionCard({
             />
           </div>
         ) : (
-          <div className="flex h-32 items-center justify-center rounded-lg border border-border/60 bg-muted/35">
+          <div className="flex h-32 items-center justify-center rounded-lg border border-border bg-muted">
             <span className="text-xs text-muted-foreground">No screenshot available</span>
           </div>
         )}
@@ -167,17 +167,17 @@ export function BrowserSessionCard({
             <span className="text-muted-foreground">Turn</span>
             <span className="font-mono font-medium">{turns}</span>
           </div>
-          <div className="w-px h-4 bg-border/40" />
+          <div className="w-px h-4 bg-border" />
           <div className="flex items-center gap-1">
             <span className="text-muted-foreground">Mode</span>
             <span className="font-mono font-medium">{modeUsed}</span>
           </div>
-          <div className="w-px h-4 bg-border/40" />
+          <div className="w-px h-4 bg-border" />
           <div className="flex items-center gap-1">
             <span className="text-muted-foreground">Time</span>
             <span className="font-mono font-medium">{duration}</span>
           </div>
-          <div className="w-px h-4 bg-border/40" />
+          <div className="w-px h-4 bg-border" />
           <div className="flex items-center gap-1">
             <span className="text-muted-foreground">Cost</span>
             <span className="font-mono font-medium">{costStr}</span>
@@ -203,7 +203,7 @@ export function BrowserSessionCard({
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="pt-2">
-              <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+              <div className="rounded-lg border border-border bg-muted p-3">
                 <pre className="whitespace-pre-wrap font-mono text-xs text-foreground/80 leading-relaxed">
                   {finalMessage}
                 </pre>
@@ -282,7 +282,7 @@ export function BrowserSessionCard({
         )}
 
         {playbookFormOpen && !playbookSaved && (
-          <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2">
+          <div className="rounded-lg border border-border bg-muted p-3 space-y-2">
             <label className="block">
               <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
                 Playbook Name
@@ -291,7 +291,7 @@ export function BrowserSessionCard({
                 type="text"
                 value={playbookName}
                 onChange={(e) => setPlaybookName(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-border/60 bg-background px-2 py-1.5 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                className="mt-1 block w-full rounded-md border border-border bg-background px-2 py-1.5 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 placeholder="e.g. ebrp.org data extraction"
               />
             </label>
@@ -303,7 +303,7 @@ export function BrowserSessionCard({
                 type="text"
                 value={playbookTags}
                 onChange={(e) => setPlaybookTags(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-border/60 bg-background px-2 py-1.5 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                className="mt-1 block w-full rounded-md border border-border bg-background px-2 py-1.5 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 placeholder="county records, tax data, EBR"
               />
             </label>

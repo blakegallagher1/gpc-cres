@@ -48,7 +48,7 @@ export function DealParcelMap({ parcels, dealName, dealStatus }: DealParcelMapPr
 
   if (mappable.length === 0) {
     return (
-      <div className="flex h-[200px] items-center justify-center rounded-lg border border-dashed bg-muted/50">
+      <div className="flex h-[200px] items-center justify-center rounded-lg border border-dashed bg-muted">
         <p className="text-sm text-muted-foreground">
           Enrich parcels to see them on the map.
         </p>

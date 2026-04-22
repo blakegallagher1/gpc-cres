@@ -84,8 +84,8 @@ export function MapLegend({
   if (items.length === 0) return null;
 
   return (
-    <div className="absolute bottom-10 right-3 z-10 rounded-xl border border-map-border/80 bg-black/75 px-2.5 py-2 backdrop-blur-sm">
-      <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.18em] text-white/65">
+    <div className="absolute bottom-10 right-3 z-10 rounded-xl border border-map-border bg-[#1a1d27] px-2.5 py-2">
+      <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.18em] text-map-text-muted">
         Active layers
       </p>
       {items.map((item) => (

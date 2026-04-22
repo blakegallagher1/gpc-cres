@@ -91,7 +91,7 @@ export function OpportunitiesWorkspace({
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-border/60 bg-background/80 p-5">
+      <section className="rounded-2xl border border-border bg-background p-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div className="space-y-3">
             <div className="flex items-center gap-2">
@@ -123,17 +123,17 @@ export function OpportunitiesWorkspace({
         </div>
 
         <div className="mt-5 grid gap-3 md:grid-cols-3">
-          <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+          <div className="rounded-xl border border-border bg-muted p-4">
             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Saved searches</p>
             <p className="mt-2 text-2xl font-semibold">{isLoading ? "..." : searches.length}</p>
             <p className="mt-1 text-xs text-muted-foreground">Active watch definitions feeding the inbox.</p>
           </div>
-          <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+          <div className="rounded-xl border border-border bg-muted p-4">
             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Alerts live</p>
             <p className="mt-2 text-2xl font-semibold">{isLoading ? "..." : alertEnabledCount}</p>
             <p className="mt-1 text-xs text-muted-foreground">Searches currently configured to notify operators.</p>
           </div>
-          <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+          <div className="rounded-xl border border-border bg-muted p-4">
             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Match history</p>
             <p className="mt-2 text-2xl font-semibold">{isLoading ? "..." : totalMatches}</p>
             <p className="mt-1 text-xs text-muted-foreground">Total parcel matches captured across all saved searches.</p>
@@ -142,7 +142,7 @@ export function OpportunitiesWorkspace({
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)_20rem]">
-        <aside className="rounded-2xl border border-border/60 bg-background/80 p-4">
+        <aside className="rounded-2xl border border-border bg-background p-4">
           <div className="flex items-center justify-between gap-2">
             <div>
               <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Filters</p>
@@ -171,7 +171,7 @@ export function OpportunitiesWorkspace({
                       "block rounded-xl border px-3 py-3 transition-colors",
                       isActive
                         ? "border-primary/50 bg-primary/8"
-                        : "border-border/60 bg-background hover:bg-muted/30",
+                        : "border-border bg-background hover:bg-muted",
                     )}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -199,14 +199,14 @@ export function OpportunitiesWorkspace({
                 );
               })
             ) : (
-              <div className="rounded-xl border border-dashed border-border/60 px-3 py-4 text-sm text-muted-foreground">
+              <div className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
                 No saved searches yet. Create one to start feeding the inbox.
               </div>
             )}
           </div>
         </aside>
 
-        <div className="min-w-0 rounded-2xl border border-border/60 bg-background/80 p-4">
+        <div className="min-w-0 rounded-2xl border border-border bg-background p-4">
           <OpportunityFeed
             limit={50}
             savedSearchId={initialSavedSearchId}
@@ -215,14 +215,14 @@ export function OpportunitiesWorkspace({
           />
         </div>
 
-        <aside className="rounded-2xl border border-border/60 bg-background/80 p-4">
+        <aside className="rounded-2xl border border-border bg-background p-4">
           <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Active context</p>
           <h2 className="mt-1 text-base font-semibold">
             {activeSearch ? activeSearch.name : "All opportunities"}
           </h2>
 
           <div className="mt-4 space-y-4">
-            <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
+            <div className="rounded-xl border border-border bg-muted p-3">
               <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Current view</p>
               <p className="mt-2 text-sm text-foreground">
                 {activeSearch
@@ -232,7 +232,7 @@ export function OpportunitiesWorkspace({
             </div>
 
             {activeSearch ? (
-              <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
+              <div className="rounded-xl border border-border bg-muted p-3">
                 <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Search settings</p>
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   <Badge variant={activeSearch.alertEnabled ? "default" : "secondary"}>
@@ -250,7 +250,7 @@ export function OpportunitiesWorkspace({
               </div>
             ) : null}
 
-            <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
+            <div className="rounded-xl border border-border bg-muted p-3">
               <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Operator loop</p>
               <div className="mt-3 space-y-2 text-sm text-muted-foreground">
                 <p>1. Filter the queue with a saved search.</p>

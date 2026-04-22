@@ -64,7 +64,7 @@ export function DashboardSkeleton() {
           <CardContent>
             <div className="space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
+                <div key={i} className="flex items-center gap-3 rounded-lg bg-muted p-3">
                   <Skeleton className="h-2 w-2 rounded-full" />
                   <div className="min-w-0 flex-1">
                     <Skeleton className="mb-1 h-4 w-32" />

@@ -543,7 +543,7 @@ export function DealDetailPageClient() {
   return (
     <DashboardShell>
       <Tabs value={activeTab} onValueChange={handleTabChange} className="workspace-page">
-        <section className="border-b border-border/60 pb-4">
+        <section className="border-b border-border pb-4">
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(22rem,0.8fr)] xl:items-end">
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
@@ -639,8 +639,8 @@ export function DealDetailPageClient() {
               </div>
             </div>
 
-            <div className="grid gap-3 border-t border-border/50 pt-4 md:grid-cols-2 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">
-              <div className="border-b border-border/45 pb-3 md:border-b-0 md:border-r md:pr-4">
+            <div className="grid gap-3 border-t border-border pt-4 md:grid-cols-2 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">
+              <div className="border-b border-border pb-3 md:border-b-0 md:border-r md:pr-4">
                 <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                   Offer
                 </p>
@@ -654,7 +654,7 @@ export function DealDetailPageClient() {
                 </p>
               </div>
 
-              <div className="border-b border-border/45 pb-3 md:border-b-0">
+              <div className="border-b border-border pb-3 md:border-b-0">
                 <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                   Close
                 </p>
@@ -712,7 +712,7 @@ export function DealDetailPageClient() {
             </div>
           </div>
 
-          <TabsList className="mt-6 w-full justify-start overflow-x-auto rounded-none border-b border-border/60 pb-0">
+          <TabsList className="mt-6 w-full justify-start overflow-x-auto rounded-none border-b border-border pb-0">
             <TabsTrigger value="overview" className="text-xs tracking-[0.08em]">
               Overview
             </TabsTrigger>

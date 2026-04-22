@@ -286,7 +286,7 @@ export function SensitivityTable({
                 <th
                   key={ci}
                   className={`p-1.5 text-center font-medium border-b tabular-nums ${
-                    cv === colBase ? "bg-muted/50 font-bold" : ""
+                    cv === colBase ? "bg-muted font-bold" : ""
                   }`}
                 >
                   {colAxis.format(cv)}
@@ -299,7 +299,7 @@ export function SensitivityTable({
               <tr key={ri}>
                 <td
                   className={`p-1.5 font-medium border-r tabular-nums ${
-                    rv === rowBase ? "bg-muted/50 font-bold" : ""
+                    rv === rowBase ? "bg-muted font-bold" : ""
                   }`}
                 >
                   {rowAxis.format(rv)}
@@ -356,7 +356,7 @@ export function SensitivityTable({
                   </td>
                 </tr>
               ))}
-              <tr className="bg-muted/40">
+              <tr className="bg-muted">
                 <td className="px-2 py-1.5 font-medium">Probability-Weighted Expected</td>
                 <td className="px-2 py-1.5 text-right text-muted-foreground">
                   {totalScenarioProbability.toFixed(1)}%

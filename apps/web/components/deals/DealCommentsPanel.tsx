@@ -155,7 +155,7 @@ export function DealCommentsPanel({ dealId, currentUserId }: DealCommentsPanelPr
         )}
 
         {threads.map((thread) => (
-          <div key={thread.id} className="rounded border border-border/60 bg-card/30 p-3">
+          <div key={thread.id} className="rounded border border-border bg-card/30 p-3">
             <div className="flex items-start justify-between gap-2">
               <div className="flex flex-col">
                 <span className="text-xs font-medium">
@@ -193,7 +193,7 @@ export function DealCommentsPanel({ dealId, currentUserId }: DealCommentsPanelPr
             <p className="mt-2 whitespace-pre-wrap text-sm">{thread.body}</p>
 
             {thread.children.length > 0 && (
-              <div className="mt-3 space-y-2 border-l-2 border-border/60 pl-3">
+              <div className="mt-3 space-y-2 border-l-2 border-border pl-3">
                 {thread.children.map((reply) => (
                   <div key={reply.id} className="text-sm">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -234,7 +234,7 @@ export function DealCommentsPanel({ dealId, currentUserId }: DealCommentsPanelPr
 
         <div className="space-y-2 border-t pt-3">
           {replyingTo && (
-            <div className="flex items-center justify-between rounded bg-muted/40 px-2 py-1 text-xs">
+            <div className="flex items-center justify-between rounded bg-muted px-2 py-1 text-xs">
               <span>Replying to thread…</span>
               <Button
                 variant="ghost"
@@ -251,7 +251,7 @@ export function DealCommentsPanel({ dealId, currentUserId }: DealCommentsPanelPr
             onChange={(e) => setBody(e.target.value)}
             placeholder="Share a decision, concern, or next step…"
             rows={3}
-            className="w-full resize-y rounded border border-border/60 bg-background p-2 text-sm focus:border-primary focus:outline-none"
+            className="w-full resize-y rounded border border-border bg-background p-2 text-sm focus:border-primary focus:outline-none"
           />
           <div className="flex justify-end">
             <Button size="sm" onClick={submit} disabled={submitting || body.trim().length === 0}>

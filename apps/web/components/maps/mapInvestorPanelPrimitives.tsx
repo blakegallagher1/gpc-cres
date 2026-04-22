@@ -15,7 +15,7 @@ export function statusClasses(status: MapWorkbenchResourceStatus): string {
     case "loading":
       return "border-sky-500/30 bg-sky-500/10 text-sky-200";
     case "empty":
-      return "border-map-border bg-map-surface/50 text-map-text-secondary";
+      return "border-map-border bg-map-surface text-map-text-secondary";
     case "fallback":
       return "border-amber-500/30 bg-amber-500/10 text-amber-200";
   }
@@ -70,7 +70,7 @@ export function SectionFrame({
 }) {
   return (
     <section className="space-y-2">
-      <div className="rounded-xl border border-map-border bg-map-surface/45 px-3 py-3">
+      <div className="rounded-xl border border-map-border bg-map-surface px-3 py-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 gap-3">
             <div className="mt-0.5 rounded-lg border border-map-border bg-map-surface p-2 text-map-text-secondary">

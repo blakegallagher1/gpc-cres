@@ -91,7 +91,7 @@ export function ProspectFilters({
             size="sm"
             value={filters.zoningCodes}
             onValueChange={(value: string[]) => update({ zoningCodes: value })}
-            className="flex flex-wrap justify-start gap-1 rounded-xl border border-border/60 bg-background/30 p-1"
+            className="flex flex-wrap justify-start gap-1 rounded-xl border border-border bg-background p-1"
             disabled={disabled}
           >
             {ZONING_OPTIONS.map((option) => (

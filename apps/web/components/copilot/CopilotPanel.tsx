@@ -626,7 +626,7 @@ export function CopilotPanel() {
     )}
     <aside
       className={cn(
-        "fixed right-0 top-16 z-50 h-[calc(100vh-4rem)] border-l bg-background/95 shadow-xl transition-transform duration-300",
+        "fixed right-0 top-16 z-50 h-[calc(100vh-4rem)] border-l bg-background shadow-xl transition-transform duration-300",
         isMobile ? "w-full" : "w-[360px]",
         copilotOpen ? "translate-x-0" : "translate-x-full"
       )}
@@ -706,7 +706,7 @@ export function CopilotPanel() {
                   <Badge variant="outline">Project {projectId.slice(0, 6)}</Badge>
                 )}
               </div>
-              <div className="min-h-[120px] whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
+              <div className="min-h-[120px] whitespace-pre-wrap rounded-md bg-muted p-3 text-xs text-muted-foreground">
                 {output || "Run a command to see streaming output."}
               </div>
               {error && <p className="text-xs text-destructive">{error}</p>}
@@ -850,7 +850,7 @@ export function CopilotPanel() {
           {(isPromptFocused || queryForSuggestion.trim()) ? (
             <div
               ref={suggestionsPanelRef}
-              className="mt-2 rounded-md border border-border bg-muted/50 p-2 text-xs"
+              className="mt-2 rounded-md border border-border bg-muted p-2 text-xs"
             >
               <div className="mb-1 flex items-center gap-2 text-muted-foreground">
                 <Search className="h-3.5 w-3.5" />

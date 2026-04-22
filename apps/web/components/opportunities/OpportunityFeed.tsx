@@ -65,8 +65,8 @@ interface OpportunityFeedProps {
 
 function scoreColor(score: number): string {
   if (score >= 80) return "border-primary/25 bg-primary/10 text-foreground";
-  if (score >= 60) return "border-border/70 bg-muted/30 text-foreground";
-  return "border-border/60 bg-background/34 text-muted-foreground";
+  if (score >= 60) return "border-border bg-muted text-foreground";
+  return "border-border bg-background text-muted-foreground";
 }
 
 function timeAgo(dateStr: string): string {
@@ -220,7 +220,7 @@ export function OpportunityFeed({
         <div className="space-y-2">
           <p className="workspace-section-kicker">Prospecting</p>
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-border/60 bg-background/42">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background">
               <Sparkles className="h-4 w-4 text-foreground" />
             </div>
             <h2 className="workspace-section-heading">Opportunities</h2>
@@ -398,7 +398,7 @@ export function OpportunityFeed({
                     </div>
                   </div>
 
-                  <div className="mt-4 grid gap-4 border-t border-border/40 pt-4 text-xs sm:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+                  <div className="mt-4 grid gap-4 border-t border-border pt-4 text-xs sm:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
                     <div className="space-y-2">
                       <p className="font-medium text-foreground">{opp.thesis.summary}</p>
                       <p className="text-muted-foreground">{opp.thesis.whyNow}</p>
@@ -449,7 +449,7 @@ export function OpportunityFeed({
           ) : null}
         </div>
       ) : (
-        <div className="flex flex-col items-center gap-2 border-t border-border/50 py-6 text-center">
+        <div className="flex flex-col items-center gap-2 border-t border-border py-6 text-center">
           <Sparkles className="h-8 w-8 text-muted-foreground/40" />
           <p className="text-sm text-muted-foreground">
             {savedSearchId ? "No matches for this saved search yet." : "No opportunities yet."}

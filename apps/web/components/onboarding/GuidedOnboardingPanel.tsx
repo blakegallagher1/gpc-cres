@@ -173,7 +173,7 @@ export function GuidedOnboardingPanel({
               {sampleActions.map((sample) => (
                 <div
                   key={sample.name}
-                  className="rounded-md border bg-muted/40 p-3"
+                  className="rounded-md border bg-muted p-3"
                 >
                   <p className="font-medium">{sample.name}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -196,7 +196,7 @@ export function GuidedOnboardingPanel({
         ) : null}
 
         {tutorials?.length ? (
-          <div className="rounded-md border bg-muted/20 p-3 text-xs">
+          <div className="rounded-md border bg-muted p-3 text-xs">
             <p className="mb-2 flex items-center gap-2 font-medium text-muted-foreground">
               <BookOpen className="h-4 w-4" />
               Getting started

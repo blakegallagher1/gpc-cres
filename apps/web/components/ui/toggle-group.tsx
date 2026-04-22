@@ -7,7 +7,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const toggleGroupVariants = cva(
-  "inline-flex items-center justify-center gap-1 rounded-xl border border-border/70 bg-background/45 p-1 backdrop-blur-sm",
+  "inline-flex items-center justify-center gap-1 rounded-xl border border-border bg-background p-1",
   {
     variants: {
       variant: {
@@ -31,8 +31,8 @@ const toggleGroupItemVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-transparent text-muted-foreground hover:bg-accent/60 hover:text-accent-foreground",
-        outline: "border-border/70 bg-background/50 text-foreground hover:bg-accent/55 hover:text-accent-foreground",
+        default: "bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+        outline: "border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground",
       },
       size: {
         default: "h-9 px-3",

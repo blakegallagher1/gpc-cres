@@ -112,7 +112,7 @@ export function UploadList({ dealId, uploads, onDelete }: UploadListProps) {
   if (uploads.length === 0) {
     return (
       <div className="py-10 text-center">
-        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-muted/50">
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-muted">
           <File className="h-6 w-6 text-muted-foreground" />
         </div>
         <p className="font-mono text-sm font-medium text-foreground">No documents yet</p>

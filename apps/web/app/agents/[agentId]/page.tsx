@@ -113,7 +113,7 @@ function HandoffCard({ agentId }: { agentId: string }) {
 
 function RunRow({ run }: { run: WorkflowRun }) {
   return (
-    <div className="flex items-center gap-4 rounded-lg border p-4 transition-colors hover:bg-muted/50">
+    <div className="flex items-center gap-4 rounded-lg border p-4 transition-colors hover:bg-muted">
       <StatusBadge status={run.status} />
       <div className="flex-1 min-w-0">
         <p className="truncate font-medium">{run.id}</p>

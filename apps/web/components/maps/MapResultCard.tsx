@@ -86,15 +86,15 @@ export function MapResultCard({ card, isPinned, onDismiss, onPin, onContinueInCh
       exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -20, scale: 0.97 }}
       transition={CARD_TRANSITION}
       className={cn(
-        "pointer-events-auto w-[440px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border bg-map-panel/96 shadow-[0_26px_60px_-34px_rgba(15,23,42,0.92)] ring-1 backdrop-blur-md",
+        "pointer-events-auto w-[440px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border bg-map-panel shadow-[0_26px_60px_-34px_rgba(15,23,42,0.92)] ring-1",
         isPinned
-          ? "border-l-2 border-l-amber-500/60 border-t-map-accent/30 border-r-map-accent/30 border-b-map-accent/30 ring-amber-500/15"
-          : "border-map-accent/30 ring-map-accent/20",
+          ? "border-l-2 border-l-amber-500/60 border-t-map-accent/30 border-r-map-accent/30 border-b-map-accent/30 ring-amber-500/40"
+          : "border-map-accent/30 ring-map-border",
       )}
     >
       {/* Header */}
       <div className="flex items-start gap-3 border-b border-map-border px-4 py-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-map-border bg-map-surface/85">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-map-border bg-map-surface">
           <Icon className="h-4 w-4 text-map-accent" />
         </div>
         <div className="min-w-0 flex-1">
@@ -160,7 +160,7 @@ export function MapResultCard({ card, isPinned, onDismiss, onPin, onContinueInCh
             {card.stats && card.stats.length > 0 && (
               <div className="grid grid-cols-3 gap-px border-b border-map-border bg-map-border">
                 {card.stats.slice(0, 6).map((stat) => (
-                  <div key={stat.label} className="bg-map-panel/94 px-3 py-2 text-center">
+                  <div key={stat.label} className="bg-map-panel px-3 py-2 text-center">
                     <div className="text-xs font-semibold text-map-text-primary">{stat.value}</div>
                     <div className="mt-1 flex justify-center">
                       <Badge variant="outline" className="px-1.5 py-0 text-[8px]">
@@ -176,7 +176,7 @@ export function MapResultCard({ card, isPinned, onDismiss, onPin, onContinueInCh
               <div className="border-b border-map-border">
                 <ScrollArea className="max-h-48">
                   <Table className="text-[11px]">
-                    <TableHeader className="bg-map-surface/80">
+                    <TableHeader className="bg-map-surface">
                       <TableRow>
                         {tableColumns.map((column) => (
                           <TableHead
@@ -233,7 +233,7 @@ export function MapResultCard({ card, isPinned, onDismiss, onPin, onContinueInCh
                   className={
                     action.variant === "primary"
                       ? "bg-map-accent text-[11px] text-white hover:bg-map-accent/90"
-                      : "border-map-border bg-map-surface/80 text-[11px] text-map-text-primary hover:bg-map-surface-elevated"
+                      : "border-map-border bg-map-surface text-[11px] text-map-text-primary hover:bg-map-surface-elevated"
                   }
                 >
                   {action.label}
@@ -245,7 +245,7 @@ export function MapResultCard({ card, isPinned, onDismiss, onPin, onContinueInCh
                   size="sm"
                   variant="outline"
                   onClick={handlePin}
-                  className="border-amber-500/30 bg-map-surface/80 text-[11px] text-amber-300 hover:bg-map-surface-elevated hover:text-amber-200"
+                  className="border-amber-500/50 bg-map-surface text-[11px] text-amber-300 hover:bg-map-surface-elevated hover:text-amber-200"
                 >
                   <PinOff className="mr-1.5 h-3 w-3" />
                   Unpin
@@ -257,7 +257,7 @@ export function MapResultCard({ card, isPinned, onDismiss, onPin, onContinueInCh
                   size="sm"
                   variant="outline"
                   onClick={handleContinueInChat}
-                  className="ml-auto border-map-border bg-map-surface/80 text-[11px] text-map-text-muted hover:bg-map-surface-elevated hover:text-map-text-primary"
+                  className="ml-auto border-map-border bg-map-surface text-[11px] text-map-text-muted hover:bg-map-surface-elevated hover:text-map-text-primary"
                 >
                   Continue in chat
                 </Button>
@@ -295,7 +295,7 @@ export function MapResultCardStack({ cards, pinnedCardIds, onDismiss, onPin, onC
       {pinned.length > 0 && (
         <div className="pointer-events-none flex flex-col gap-3">
           <div className="pointer-events-auto flex items-center justify-center">
-            <Badge variant="outline" className="bg-map-panel/90 px-2 py-0.5 text-[9px] border-amber-500/30 text-amber-300 backdrop-blur-sm">
+            <Badge variant="outline" className="bg-map-panel px-2 py-0.5 text-[9px] border-amber-500 text-amber-300">
               Pinned Insights
             </Badge>
           </div>

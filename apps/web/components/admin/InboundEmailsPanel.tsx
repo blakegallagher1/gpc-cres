@@ -197,7 +197,7 @@ export function InboundEmailsPanel({
           return (
             <div
               key={email.id}
-              className="rounded border border-border/60 bg-card/30 p-2"
+              className="rounded border border-border bg-card/30 p-2"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex min-w-0 items-start gap-2">

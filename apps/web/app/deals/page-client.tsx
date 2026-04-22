@@ -686,7 +686,7 @@ function DealsPageContent({
               </div>
             )}
 
-            <div className="flex rounded-xl border border-border/60 bg-background/36">
+            <div className="flex rounded-xl border border-border bg-background">
               <Button
                 variant="ghost"
                 size="icon"

@@ -30,7 +30,7 @@ export default function SettingsPage() {
   return (
     <DashboardShell>
       <div className="space-y-6">
-        <section className="rounded-2xl border border-border/60 bg-card px-5 py-5">
+        <section className="rounded-2xl border border-border bg-card px-5 py-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-3">
               <Badge variant="outline" className="w-fit gap-2 px-3 py-1 uppercase tracking-[0.22em]">
@@ -48,7 +48,7 @@ export default function SettingsPage() {
 
             <Link
               href="/admin/codex"
-              className="inline-flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2 text-sm font-medium text-foreground transition hover:bg-muted/80"
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2 text-sm font-medium text-foreground transition hover:bg-muted"
             >
               <Sparkles className="h-4 w-4" />
               Open Codex workspace
@@ -77,9 +77,9 @@ export default function SettingsPage() {
                 <Link
                   key={section.title}
                   href={section.href}
-                  className="block rounded-2xl border border-border/60 bg-card px-5 py-5 transition hover:bg-muted/30"
+                  className="block rounded-2xl border border-border bg-card px-5 py-5 transition hover:bg-muted"
                 >
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-border/60 bg-muted/40">
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-muted">
                     <Icon className="h-5 w-5 text-foreground" />
                   </div>
                   <h2 className="text-base font-semibold">{section.title}</h2>

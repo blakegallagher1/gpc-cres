@@ -262,12 +262,12 @@ export default function AdminPage() {
 
           <TabsContent value="codex">
             <div className="grid gap-4">
-              <div className="rounded-lg border border-border/60 bg-card p-3 text-sm text-muted-foreground">
+              <div className="rounded-lg border border-border bg-card p-3 text-sm text-muted-foreground">
                 Codex chat is embedded below. Use "Open full page" to switch to a
                 standalone layout.
               </div>
               <a
-                className="w-fit rounded-md border border-border bg-muted px-3 py-1.5 text-sm text-foreground transition hover:bg-muted/80"
+                className="w-fit rounded-md border border-border bg-muted px-3 py-1.5 text-sm text-foreground transition hover:bg-muted"
                 href="/admin/codex"
                 target="_blank"
                 rel="noreferrer"

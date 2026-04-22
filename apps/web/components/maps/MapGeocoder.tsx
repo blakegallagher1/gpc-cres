@@ -152,7 +152,7 @@ export function MapGeocoder({ mapRef, parcels, onPlaceSelect }: MapGeocoderProps
 
   return (
     <div className="absolute left-1/2 top-3 z-30 w-[24rem] max-w-[calc(100vw-1.5rem)] -translate-x-1/2">
-      <div className="rounded-2xl border border-map-border/80 bg-map-panel/96 shadow-[0_24px_55px_-32px_rgba(15,23,42,0.92)] ring-1 ring-map-accent/15 backdrop-blur-md">
+      <div className="rounded-2xl border border-map-border bg-map-panel shadow-[0_24px_55px_-32px_rgba(15,23,42,0.92)] ring-1 ring-map-border">
         <div className="flex items-center gap-2 border-b border-map-border px-3 py-2">
           <Search className="h-3.5 w-3.5 text-map-text-muted" />
           <input

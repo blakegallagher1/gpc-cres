@@ -235,7 +235,7 @@ export function PriorityQueueSection({
             <Link
               key={`${item.dealId}-${item.title}`}
               href={`/deals/${item.dealId}`}
-              className="workspace-list-row group items-start transition-colors hover:bg-muted/18"
+              className="workspace-list-row group items-start transition-colors hover:bg-muted"
             >
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
                 <AlertTriangle className="h-4 w-4" />
@@ -254,7 +254,7 @@ export function PriorityQueueSection({
           ))}
         </div>
       ) : (
-        <div className="flex items-center gap-3 border-t border-border/50 py-5">
+        <div className="flex items-center gap-3 border-t border-border py-5">
           <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
           <p className="text-sm text-muted-foreground">No items are waiting for intervention.</p>
         </div>
@@ -307,7 +307,7 @@ export function OpportunityRadarSection({
       ) : opportunities.length > 0 ? (
         <div className="workspace-list">
           {error ? (
-            <div className="border-b border-border/60 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-200">
+            <div className="border-b border-border bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-200">
               Opportunity data could not be refreshed. Using cached data.
               <Button size="sm" variant="ghost" onClick={onRetry} className="ml-3 h-6 px-2">
                 <RefreshCw className="mr-1 h-3.5 w-3.5" />
@@ -321,7 +321,7 @@ export function OpportunityRadarSection({
               <Link
                 key={item.id}
                 href="/opportunities"
-                className="workspace-list-row group grid gap-3 transition-colors hover:bg-muted/18 md:grid-cols-[minmax(0,1fr)_auto]"
+                className="workspace-list-row group grid gap-3 transition-colors hover:bg-muted md:grid-cols-[minmax(0,1fr)_auto]"
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -338,7 +338,7 @@ export function OpportunityRadarSection({
                   </p>
                 </div>
                 <div className="flex items-start gap-3 md:flex-col md:items-end">
-                  <div className="rounded-full border border-border/70 px-3 py-1 text-sm font-semibold">
+                  <div className="rounded-full border border-border px-3 py-1 text-sm font-semibold">
                     {matchScore}
                   </div>
                   <span className="text-xs text-muted-foreground">
@@ -360,7 +360,7 @@ export function OpportunityRadarSection({
           </div>
         </div>
       ) : (
-        <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-5">
+        <div className="flex items-center gap-3 rounded-xl border border-border bg-muted px-4 py-5">
           <Sparkles className="h-5 w-5 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
             The queue is clear. New parcel matches will appear here after the next scan.
@@ -427,7 +427,7 @@ export function PipelineFlowSection({
                 <Link
                   key={stage.key}
                   href={`/deals?status=${stage.key}`}
-                  className="block rounded-xl border border-border/60 px-4 py-3 transition-colors hover:bg-muted/40"
+                  className="block rounded-xl border border-border px-4 py-3 transition-colors hover:bg-muted"
                 >
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-medium">{stage.label}</span>
@@ -444,7 +444,7 @@ export function PipelineFlowSection({
             })}
           </div>
 
-          <div className="rounded-xl border border-border/60 p-4">
+          <div className="rounded-xl border border-border p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               14-day cadence
             </p>
@@ -588,12 +588,12 @@ export function DeadlineLoadSection({
             ))}
           </div>
 
-          <div className="divide-y divide-border/60 rounded-xl border border-border/60">
+          <div className="divide-y divide-border/60 rounded-xl border border-border">
             {deadlines.slice(0, 6).map((deadline) => (
               <Link
                 key={deadline.taskId}
                 href={`/deals/${deadline.dealId}`}
-                className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40"
+                className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted"
               >
                 <div
                   className={cn(
@@ -622,7 +622,7 @@ export function DeadlineLoadSection({
           </Button>
         </div>
       ) : (
-        <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-5">
+        <div className="flex items-center gap-3 rounded-xl border border-border bg-muted px-4 py-5">
           <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
           <p className="text-sm text-muted-foreground">No upcoming deadlines are loaded.</p>
         </div>
@@ -658,7 +658,7 @@ export function AutomationStreamSection({
           ))}
         </div>
       ) : items.length > 0 ? (
-        <div className="divide-y divide-border/60 rounded-xl border border-border/60">
+        <div className="divide-y divide-border/60 rounded-xl border border-border">
           {items.map((item) => {
             const Icon = statusIcon[item.status] ?? Activity;
             return (
@@ -686,7 +686,7 @@ export function AutomationStreamSection({
           })}
         </div>
       ) : (
-        <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-5">
+        <div className="flex items-center gap-3 rounded-xl border border-border bg-muted px-4 py-5">
           <Zap className="h-5 w-5 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
             No automation activity was recorded in the last 24 hours.

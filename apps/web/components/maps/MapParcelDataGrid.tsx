@@ -58,7 +58,7 @@ export function MapParcelDataGrid({
       className={
         embedded
           ? "flex h-full min-h-0 flex-col bg-transparent"
-          : "flex h-full w-[26rem] flex-col border-l border-map-border bg-map-surface-overlay/98"
+          : "flex h-full w-[26rem] flex-col border-l border-map-border bg-map-surface-overlay"
       }
     >
       <div className="border-b border-map-border px-3 py-3">

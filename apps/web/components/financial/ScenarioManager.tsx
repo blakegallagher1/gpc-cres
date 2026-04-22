@@ -279,7 +279,7 @@ export function ScenarioManager({
               <thead>
                 <tr className="border-b">
                   <th className="p-1.5 text-left font-medium text-muted-foreground">Metric</th>
-                  <th className="p-1.5 text-center font-medium bg-muted/30">Current</th>
+                  <th className="p-1.5 text-center font-medium bg-muted">Current</th>
                   {comparedScenarios.map(({ scenario }) => (
                     <th key={scenario.id} className="p-1.5 text-center font-medium">
                       {scenario.name}
@@ -291,7 +291,7 @@ export function ScenarioManager({
                 {COMPARISON_METRICS.map((m) => (
                   <tr key={m.label} className="border-b last:border-0">
                     <td className="p-1.5 font-medium">{m.label}</td>
-                    <td className="p-1.5 text-center tabular-nums bg-muted/30">
+                    <td className="p-1.5 text-center tabular-nums bg-muted">
                       {currentResults ? m.getter(currentResults) : "-"}
                     </td>
                     {comparedScenarios.map(({ scenario, results }) => (

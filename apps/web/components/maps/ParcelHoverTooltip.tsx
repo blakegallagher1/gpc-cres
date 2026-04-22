@@ -74,7 +74,7 @@ export function ParcelHoverTooltip({ parcel, point, containerSize }: ParcelHover
       exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98, y: 2 }}
       transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] as const }}
       className={cn(
-        "pointer-events-none absolute z-50 w-56 rounded-lg border border-slate-800/90 bg-slate-950/95 px-3 py-2 text-[10px] leading-4 text-white shadow-xl backdrop-blur-md",
+        "pointer-events-none absolute z-50 w-56 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-[10px] leading-4 text-white shadow-xl",
       )}
       style={{
         left: position.left,
