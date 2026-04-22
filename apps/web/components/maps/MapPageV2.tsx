@@ -46,6 +46,7 @@ interface MapPageV2Props {
   ) => void;
   onMapReady?: () => void;
   onHudStateChange?: (state: MapHudState) => void;
+  showChrome?: boolean;
   searchSlot?: React.ReactNode;
   dataFreshnessLabel?: string;
   latencyLabel?: string;
@@ -315,6 +316,7 @@ export const MapPageV2 = forwardRef<MapLibreParcelMapRef, MapPageV2Props>(
           onViewStateChange={props.onViewStateChange}
           onMapReady={props.onMapReady}
           onHudStateChange={props.onHudStateChange}
+          showChrome={props.showChrome}
           searchSlot={props.searchSlot}
           dataFreshnessLabel={props.dataFreshnessLabel}
           latencyLabel={props.latencyLabel}

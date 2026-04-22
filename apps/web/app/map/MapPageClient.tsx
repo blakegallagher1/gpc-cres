@@ -12,11 +12,34 @@ import {
   useSyncExternalStore,
 } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Loader2, Search } from "lucide-react";
+import {
+  Activity,
+  ArrowUpRight,
+  BarChart3,
+  Bell,
+  Book,
+  Building2,
+  Camera,
+  ChevronDown,
+  Layers3,
+  Loader2,
+  LogOut,
+  Map as MapIcon,
+  MapPin,
+  Maximize2,
+  Minus,
+  Plus,
+  Search,
+  Settings,
+  Share2,
+  SunMedium,
+  Upload,
+  Workflow,
+} from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { DashboardShell } from "@/components/layout/DashboardShell";
 import { MapOperatorConsole } from "@/components/maps/MapOperatorConsole";
 import type { ParcelMapRef } from "@/components/maps/ParcelMap";
 import { ScreeningScorecard } from "@/components/maps/ScreeningScorecard";
@@ -48,6 +71,7 @@ import {
 import type { MapFeature } from "@/lib/chat/mapActionTypes";
 import { mapFeaturesFromGeoJson } from "@/lib/chat/mapFeatureUtils";
 import { normalizeParcelId } from "@/lib/maps/parcelIdentity";
+import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/uiStore";
 import {
   buildSuggestionLookupText,
@@ -1534,195 +1558,348 @@ export function MapPageClient() {
     setMapRefVersion((value) => value + 1);
   }, []);
 
+  const shellRef = useRef<HTMLDivElement | null>(null);
+  const railItems = [
+    { href: "/map", label: "Map", icon: MapIcon },
+    { href: "/runs", label: "Runs", icon: Building2 },
+    { href: "/saved-searches", label: "Parcels", icon: Book },
+    { href: "/workflows", label: "Workflows", icon: Workflow },
+    { href: "/prospecting", label: "Prospecting", icon: Search },
+    { href: "/analytics", label: "Analytics", icon: BarChart3 },
+    { href: "/market", label: "Live", icon: Activity },
+    { href: "/evidence", label: "Exports", icon: Upload },
+    { href: "/settings", label: "Settings", icon: Settings },
+  ] as const;
+  const legendItems = [
+    { label: "Industrial (M1, M2, M3)", color: "bg-[#4567ff]" },
+    { label: "Commercial (C1-C5)", color: "bg-[#f0b441]" },
+    { label: "Residential (A1-A5, RE)", color: "bg-[#51b55b]" },
+    { label: "Buffer (B1)", color: "bg-[#858b97]" },
+    { label: "Planned Unit Dev (PUD)", color: "bg-[#5d47d7]" },
+    { label: "Unknown", color: "bg-[#c6cad3]" },
+    { label: "Wetlands", color: "bg-[#4d89d8]" },
+  ] as const;
+
+  const handleShareMap = useCallback(async () => {
+    const url =
+      typeof window !== "undefined" ? window.location.href : "https://gallagherpropco.com/map";
+    if (typeof navigator !== "undefined" && "share" in navigator) {
+      try {
+        await navigator.share({ title: "Gallagher Map", url });
+        return;
+      } catch {
+        // Fall through to clipboard copy.
+      }
+    }
+
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(url);
+    }
+  }, []);
+
+  const handleFullscreen = useCallback(async () => {
+    if (!shellRef.current) return;
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+      return;
+    }
+    await shellRef.current.requestFullscreen();
+  }, []);
+
+  const handleLocateUser = useCallback(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition((position) => {
+      focusCoordinates(position.coords.latitude, position.coords.longitude);
+    });
+  }, [focusCoordinates]);
+
   return (
-    <DashboardShell noPadding>
-      <div
-        className="map-page relative flex h-[calc(100svh-var(--app-header-height))] flex-col overflow-hidden"
-        data-route-id="map"
-        data-route-path={pathname}
-        aria-label="Map workspace"
-      >
-        <h1 className="sr-only">Map workspace</h1>
-        {!loading && (
-          <>
-            <div className="relative flex min-h-0 flex-1">
-              <div className="relative min-w-0 flex-1">
-                <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex justify-end">
-                  <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-end gap-2 rounded-2xl border border-map-border bg-map-surface-overlay/98 px-3 py-2 shadow-[0_20px_55px_-34px_rgba(15,23,42,0.72)]">
-                    <span className="mr-1 font-mono text-[10px] uppercase tracking-[0.18em] text-map-text-muted">
-                      Operator actions
-                    </span>
-                    <Badge variant="outline" className="px-2 py-0.5 text-[9px]">
-                      {workingSetCount} selected
-                    </Badge>
-                    {trackedSummary.totalCount > 0 ? (
-                      <Badge variant="secondary" className="px-2 py-0.5 text-[9px]">
-                        {trackedSummary.totalCount} tracked
-                      </Badge>
-                    ) : null}
-                    <Badge
-                      variant="outline"
-                      className="px-2 py-0.5 text-[9px]"
-                    >
-                      {workspaceSyncState === "connected"
-                        ? "Workspace connected"
-                        : workspaceSyncState === "saving"
-                          ? "Workspace saving"
-                          : workspaceSyncState === "empty"
-                            ? "Workspace empty"
-                            : workspaceSyncState === "local-bypass"
-                              ? "Workspace bypass"
-                              : "Workspace degraded"}
-                    </Badge>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={sidebarOpen ? "secondary" : "default"}
-                      className="h-8 text-xs"
-                      onClick={() => setSidebarOpen((value) => !value)}
-                    >
-                      {sidebarOpen ? "Hide console" : "Open console"}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={activePanel === "chat" ? "secondary" : "outline"}
-                      className="h-8 text-xs"
-                      onClick={() =>
-                        setActivePanel((value) => (value === "chat" ? null : "chat"))
-                      }
-                    >
-                      {activePanel === "chat" ? "Close copilot" : "Open copilot"}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={activePanel === "prospecting" ? "secondary" : "outline"}
-                      className="h-8 text-xs"
-                      onClick={() =>
-                        setActivePanel((value) => (value === "prospecting" ? null : "prospecting"))
-                      }
-                    >
-                      {activePanel === "prospecting" ? "Close prospecting" : "Open prospecting"}
-                    </Button>
-                    {workspaceSyncState === "degraded" ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-8 text-xs"
-                        onClick={reloadWorkspace}
-                      >
-                        Retry workspace
-                      </Button>
-                    ) : null}
-                    {workspaceSyncMessage ? (
-                      <span className="text-[10px] text-map-text-muted">
-                        {workspaceSyncMessage}
-                      </span>
-                    ) : null}
-                  </div>
+    <div
+      ref={shellRef}
+      className="map-page min-h-screen bg-[#06080d] text-map-text-primary"
+      data-route-id="map"
+      data-route-path={pathname}
+      aria-label="Map workspace"
+    >
+      <h1 className="sr-only">Map workspace</h1>
+      <div className="flex min-h-screen">
+        <aside className="hidden w-[124px] shrink-0 flex-col border-r border-white/8 bg-[#080b11] px-4 py-5 md:flex">
+          <div className="flex flex-1 flex-col gap-4.5">
+            {railItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = pathname === item.href || (item.href !== "/map" && pathname.startsWith(item.href));
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex flex-col items-center gap-3 rounded-[26px] border px-3 py-4.5 text-center transition-colors",
+                    isActive
+                      ? "border-white/16 bg-white/10 text-white shadow-[0_24px_48px_-30px_rgba(0,0,0,0.9)]"
+                      : "border-white/8 bg-white/[0.03] text-white/60 hover:border-white/14 hover:bg-white/[0.05] hover:text-white",
+                  )}
+                >
+                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03]">
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <span className="text-[13px] font-medium tracking-[-0.01em]">{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+          <div className="mt-6 flex h-20 w-20 items-center justify-center self-center rounded-full border border-white/12 bg-[#0b0f16] text-[2rem] font-semibold text-white/90">
+            G
+          </div>
+        </aside>
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="border-b border-white/8 bg-[#05070b] px-5 py-5 md:px-7 xl:px-8">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+              <div className="space-y-2.5">
+                <p className="font-mono text-[13px] uppercase tracking-[0.38em] text-white/45">
+                  Gallagher Property Company Operate
+                </p>
+                <div className="space-y-1.5">
+                  <h2 className="text-[3.2rem] font-semibold tracking-[-0.065em] text-white">Map</h2>
+                  <p className="text-[15px] text-white/48">
+                    3 routes <span className="mx-3">•</span> Spatial intelligence, prospecting, and parcel analysis
+                  </p>
                 </div>
-                <AnimatePresence initial={false}>
-                  {activePanel === "chat" ? (
-                    <MapChatPanel
-                      key="map-chat-panel"
-                      parcelCount={activeParcels.length}
-                      selectedCount={selectedParcelIds.size}
-                      viewportLabel={statusText}
-                      onClose={() => setActivePanel(null)}
+              </div>
+
+              <div className="flex flex-1 flex-col gap-3 xl:max-w-[1240px]">
+                <div className="flex flex-wrap items-center gap-3 xl:justify-end">
+                  <div className="flex min-w-[320px] flex-1 items-center gap-3 rounded-[22px] border border-white/10 bg-white/[0.04] px-5 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] xl:max-w-[840px]">
+                    <Search className="h-5 w-5 text-white/45" />
+                    <input
+                      type="search"
+                      value={searchText}
+                      onChange={(event) => setSearchText(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          submitSearch();
+                        }
+                      }}
+                      placeholder="Search operates, parcels, runs, and workflows"
+                      className="h-9 flex-1 bg-transparent text-[1.05rem] text-white/75 outline-none placeholder:text-white/35"
                     />
-                  ) : null}
-                  {activePanel === "prospecting" ? (
-                    <MapProspectingPanel
-                      key="map-prospecting-panel"
-                      polygon={polygon}
-                      onClose={() => setActivePanel(null)}
-                    />
-                  ) : null}
-                </AnimatePresence>
-                <ParcelMap
-              ref={attachMapRef}
-              parcels={activeParcels}
-              center={mapCenter}
-              zoom={mapZoom}
-              height="100%"
-              showTools
-              polygon={polygon}
-              onPolygonDrawn={(coords) => {
-                setPolygon(coords);
-              }}
-              onPolygonCleared={clearPolygon}
-              onParcelClick={(id) => {
-                const parcel = activeParcels.find((p) => p.id === id);
-                if (parcel?.dealId) router.push(`/deals/${parcel.dealId}`);
-              }}
-              onSelectionChange={(ids) => {
-                mapDispatch({
-                  type: "SELECT_PARCELS",
-                  parcelIds: Array.from(ids),
-                });
-              }}
-              onViewStateChange={(center, zoom, bounds) => {
-                mapDispatch({
-                  type: "SET_VIEWPORT",
-                  center: [center[1], center[0]],
-                  zoom,
-                  bounds,
-                });
-              }}
-              onMapReady={() => {
-                setIsMapReady(true);
-              }}
-              onHudStateChange={setMapHudState}
-              dataFreshnessLabel={dataFreshnessLabel}
-              latencyLabel={latencyLabel}
-              selectedParcelIds={selectedParcelIds}
-              highlightParcelIds={trackedParcelIds}
-              searchSlot={
-                <div className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-2">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted">
-                      Live geography intelligence
-                    </p>
-                    <h2 className="max-w-[15ch] text-xl font-semibold tracking-[-0.04em] text-map-text-primary">
-                      Draw the boundary. Surface the opportunity.
-                    </h2>
-                    <p className="text-[11px] leading-5 text-map-text-secondary">
-                      Build the working parcel set, read the live geography, and hand the map context straight into copilot, prospecting, or comparison.
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 border-y border-map-border/80 py-3 text-[10px] sm:grid-cols-4">
-                    <div>
-                      <div className="map-stat-label">Working set</div>
-                      <div className="map-stat-value">{activeParcels.length}</div>
-                    </div>
-                    <div>
-                      <div className="map-stat-label">Matches</div>
-                      <div className="map-stat-value">{searchMatchCount}</div>
-                    </div>
-                    <div>
-                      <div className="map-stat-label">Tracked</div>
-                      <div className="map-stat-value">{trackedSummary.totalCount}</div>
-                    </div>
-                    <div>
-                      <div className="map-stat-label">Source</div>
-                      <div className="map-stat-value">{sourceLabel}</div>
+                    <div className="hidden items-center gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-1.5 text-right xl:flex">
+                      <div>
+                        <div className="font-mono text-[18px] leading-none text-white/75">9</div>
+                        <div className="font-mono text-[10px] uppercase tracking-[0.24em] text-white/30">
+                          Desks
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 rounded-xl border border-white/8 bg-white/[0.02] px-2 py-1 text-white/50">
+                        <Command className="h-3.5 w-3.5" />
+                        <span className="font-mono text-xs">K</span>
+                      </div>
                     </div>
                   </div>
-                  <section className="space-y-2 rounded-xl border border-map-border/80 bg-map-surface-overlay/90 p-3">
-                    <div className="space-y-1">
-                      <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted">
-                        Parcel lookup
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-11 w-11 rounded-2xl border-white/12 bg-white/[0.03] text-white/75 hover:bg-white/[0.08] hover:text-white"
+                    onClick={() => setTheme("dark")}
+                  >
+                    <SunMedium className="h-5 w-5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-11 w-11 rounded-2xl border-white/12 bg-white/[0.03] text-white/75 hover:bg-white/[0.08] hover:text-white"
+                  >
+                    <Bell className="h-5 w-5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 rounded-2xl border-white/12 bg-white/[0.03] px-5 text-[1.05rem] text-white/80 hover:bg-white/[0.08] hover:text-white"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign Out
+                  </Button>
+                  <Button
+                    type="button"
+                    className="h-12 rounded-2xl bg-white px-6 text-[1.08rem] font-medium text-black hover:bg-white/90"
+                    onClick={() => router.push("/chat")}
+                  >
+                    <Plus className="mr-2 h-5 w-5" />
+                    New Run
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <main className="flex-1 p-3 md:p-4 xl:p-5">
+            <div className="relative h-full min-h-[780px] overflow-hidden rounded-[28px] border border-white/10 bg-[#070910] shadow-[0_36px_100px_-52px_rgba(0,0,0,1)]">
+              <ParcelMap
+                ref={attachMapRef}
+                parcels={activeParcels}
+                center={mapCenter}
+                zoom={mapZoom}
+                height="100%"
+                showChrome={false}
+                polygon={polygon}
+                onPolygonDrawn={(coords) => {
+                  setPolygon(coords);
+                }}
+                onPolygonCleared={clearPolygon}
+                onParcelClick={(id) => {
+                  const parcel = activeParcels.find((p) => p.id === id);
+                  if (parcel?.dealId) router.push(`/deals/${parcel.dealId}`);
+                }}
+                onSelectionChange={(ids) => {
+                  mapDispatch({
+                    type: "SELECT_PARCELS",
+                    parcelIds: Array.from(ids),
+                  });
+                }}
+                onViewStateChange={(center, zoom, bounds) => {
+                  mapDispatch({
+                    type: "SET_VIEWPORT",
+                    center: [center[1], center[0]],
+                    zoom,
+                    bounds,
+                  });
+                }}
+                onMapReady={() => {
+                  setIsMapReady(true);
+                }}
+                onHudStateChange={setMapHudState}
+                dataFreshnessLabel={dataFreshnessLabel}
+                latencyLabel={latencyLabel}
+                selectedParcelIds={selectedParcelIds}
+                highlightParcelIds={trackedParcelIds}
+              />
+
+              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(2,5,10,0.28)_0%,rgba(2,5,10,0.02)_18%,rgba(2,5,10,0)_42%,rgba(2,5,10,0.42)_100%)]" />
+
+              <div className="pointer-events-none absolute inset-x-4 top-4 z-20 md:inset-x-5 md:top-5">
+                <div className="pointer-events-auto flex flex-wrap items-center gap-3 rounded-[24px] border border-white/12 bg-[#0a0e15]/95 px-4 py-3 shadow-[0_26px_70px_-40px_rgba(0,0,0,0.95)] backdrop-blur-md md:px-5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-[58px] rounded-2xl border-white/12 bg-white/[0.03] px-5 text-[1.02rem] text-white/80 hover:bg-white/[0.08] hover:text-white"
+                  >
+                    <Layers3 className="mr-2 h-5 w-5" />
+                    Layers
+                    <ChevronDown className="ml-3 h-4 w-4" />
+                  </Button>
+                  <form
+                    onSubmit={handleSearchSubmit}
+                    className="flex min-w-[280px] flex-1 items-center gap-3 rounded-[18px] border border-white/10 bg-white/[0.03] px-4 py-2.5"
+                  >
+                    <Search className="h-5 w-5 text-white/40" />
+                    <input
+                      type="search"
+                      value={searchText}
+                      onChange={(event) => {
+                        setSearchText(event.target.value);
+                        setSearchLookupOverride(null);
+                        setSelectedSuggestion(null);
+                        setActiveSuggestionIndex(-1);
+                      }}
+                      onKeyDown={handleSearchKeyDown}
+                      placeholder="Search address, parcel, or owner"
+                      className="h-10 flex-1 bg-transparent text-[1.05rem] text-white/75 outline-none placeholder:text-white/35"
+                    />
+                  </form>
+                  <Button
+                    type="button"
+                    className="h-[58px] rounded-2xl border border-cyan-400/55 bg-[#0d1620] px-6 text-[1.02rem] text-white shadow-[inset_0_0_0_1px_rgba(6,182,212,0.32)] hover:bg-[#13202e]"
+                    onClick={() => setSidebarOpen((value) => !value)}
+                  >
+                    {sidebarOpen ? "Close console" : "Open console"}
+                  </Button>
+                  <Button
+                    type="button"
+                    className="h-[58px] rounded-2xl border border-[#8dc15c]/35 bg-[#12180f] px-6 text-[1.02rem] text-white shadow-[inset_0_0_0_1px_rgba(141,193,92,0.2)] hover:bg-[#182112]"
+                    onClick={() => setActivePanel((value) => (value === "chat" ? null : "chat"))}
+                  >
+                    {activePanel === "chat" ? "Close copilot" : "Open copilot"}
+                  </Button>
+                  <Button
+                    type="button"
+                    className="h-[58px] rounded-2xl border border-[#7453df]/35 bg-[#16111f] px-6 text-[1.02rem] text-white shadow-[inset_0_0_0_1px_rgba(116,83,223,0.22)] hover:bg-[#1d1628]"
+                    onClick={() =>
+                      setActivePanel((value) => (value === "prospecting" ? null : "prospecting"))
+                    }
+                  >
+                    {activePanel === "prospecting" ? "Close prospecting" : "Open prospecting"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-[58px] rounded-2xl border-white/12 bg-white/[0.03] px-5 text-[1.02rem] text-white/80 hover:bg-white/[0.08] hover:text-white"
+                    onClick={() => void handleShareMap()}
+                  >
+                    <Share2 className="mr-2 h-4 w-4" />
+                    Share
+                  </Button>
+                </div>
+              </div>
+
+              <div className="pointer-events-none absolute left-4 top-[92px] z-20 hidden w-[476px] xl:block">
+                <div className="pointer-events-auto rounded-[26px] border border-white/12 bg-[#111720]/96 shadow-[0_30px_90px_-46px_rgba(0,0,0,1)] backdrop-blur-md">
+                  <div className="space-y-5 border-b border-white/10 px-5 py-5">
+                    <div className="space-y-3">
+                      <p className="font-mono text-[13px] uppercase tracking-[0.28em] text-white/48">
+                        Geography Workbench
                       </p>
-                      <p className="text-[11px] leading-5 text-map-text-secondary">
-                        Search by address, parcel id, or owner to move the map with a deterministic parcel target.
-                      </p>
+                      <div className="space-y-3">
+                        <h3 className="max-w-[12ch] text-[3.05rem] font-semibold leading-[0.98] tracking-[-0.065em] text-white">
+                          Run the geography workflow from one panel.
+                        </h3>
+                        <p className="max-w-[30ch] text-[15px] leading-7 text-white/43">
+                          Search, build the working set, tune layers, and move into analysis without breaking focus.
+                        </p>
+                      </div>
                     </div>
-                    <form
-                      onSubmit={handleSearchSubmit}
-                      className="flex flex-col gap-1.5"
-                    >
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        { label: "Screenshot", icon: Camera, onClick: () => void handleShareMap() },
+                        { label: "Fullscreen", icon: Maximize2, onClick: () => void handleFullscreen() },
+                        { label: "Share Map", icon: Share2, onClick: () => void handleShareMap() },
+                      ].map((action) => {
+                        const Icon = action.icon;
+                        return (
+                          <Button
+                            key={action.label}
+                            type="button"
+                            variant="outline"
+                            className="h-[82px] flex-col gap-3 rounded-[22px] border-white/10 bg-white/[0.03] text-[15px] text-white/82 hover:bg-white/[0.08] hover:text-white"
+                            onClick={action.onClick}
+                          >
+                            <Icon className="h-5 w-5" />
+                            {action.label}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 border-b border-white/10 px-5 py-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-2">
+                        <p className="font-mono text-[12px] uppercase tracking-[0.28em] text-white/44">
+                          Search • Entry point
+                        </p>
+                        <h4 className="max-w-[10ch] text-[2.15rem] font-semibold leading-[1.02] tracking-[-0.055em] text-white">
+                          Find the parcel or place first.
+                        </h4>
+                        <p className="text-[15px] leading-7 text-white/42">
+                          Use parcel lookup to move the map, then refine the display once the target geography is locked.
+                        </p>
+                      </div>
+                      <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/75">
+                        <Search className="h-5 w-5" />
+                      </span>
+                    </div>
+                    <form onSubmit={handleSearchSubmit} className="space-y-3">
                       <Popover open={showSuggestionSurface}>
                         <PopoverTrigger asChild>
                           <div>
@@ -1743,25 +1920,23 @@ export function MapPageClient() {
                                   setActiveSuggestionIndex(-1);
                                 }, 120);
                               }}
-                              placeholder="Search by address, parcel id, or owner"
-                              className="h-8 border-map-border bg-map-surface text-xs text-map-text-primary placeholder:text-map-text-muted"
+                              placeholder="Search address, parcel, or owner"
+                              className="h-[56px] rounded-[18px] border-white/10 bg-white/[0.03] px-4 text-[1.04rem] text-white placeholder:text-white/32"
                             />
                           </div>
                         </PopoverTrigger>
                         <PopoverContent
                           align="start"
-                          className="w-[var(--radix-popover-trigger-width)] border-map-border bg-map-surface p-0"
+                          className="w-[var(--radix-popover-trigger-width)] rounded-[18px] border-white/10 bg-[#10151d] p-0"
                           onOpenAutoFocus={(event) => event.preventDefault()}
                         >
-                          <Command className="bg-map-surface text-map-text-primary">
-                            <CommandList className="max-h-44">
+                          <Command className="bg-[#10151d] text-white">
+                            <CommandList className="max-h-56">
                               {isSuggestLoading ? (
-                                <div className="px-3 py-2 text-[10px] text-map-text-muted">
-                                  Matching addresses...
-                                </div>
+                                <div className="px-4 py-3 text-sm text-white/45">Matching addresses...</div>
                               ) : (
                                 <>
-                                  <CommandEmpty className="py-3 text-[10px] text-map-text-muted">
+                                  <CommandEmpty className="py-4 text-sm text-white/45">
                                     No address suggestions
                                   </CommandEmpty>
                                   <CommandGroup heading="Suggested matches">
@@ -1771,18 +1946,17 @@ export function MapPageClient() {
                                         value={suggestion.address}
                                         onMouseDown={(event) => event.preventDefault()}
                                         onSelect={() => selectSuggestion(suggestion)}
-                                        className={
+                                        className={cn(
+                                          "px-4 py-3",
                                           index === activeSuggestionIndex
-                                            ? "bg-map-accent/25 text-map-text-primary"
-                                            : "text-map-text-secondary"
-                                        }
+                                            ? "bg-white/10 text-white"
+                                            : "text-white/72",
+                                        )}
                                       >
-                                        <div className="flex min-w-0 flex-col gap-0.5 py-0.5">
-                                          <span className="truncate text-[10px] font-medium">
-                                            {suggestion.address}
-                                          </span>
+                                        <div className="flex min-w-0 flex-col gap-1">
+                                          <span className="truncate text-sm font-medium">{suggestion.address}</span>
                                           {suggestion.parcelId || suggestion.propertyDbId ? (
-                                            <span className="text-[9px] text-map-text-muted">
+                                            <span className="text-xs text-white/40">
                                               Parcel {suggestion.parcelId ?? suggestion.propertyDbId}
                                             </span>
                                           ) : null}
@@ -1796,155 +1970,159 @@ export function MapPageClient() {
                           </Command>
                         </PopoverContent>
                       </Popover>
-                      <div className="flex items-center gap-2">
+                    </form>
+                  </div>
+
+                  <div className="space-y-4 border-b border-white/10 px-5 py-5">
+                    <div className="space-y-2">
+                      <p className="font-mono text-[12px] uppercase tracking-[0.28em] text-white/44">
+                        Live geography intelligence
+                      </p>
+                      <h4 className="max-w-[11ch] text-[2.32rem] font-semibold leading-[1.03] tracking-[-0.055em] text-white">
+                        Draw the boundary. Surface the opportunity.
+                      </h4>
+                      <p className="text-[15px] leading-7 text-white/42">
+                        Build the working parcel set, read the live geography, and hand the map context straight into copilot, prospecting, or comparison.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-4 rounded-[20px] border border-[#3b8d54] bg-[#0f1512] px-4 py-4.5">
+                      <div>
+                        <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-white/45">Working set</div>
+                        <div className="mt-2 text-[2rem] font-semibold tracking-[-0.06em] text-white">{workingSetCount}</div>
+                      </div>
+                      <div>
+                        <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-white/45">Matches</div>
+                        <div className="mt-2 text-[2rem] font-semibold tracking-[-0.06em] text-white">{searchMatchCount}</div>
+                      </div>
+                      <div>
+                        <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-white/45">Tracked</div>
+                        <div className="mt-2 text-[2rem] font-semibold tracking-[-0.06em] text-white">{trackedSummary.totalCount}</div>
+                      </div>
+                      <div>
+                        <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-white/45">Source</div>
+                        <div className="mt-2 text-[1.1rem] font-medium leading-5 text-[#7fdc86]">{sourceLabel}</div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <p className="font-mono text-[12px] uppercase tracking-[0.28em] text-white/44">
+                        Parcel lookup
+                      </p>
+                      <p className="text-[15px] leading-7 text-white/42">
+                        Search by address, parcel id, or owner to move the map with a deterministic parcel target.
+                      </p>
+                      <form onSubmit={handleSearchSubmit} className="flex items-center gap-3">
+                        <Input
+                          aria-label="Parcel lookup input"
+                          value={searchText}
+                          onChange={(event) => setSearchText(event.target.value)}
+                          placeholder="Search by address, parcel id, or owner"
+                          className="h-[56px] rounded-[18px] border-white/10 bg-white/[0.03] px-4 text-[1.04rem] text-white placeholder:text-white/32"
+                        />
                         <Button
                           type="submit"
-                          size="sm"
-                          disabled={!searchText.trim()}
+                          size="icon"
                           onClick={submitSearch}
-                          className="map-btn h-7 flex-1 text-xs"
+                          disabled={!searchText.trim()}
+                          className="h-[56px] w-[56px] rounded-[18px] bg-[#5dc464] text-black hover:bg-[#74d47b]"
                         >
-                          {isSearchLoading ? (
-                            <span className="inline-flex items-center gap-2">
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                              Searching
-                            </span>
-                          ) : (
-                            <>
-                              <Search className="mr-1.5 h-3 w-3" />
-                              Locate parcel
-                            </>
-                          )}
+                          {isSearchLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <ArrowUpRight className="h-5 w-5" />}
                         </Button>
-                        {polygon ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="map-btn h-7 text-xs"
-                            onClick={clearPolygon}
-                          >
-                            Clear boundary
-                          </Button>
-                        ) : null}
-                      </div>
-                    </form>
-                  </section>
-
-                  <section className="space-y-2 rounded-xl border border-map-border/80 bg-map-surface-overlay/90 p-3">
-                    <div className="space-y-1">
-                      <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-map-text-muted">
-                        Analyze this geography
-                      </p>
-                      <p className="text-[11px] leading-5 text-map-text-secondary">
-                        Ask for comparisons, zoning pressure, flood exposure, permit momentum, or the next best parcel move across the active geography.
-                      </p>
-                    </div>
-                    <form onSubmit={handleAnalysisSubmit} className="flex flex-col gap-1.5">
-                      <Input
-                        aria-label="Map AI analysis"
-                        value={analysisText}
-                        onChange={(event) => setAnalysisText(event.target.value)}
-                        placeholder="Ask for zoning pressure, flood exposure, comps, or next steps"
-                        className="h-8 border-map-border bg-map-surface text-xs text-map-text-primary placeholder:text-map-text-muted"
-                      />
-                      {analysisText.trim() &&
-                      isLikelyParcelLookupQuery(analysisText) &&
-                      !isLikelyMapAnalysisQuery(analysisText) ? (
-                        <p className="text-[10px] text-map-text-muted">
-                          Direct addresses and parcel ids will be routed through parcel search instead of AI analysis.
-                        </p>
-                      ) : !hasActionableGeography ? (
-                        <p className="text-[10px] text-map-text-muted">
-                          Select a parcel or draw a boundary to activate geography analysis.
-                        </p>
-                      ) : null}
-                      <Button
-                        type="submit"
-                        size="sm"
-                        disabled={!analysisText.trim() || !hasActionableGeography}
-                        className="map-btn h-7 text-xs"
-                      >
-                        {nlQueryLoading ? (
-                          <span className="inline-flex items-center gap-2">
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            Analyzing
-                          </span>
-                        ) : (
-                          "Analyze this geography"
-                        )}
-                      </Button>
-                    </form>
-                  </section>
-                  <div className="grid grid-cols-3 gap-2 border-t border-map-border pt-3">
-                    <div>
-                      <div className="map-stat-label">Working set</div>
-                      <div className="map-stat-value">{workingSetCount}</div>
-                    </div>
-                    <div>
-                      <div className="map-stat-label">Matches</div>
-                      <div className="map-stat-value">{searchMatchCount}</div>
-                    </div>
-                    <div>
-                      <div className="map-stat-label">Nearby</div>
-                      <div className="map-stat-value">{polygon ? "Drawn" : nearbyParcelCount}</div>
+                      </form>
                     </div>
                   </div>
-                  <div className="flex flex-col gap-1 border-t border-map-border pt-3">
-                    <p className="text-[10px] text-map-text-secondary">
-                      {statusText}
-                      {!polygon && debouncedSearch && !loadError
-                        ? ` \u2022 ${nearbyParcelCount} nearby within ${SURROUNDING_PARCELS_RADIUS_MILES} mi`
-                        : ""}
-                    </p>
-                      <div className="flex flex-wrap items-center gap-2 text-[10px] text-map-text-muted">
-                        <Badge variant="outline" className="px-2 py-0.5 text-[9px]">
-                          {sourceLabel}
-                        </Badge>
-                        {workingSetCount > 0 ? (
-                          <Badge variant="secondary" className="px-2 py-0.5 text-[9px]">
-                          {workingSetCount} selected for follow-up
-                          </Badge>
-                        ) : null}
-                        {trackedSummary.openCount > 0 ? (
-                          <Badge variant="outline" className="px-2 py-0.5 text-[9px]">
-                            {trackedSummary.openCount} open tasks
-                          </Badge>
-                        ) : null}
-                      </div>
-                    </div>
-                  {workingSetCount === 1 && (
-                    <div className="border-t border-map-border pt-3">
-                      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-map-text-muted">
-                        Selection brief
-                      </p>
-                      <ScreeningScorecard
-                        parcelId={Array.from(selectedParcelIds)[0]}
-                        className="mt-2"
-                      />
-                    </div>
-                  )}
                 </div>
-              }
-            />
               </div>
-              <div className="pointer-events-none absolute inset-y-3 right-3 z-20 hidden lg:block">
-                <motion.button
+
+              <AnimatePresence initial={false}>
+                {activePanel === "chat" ? (
+                  <MapChatPanel
+                    key="map-chat-panel"
+                    parcelCount={activeParcels.length}
+                    selectedCount={selectedParcelIds.size}
+                    viewportLabel={statusText}
+                    onClose={() => setActivePanel(null)}
+                  />
+                ) : null}
+                {activePanel === "prospecting" ? (
+                  <MapProspectingPanel
+                    key="map-prospecting-panel"
+                    polygon={polygon}
+                    onClose={() => setActivePanel(null)}
+                  />
+                ) : null}
+              </AnimatePresence>
+
+              <div className="pointer-events-none absolute right-4 top-[126px] z-20 flex flex-col gap-3 md:right-5">
+                <div className="pointer-events-auto overflow-hidden rounded-[22px] border border-white/12 bg-[#0c1018]/92 shadow-[0_20px_40px_-28px_rgba(0,0,0,0.95)]">
+                  <button
+                    type="button"
+                    onClick={() => (mapRef.current as (ParcelMapRef & { zoomIn?: () => void }) | null)?.zoomIn?.()}
+                    className="flex h-[48px] w-[54px] items-center justify-center border-b border-white/10 text-white/82 transition-colors hover:bg-white/[0.08] hover:text-white"
+                    aria-label="Zoom in"
+                  >
+                    <Plus className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => (mapRef.current as (ParcelMapRef & { zoomOut?: () => void }) | null)?.zoomOut?.()}
+                    className="flex h-[48px] w-[54px] items-center justify-center text-white/82 transition-colors hover:bg-white/[0.08] hover:text-white"
+                    aria-label="Zoom out"
+                  >
+                    <Minus className="h-5 w-5" />
+                  </button>
+                </div>
+                <button
                   type="button"
-                  onClick={() => setSidebarOpen((prev) => !prev)}
-                  initial={false}
-                  animate={{ x: sidebarOpen ? -430 : 0 }}
-                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                  className="pointer-events-auto absolute right-0 top-1/2 flex h-12 min-w-[8.5rem] -translate-y-1/2 items-center justify-center rounded-2xl border border-map-border bg-map-surface-overlay/98 px-3 text-[11px] font-medium text-map-text-muted shadow-[0_18px_50px_-28px_rgba(15,23,42,0.55)] transition-colors hover:text-map-text-primary"
-                  aria-label={sidebarOpen ? "Close console" : "Open console"}
-                  aria-expanded={sidebarOpen}
-                  aria-controls="map-operator-console"
-                  title={sidebarOpen ? "Close operator console" : "Open operator console"}
+                  onClick={handleLocateUser}
+                  className="pointer-events-auto flex h-[58px] w-[54px] items-center justify-center rounded-[22px] border border-white/12 bg-[#0c1018]/92 text-white/82 shadow-[0_20px_40px_-28px_rgba(0,0,0,0.95)] transition-colors hover:bg-white/[0.08] hover:text-white"
+                  aria-label="Locate user"
                 >
-                  <span className="inline-flex items-center gap-2">
-                    <span className="text-sm leading-none">{sidebarOpen ? "\u203A" : "\u2039"}</span>
-                    <span>{sidebarOpen ? "Hide console" : "Show console"}</span>
+                  <MapPin className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="pointer-events-none absolute bottom-[68px] left-4 z-20 hidden rounded-[16px] border border-white/12 bg-[#0a0d13]/88 px-5 py-3 text-lg text-white/78 shadow-[0_18px_40px_-28px_rgba(0,0,0,0.95)] md:block">
+                2 mi
+              </div>
+
+              <div className="pointer-events-none absolute bottom-[68px] right-4 z-20 hidden w-[270px] rounded-[22px] border border-white/12 bg-[#0a0e15]/94 p-5 shadow-[0_26px_70px_-36px_rgba(0,0,0,1)] xl:block">
+                <p className="font-mono text-[13px] uppercase tracking-[0.28em] text-white/45">
+                  Active layers
+                </p>
+                <div className="mt-5 space-y-4.5">
+                  {legendItems.map((item) => (
+                    <div key={item.label} className="flex items-center gap-4 text-[14px] text-white/78">
+                      <span className={cn("h-4 w-4 rounded-full", item.color)} />
+                      <span>{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pointer-events-none absolute inset-x-3 bottom-3 z-20 md:inset-x-4">
+                <div className="pointer-events-auto flex items-center gap-4 rounded-[18px] border border-white/10 bg-[#0a0d13]/92 px-3 py-2.5 shadow-[0_22px_60px_-34px_rgba(0,0,0,1)]">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 rounded-2xl border-white/12 bg-white/[0.04] px-5 text-base text-white/82 hover:bg-white/[0.08] hover:text-white"
+                  >
+                    Map Guide
+                  </Button>
+                  <span className="font-mono text-base text-white/32">
+                    {mapState.center
+                      ? `${mapState.center[0].toFixed(5)}`
+                      : "0.35330"}
                   </span>
-                </motion.button>
+                  <div className="ml-auto flex items-center gap-3 text-base text-white/52">
+                    <span className="h-3 w-3 rounded-full bg-[#4ed05e]" />
+                    Parcels live on the active view
+                  </div>
+                </div>
+              </div>
+
+              <div className="pointer-events-none absolute inset-y-5 right-5 z-30 hidden lg:block">
                 <AnimatePresence initial={false}>
                   {sidebarOpen ? (
                     <motion.aside
@@ -1953,7 +2131,10 @@ export function MapPageClient() {
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 28 }}
                       transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-                      className="pointer-events-auto absolute inset-y-0 right-0 w-[25rem] overflow-hidden rounded-[1.6rem] border border-map-border bg-map-surface-overlay/98 shadow-[0_28px_80px_-36px_rgba(15,23,42,0.65)]"
+                      className={cn(
+                        "pointer-events-auto absolute right-0 top-24 bottom-20 overflow-hidden rounded-[28px] border border-white/12 bg-[#0b1018]/96 shadow-[0_34px_90px_-42px_rgba(0,0,0,1)]",
+                        isMobile ? "w-[calc(100vw-2.5rem)]" : "w-[26rem]",
+                      )}
                     >
                       <MapOperatorConsole
                         parcels={activeParcels}
@@ -2000,21 +2181,34 @@ export function MapPageClient() {
                   ) : null}
                 </AnimatePresence>
               </div>
+
+              {workingSetCount === 1 ? (
+                <div className="pointer-events-none absolute left-[470px] bottom-24 z-20 hidden w-[320px] xl:block">
+                  <div className="pointer-events-auto rounded-[24px] border border-white/12 bg-[#0b1018]/94 p-4 shadow-[0_26px_70px_-36px_rgba(0,0,0,1)]">
+                    <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-white/45">
+                      Selection brief
+                    </p>
+                    <ScreeningScorecard
+                      parcelId={Array.from(selectedParcelIds)[0]}
+                      className="mt-3"
+                    />
+                  </div>
+                </div>
+              ) : null}
             </div>
-          </>
-        )}
-        {/* NL query result cards */}
-        {resultCards.length > 0 && (
-          <MapResultCardStack
-            cards={resultCards}
-            onDismiss={(id) => setResultCards((prev) => prev.filter((c) => c.id !== id))}
-            onContinueInChat={(card) => {
-              setActivePanel("chat");
-              setResultCards((prev) => prev.filter((c) => c.id !== card.id));
-            }}
-          />
-        )}
+            {resultCards.length > 0 && (
+              <MapResultCardStack
+                cards={resultCards}
+                onDismiss={(id) => setResultCards((prev) => prev.filter((c) => c.id !== id))}
+                onContinueInChat={(card) => {
+                  setActivePanel("chat");
+                  setResultCards((prev) => prev.filter((c) => c.id !== card.id));
+                }}
+              />
+            )}
+          </main>
+        </div>
       </div>
-    </DashboardShell>
+    </div>
   );
 }

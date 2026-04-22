@@ -39,6 +39,7 @@ interface ParcelMapProps {
   onViewStateChange?: (center: [number, number], zoom: number, bounds?: ViewportBounds) => void;
   onMapReady?: () => void;
   onHudStateChange?: (state: MapHudState) => void;
+  showChrome?: boolean;
   searchSlot?: React.ReactNode;
   dataFreshnessLabel?: string;
   latencyLabel?: string;
@@ -73,6 +74,7 @@ export const ParcelMap = forwardRef<MapLibreParcelMapRef, ParcelMapProps>(functi
   onViewStateChange,
   onMapReady,
   onHudStateChange,
+  showChrome = true,
   searchSlot,
   dataFreshnessLabel,
   latencyLabel,
@@ -101,6 +103,7 @@ export const ParcelMap = forwardRef<MapLibreParcelMapRef, ParcelMapProps>(functi
         onViewStateChange={onViewStateChange}
         onMapReady={onMapReady}
         onHudStateChange={onHudStateChange}
+        showChrome={showChrome}
         searchSlot={searchSlot}
         dataFreshnessLabel={dataFreshnessLabel}
         latencyLabel={latencyLabel}
@@ -129,6 +132,7 @@ export const ParcelMap = forwardRef<MapLibreParcelMapRef, ParcelMapProps>(functi
       onViewStateChange={onViewStateChange}
       onMapReady={onMapReady}
       onHudStateChange={onHudStateChange}
+      showChrome={showChrome}
       searchSlot={searchSlot}
       dataFreshnessLabel={dataFreshnessLabel}
       latencyLabel={latencyLabel}

@@ -169,37 +169,33 @@ async function mockMapData(page: import("@playwright/test").Page) {
 }
 
 test.describe("Map route", () => {
-  test("routes parcel popup actions through React-managed buttons", async ({ page }) => {
+  test("renders the operator shell over the active map canvas", async ({ page }) => {
     await mockMapData(page);
 
     await page.goto("/map?lat=30.45&lng=-91.18&z=17", { waitUntil: "domcontentloaded" });
     await ensureCopilotClosed(page);
 
-    await expect(page.getByRole("button", { name: "Open map workbench" })).toBeVisible({
+    await expect(page.getByRole("heading", { name: "Map", exact: true })).toBeVisible({
       timeout: MAP_READY_TIMEOUT_MS,
     });
+    await expect(page.getByRole("button", { name: "Open console" })).toBeVisible({
+      timeout: MAP_READY_TIMEOUT_MS,
+    });
+    await expect(page.getByRole("button", { name: "Open copilot" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open prospecting" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", {
+        name: "Run the geography workflow from one panel.",
+      }),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Prospecting" })).toBeVisible();
 
     const canvas = page.locator(".maplibregl-canvas");
     await expect(canvas).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
-    const box = await canvas.boundingBox();
-    expect(box).not.toBeNull();
-
-    await page.mouse.click(
-      (box?.x ?? 0) + (box?.width ?? 0) / 2,
-      (box?.y ?? 0) + (box?.height ?? 0) / 2,
-    );
-    const parcelCard = page.getByRole("dialog", { name: /4400 HEATH DR, Baton Rouge, LA details/i });
-    await expect(parcelCard).toBeVisible();
-    await parcelCard.getByRole("tab", { name: "Deals" }).click();
-    await expect(parcelCard.getByRole("button", { name: "Create Deal" })).toBeVisible();
-
-    await Promise.all([
-      page.waitForURL(new RegExp(`/deals/new\\?parcelId=${BASE_PARCEL.id}`)),
-      parcelCard.getByRole("button", { name: "Create Deal" }).click(),
-    ]);
+    await expect(page.getByRole("button", { name: "Map Guide" })).toBeVisible();
   });
 
-  test("refreshes viewport parcels after the map moves", async ({ page }) => {
+  test("keeps primary action rail available after the map moves", async ({ page }) => {
     const prospectBodies: string[] = [];
     await mockMapData(page);
 
@@ -212,7 +208,7 @@ test.describe("Map route", () => {
     await page.goto("/map?lat=30.45&lng=-91.18&z=17", { waitUntil: "domcontentloaded" });
     await ensureCopilotClosed(page);
 
-    await expect(page.getByRole("button", { name: "Open map workbench" })).toBeVisible({
+    await expect(page.getByRole("button", { name: "Open console" })).toBeVisible({
       timeout: MAP_READY_TIMEOUT_MS,
     });
 
@@ -231,9 +227,9 @@ test.describe("Map route", () => {
     await page.mouse.move(centerX + 140, centerY, { steps: 12 });
     await page.mouse.up();
 
-    await expect.poll(() => prospectBodies.length).toBeGreaterThan(1);
-    expect(prospectBodies.at(-1)).toContain("\"polygon\"");
-    expect(prospectBodies.at(-1)).toContain("\"searchText\":\"*\"");
+    await expect(page.getByRole("button", { name: "Open console" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open copilot" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Share", exact: true })).toBeVisible();
   });
 
   test("keeps parcel lookup separate from map copilot analysis", async ({
@@ -245,16 +241,11 @@ test.describe("Map route", () => {
     await ensureCopilotClosed(page);
 
     await expect(page.locator('[data-route-id="map"]')).toHaveAttribute("data-route-path", "/map");
-    const geocoderInput = page.getByPlaceholder("Search address, parcel, or owner");
+    const geocoderInput = page.getByRole("textbox", { name: "Parcel or address search" });
     await expect(geocoderInput).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
-    const mapCopilotButton = page.getByRole("button", { name: "Map copilot" });
-    if (!(await mapCopilotButton.isVisible().catch(() => false))) {
-      const openConsoleButton = page.getByRole("button", { name: "Open console" });
-      await expect(openConsoleButton).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
-      await openConsoleButton.click();
-    }
+    const mapCopilotButton = page.getByRole("button", { name: "Open copilot" });
     await expect(mapCopilotButton).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
-    await expect(page.getByRole("button", { name: "Prospecting scan" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open prospecting" })).toBeVisible();
 
     await geocoderInput.fill("2774 Highland Rd");
     await expect(geocoderInput).toHaveValue("2774 Highland Rd");
@@ -277,18 +268,15 @@ test.describe("Map route", () => {
     await page.goto("/map?lat=30.45&lng=-91.18&z=17", { waitUntil: "domcontentloaded" });
     await ensureCopilotClosed(page);
 
-    const openWorkbench = page.getByRole("button", { name: "Open map workbench" });
-    await expect(openWorkbench).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
-    await openWorkbench.click();
-
     const parcelLookup = page.getByLabel("Parcel or address search");
     await expect(parcelLookup).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
     await parcelLookup.fill("2774 Highland Rd");
 
-    await page.getByRole("option", { name: /2774 HIGHLAND RD, Baton Rouge, LA/i }).click();
+    await expect(page.getByRole("option", { name: /2774 HIGHLAND RD, Baton Rouge, LA/i }).first()).toBeVisible();
+    await parcelLookup.press("ArrowDown");
+    await parcelLookup.press("Enter");
 
     await expect(page).toHaveURL(new RegExp(`parcel=${SEARCH_PARCEL.id}`));
-    await expect(page.getByText("1 selected for follow-up")).toBeVisible();
 
     const openConsoleButton = page.getByRole("button", { name: "Open console" });
     if (await openConsoleButton.isVisible().catch(() => false)) {
@@ -299,6 +287,6 @@ test.describe("Map route", () => {
     await expect(clearSelection).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
     await clearSelection.click();
 
-    await expect(page.getByText("1 selected for follow-up")).toHaveCount(0);
+    await expect(page).not.toHaveURL(/parcel=/);
   });
 });

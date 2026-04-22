@@ -152,6 +152,8 @@ interface MapLibreParcelMapProps {
   onMapReady?: () => void;
   /** Called whenever overlay/draw state changes for outer HUD surfaces. */
   onHudStateChange?: (state: MapHudState) => void;
+  /** Hides the built-in geocoder, layer workbench, legend, and status strip for custom shells. */
+  showChrome?: boolean;
   /** Optional search UI rendered at the top of the layer panel. */
   searchSlot?: React.ReactNode;
   /** Optional status labels shown in the workbench footer. */
@@ -616,6 +618,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   onViewStateChange,
   onMapReady,
   onHudStateChange,
+  showChrome = true,
   searchSlot,
   dataFreshnessLabel,
   latencyLabel,
@@ -2394,13 +2397,15 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   }
 
   return (
-    <div className="relative h-full w-full rounded-lg border">
+      <div className="relative h-full w-full rounded-lg border">
       <div ref={mapContainerRef} style={{ height, width: "100%", backgroundColor: "#1e2230" }} />
-      <MapGeocoder
-        mapRef={mapRef}
-        parcels={parcels}
-        onPlaceSelect={handlePlaceSelect}
-      />
+      {showChrome ? (
+        <MapGeocoder
+          mapRef={mapRef}
+          parcels={parcels}
+          onPlaceSelect={handlePlaceSelect}
+        />
+      ) : null}
       <ParcelHoverTooltip
         parcel={hoveredParcel}
         point={hoverPoint}
@@ -2413,7 +2418,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
         onClose={closeParcelDetailCard}
         onAction={handlePopupAction}
       />
-      {showLayers ? (
+      {showChrome && showLayers ? (
         <MapWorkbenchPanel
           open={layerPanelOpen}
           searchSlot={searchSlot}
@@ -2483,7 +2488,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
       ) : null}
 
       {/* Layer legend */}
-      {showLayers && (
+      {showChrome && showLayers && (
         <MapLegend
           showParcelBoundaries={showParcelBoundaries}
           showZoning={showZoning}
@@ -2503,11 +2508,11 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
       )}
 
       {/* Status bar with coordinates and zoom */}
-      {showLayers ? (
-        <div className="map-status-bar absolute inset-x-3 bottom-3 z-10 flex items-center justify-between gap-3 rounded-2xl border border-map-border/80 bg-map-surface-overlay/97 px-3 py-2 text-[11px] shadow-[0_18px_50px_-32px_rgba(15,23,42,0.55)]">
+      {showChrome && showLayers ? (
+        <div className="map-status-bar absolute inset-x-3 bottom-3 z-10 flex items-center justify-between gap-3 rounded-2xl border border-map-border bg-map-surface-overlay px-3 py-2 text-[11px] shadow-[0_18px_50px_-32px_rgba(15,23,42,0.55)]">
           <div className="flex min-w-0 items-center gap-2 text-map-text-muted">
             {showLiveStatus ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-map-border/70 bg-map-surface/88 px-2 py-1 text-[10px] text-map-text-secondary">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-map-border bg-map-surface px-2 py-1 text-[10px] text-map-text-secondary">
                 <span
                   aria-hidden="true"
                   className={cn(
@@ -3727,7 +3732,7 @@ function MapLibreIsochroneControl({
           <button
             key={t}
             onClick={() => setMinutes(t)}
-            className={`rounded px-1.5 py-1 text-xs ${minutes === t ? "bg-purple-500 text-white" : "bg-map-surface text-map-text-muted hover:bg-map-surface/80"}`}
+            className={`rounded px-1.5 py-1 text-xs ${minutes === t ? "bg-purple-500 text-white" : "bg-map-surface text-map-text-muted hover:bg-map-surface-elevated"}`}
           >
             {t}m
           </button>
