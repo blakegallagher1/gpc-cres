@@ -243,6 +243,7 @@ export const API_KEY_REGISTRY = [
       "agent.memory.bridge",
       "memory.read",
       "memory.write",
+      "memory.feedback.write",
       "runs.read",
     ],
     notes:
@@ -259,6 +260,7 @@ export const API_KEY_REGISTRY = [
     browserSafe: false,
     orgScoped: false,
     scopes: [
+      "agent.memory.bridge",
       "memory.read",
       "memory.write",
       "memory.feedback.write",
