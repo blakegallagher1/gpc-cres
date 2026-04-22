@@ -351,6 +351,15 @@ export async function listInboundEmails(
   }));
 }
 
+export async function getInboundEmailOrg(
+  id: string,
+): Promise<{ id: string; orgId: string | null } | null> {
+  return prisma.inboundEmail.findUnique({
+    where: { id },
+    select: { id: true, orgId: true },
+  });
+}
+
 export async function findInboundEmailByDealId(
   orgId: string,
   dealId: string,
