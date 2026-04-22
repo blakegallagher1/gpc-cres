@@ -438,29 +438,6 @@ export function ChatContainer() {
     }
   }, []);
 
-  const handleConversationDeleted = useCallback(
-    (deletedId: string) => {
-      setConversations((prev) => prev.filter((conv) => conv.id !== deletedId));
-      setRecentConversationIds((prev) =>
-        createRecentState(prev.filter((id) => id !== deletedId)),
-      );
-      // If the deleted conversation was active, clear it
-      if (conversationId === deletedId) {
-        setConversationState(null);
-      }
-    },
-    [conversationId, setConversationState],
-  );
-
-  const handleConversationRenamed = useCallback(
-    (renamedId: string, newTitle: string) => {
-      setConversations((prev) =>
-        prev.map((conv) => (conv.id === renamedId ? { ...conv, title: newTitle } : conv)),
-      );
-    },
-    [],
-  );
-
   const reloadConversations = useCallback(async () => {
     setIsLoadingConversations(true);
     try {
@@ -1011,8 +988,6 @@ export function ChatContainer() {
                 recentConversationIds={recentConversationIds}
                 mobile={isMobile}
                 showCollapsedTrigger={!isMobile || conversationId !== null || visibleMessages.length > 0}
-                onConversationDeleted={handleConversationDeleted}
-                onConversationRenamed={handleConversationRenamed}
               />
             ) : null}
 
