@@ -38,14 +38,27 @@ export function buildMemoryToolHeaders(context?: unknown): MemoryToolHeaders {
   const headers: MemoryToolHeaders = { "Content-Type": "application/json" };
   const token = getInternalMemoryToolToken();
   const { orgId, userId } = sanitizeMemoryToolContext(context);
-  if (!token || !orgId || !userId) {
+
+  // No token at all — can't authenticate
+  if (!token) {
     return headers;
   }
 
+  // Always send the Bearer token so the service-key fallback path can work
   headers.Authorization = `Bearer ${token}`;
-  headers["x-agent-tool-auth"] = "coordinator-memory";
-  headers["x-agent-org-id"] = orgId;
-  headers["x-agent-user-id"] = userId;
+
+  // Send org-scoping header when we have an orgId, so the route can resolve
+  // the request to the correct tenant regardless of auth path taken
+  if (orgId) {
+    headers["x-agent-org-id"] = orgId;
+  }
+
+  // Full coordinator-memory auth: requires both orgId and userId.
+  // This is the primary path and allows the server to validate DB membership.
+  if (orgId && userId) {
+    headers["x-agent-tool-auth"] = "coordinator-memory";
+    headers["x-agent-user-id"] = userId;
+  }
 
   return headers;
 }

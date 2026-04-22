@@ -166,4 +166,51 @@ describe("MessageBubble", () => {
       expect(writeText).toHaveBeenCalledWith("Shareable underwriting summary.");
     });
   });
+
+  it("sanitizes leaked internal agent error details before rendering", () => {
+    const message: ChatMessage = {
+      id: "agent-error-sanitized",
+      role: "system",
+      eventKind: "error",
+      createdAt: "2026-03-23T08:00:00.000Z",
+      content:
+        "PrismaClientKnownRequestError: stack trace at async route handler [corr: chat_err_123]",
+      metadata: {
+        correlationId: "chat_err_123",
+        toolName: "query_property_db",
+      },
+    };
+
+    render(<MessageBubble message={message} />);
+
+    expect(screen.getByText("Something went wrong processing your request.")).toBeInTheDocument();
+    expect(screen.getByText("chat_err_123")).toBeInTheDocument();
+    expect(screen.getByText("query_property_db")).toBeInTheDocument();
+    expect(screen.queryByText(/PrismaClientKnownRequestError/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/stack trace/i)).not.toBeInTheDocument();
+  });
+
+  it("renders tool result objects as readable key-value output", () => {
+    const message: ChatMessage = {
+      id: "tool-result-readable",
+      role: "tool",
+      eventKind: "tool_result",
+      createdAt: "2026-03-23T08:00:00.000Z",
+      agentName: "search_parcels",
+      content: JSON.stringify({
+        address: "7618 Copperfield Ct, Baton Rouge, LA",
+        parcel_id: "123-456",
+        confidence: 0.92,
+      }),
+    };
+
+    render(<MessageBubble message={message} />);
+
+    expect(screen.getByText("Tool Result")).toBeInTheDocument();
+    expect(screen.getByText("address")).toBeInTheDocument();
+    expect(screen.getByText("7618 Copperfield Ct, Baton Rouge, LA")).toBeInTheDocument();
+    expect(screen.getByText("parcel_id")).toBeInTheDocument();
+    expect(screen.getByText("123-456")).toBeInTheDocument();
+    expect(screen.queryByText(/"address"/)).not.toBeInTheDocument();
+  });
 });

@@ -278,7 +278,7 @@ export function ChatInput({
       ? 'border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300'
       : hasQueuedContent
         ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
-        : 'border-border/70 bg-background/92 text-muted-foreground';
+        : 'border-border bg-background text-muted-foreground';
   const shouldShowAdvancedControls =
     showAdvancedControls || researchLane !== 'auto';
   const showCompactStreamingComposer =
@@ -286,14 +286,15 @@ export function ChatInput({
 
   return (
     <form
+      data-testid="chat-composer"
       className="relative shrink-0 px-4 pb-4 pt-3 sm:px-5"
       onSubmit={handleFormSubmit}
     >
       <div className="glow-line absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-foreground/16 to-transparent" />
 
       {orientationHint ? (
-        <div className="mx-auto mb-3 flex max-w-5xl items-start gap-3 rounded-[22px] border border-border/70 bg-background/97 px-4 py-3 text-xs text-muted-foreground shadow-[0_18px_45px_-36px_rgba(15,23,42,0.45)]">
-          <span className="rounded-full border border-border/60 bg-muted/[0.45] px-2.5 py-1 font-mono uppercase tracking-[0.18em] text-foreground/85">
+        <div className="mx-auto mb-3 flex max-w-5xl items-start gap-3 rounded-[22px] border border-border bg-background px-4 py-3 text-xs text-muted-foreground shadow-[0_18px_45px_-36px_rgba(15,23,42,0.45)]">
+          <span className="rounded-full border border-border bg-muted px-2.5 py-1 font-mono uppercase tracking-[0.18em] text-foreground/85">
             Prompt
           </span>
           <p className="leading-5">{orientationHint}</p>
@@ -306,7 +307,7 @@ export function ChatInput({
             <Badge
               key={`${file.name}-${index}`}
               variant="secondary"
-              className="flex items-center gap-1.5 rounded-full border border-border/70 bg-background/95 px-3 py-1.5 text-[10px] uppercase tracking-[0.16em] shadow-sm"
+              className="flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-[10px] uppercase tracking-[0.16em] shadow-sm"
             >
               <span className="max-w-[180px] truncate font-normal text-foreground">
                 {file.name}
@@ -319,7 +320,7 @@ export function ChatInput({
                 variant="ghost"
                 size="icon"
                 onClick={() => removeFile(index)}
-                className="ml-1 h-5 w-5 rounded-full text-muted-foreground hover:bg-background/88 hover:text-foreground"
+                className="ml-1 h-5 w-5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
                 aria-label={`Remove ${file.name}`}
               >
                 <X className="h-3 w-3" />
@@ -331,7 +332,7 @@ export function ChatInput({
 
       <div
         className={cn(
-          'mx-auto max-w-5xl overflow-hidden rounded-[30px] border border-border/70 bg-background/98 p-4 shadow-[0_28px_80px_-46px_rgba(15,23,42,0.48)] transition-[border-color,box-shadow,transform] duration-200',
+          'mx-auto max-w-5xl overflow-hidden rounded-[30px] border border-border bg-background p-4 shadow-[0_28px_80px_-46px_rgba(15,23,42,0.48)] transition-[border-color,box-shadow,transform] duration-200',
           'focus-within:border-foreground/20 focus-within:shadow-[0_32px_90px_-52px_rgba(15,23,42,0.55)]',
           showCompactStreamingComposer && 'p-3',
           isFocused && 'translate-y-[-1px]',
@@ -345,7 +346,7 @@ export function ChatInput({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="mt-1 h-11 w-11 shrink-0 rounded-2xl border border-border/60 bg-muted/[0.38] text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                className="mt-1 h-11 w-11 shrink-0 rounded-2xl border border-border bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isStreaming || pendingFiles.length >= MAX_FILES}
                 aria-label={
@@ -402,7 +403,7 @@ export function ChatInput({
                 </Badge>
                 <Badge
                   variant="outline"
-                  className="hidden rounded-full border-border/70 bg-background/92 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground xl:inline-flex"
+                  className="hidden rounded-full border-border bg-background px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground xl:inline-flex"
                 >
                   {characterCount} characters
                 </Badge>
@@ -414,7 +415,7 @@ export function ChatInput({
                 <button
                   type="button"
                   onClick={() => setShowAdvancedControls((current) => !current)}
-                  className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/92 px-3 py-1.5 text-left text-[11px] text-muted-foreground transition-colors hover:border-foreground/20 hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-left text-[11px] text-muted-foreground transition-colors hover:border-foreground/20 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                   aria-expanded={shouldShowAdvancedControls}
                   aria-controls="chat-advanced-controls"
                 >
@@ -430,7 +431,7 @@ export function ChatInput({
                 </button>
                 <Badge
                   variant="outline"
-                  className="rounded-full border-border/70 bg-background/92 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-foreground/80"
+                  className="rounded-full border-border bg-background px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-foreground/80"
                 >
                   {laneStatusLabel}
                 </Badge>
@@ -440,7 +441,7 @@ export function ChatInput({
             {shouldShowAdvancedControls ? (
               <div
                 id="chat-advanced-controls"
-                className="mb-3 rounded-2xl border border-border/70 bg-muted/[0.5] px-3 py-3"
+                className="mb-3 rounded-2xl border border-border bg-muted px-3 py-3"
               >
                 <div className="mb-3 flex flex-wrap gap-2 px-1">
                   {COMPOSER_PRESETS.map((preset) => {
@@ -450,7 +451,7 @@ export function ChatInput({
                         key={preset.id}
                         type="button"
                         onClick={() => applyPreset(preset.template)}
-                        className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/92 px-3 py-1.5 text-left text-[11px] text-muted-foreground transition-colors hover:border-foreground/20 hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                        className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-left text-[11px] text-muted-foreground transition-colors hover:border-foreground/20 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                         aria-label={`Insert ${preset.label} prompt scaffold`}
                       >
                         <Icon className="h-3.5 w-3.5" />
@@ -472,7 +473,7 @@ export function ChatInput({
                   </div>
                   <Badge
                     variant="outline"
-                    className="w-fit rounded-full border-border/70 bg-background/94 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-foreground/80"
+                    className="w-fit rounded-full border-border bg-background px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-foreground/80"
                   >
                     {laneStatusLabel}
                   </Badge>
@@ -490,21 +491,21 @@ export function ChatInput({
                         onClick={() => setResearchLane(option.id)}
                         className={cn(
                           'rounded-2xl border px-3 py-3 text-left transition-[border-color,background-color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-                          'hover:translate-y-[-1px] hover:border-foreground/20 hover:bg-background/90',
+                          'hover:translate-y-[-1px] hover:border-foreground/20 hover:bg-background',
                           isSelected
                             ? 'border-foreground/20 bg-background shadow-sm'
-                            : 'border-border/60 bg-background/90',
+                            : 'border-border bg-background',
                         )}
                         aria-pressed={isSelected}
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-border/60 bg-muted/[0.55] text-foreground">
+                          <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-border bg-muted text-foreground">
                             <Icon className="h-4 w-4" />
                           </span>
                           {isEffective ? (
                             <Badge
                               variant="outline"
-                              className="rounded-full border-border/70 bg-background/95 px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-foreground/80"
+                              className="rounded-full border-border bg-background px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-foreground/80"
                             >
                               Active
                             </Badge>
@@ -530,7 +531,7 @@ export function ChatInput({
 
             <div
               className={cn(
-                'rounded-2xl border border-border/70 bg-background/94 px-3 py-2 transition-colors',
+                'rounded-2xl border border-border bg-background px-3 py-2 transition-colors',
                 'focus-within:border-foreground/20 focus-within:bg-background',
                 showCompactStreamingComposer && 'px-3 py-1.5',
                 isFocused && 'border-foreground/20 bg-background',
@@ -538,6 +539,8 @@ export function ChatInput({
             >
               <Textarea
                 ref={textareaRef}
+                data-testid="chat-composer-input"
+                aria-label="Run brief input"
                 value={draft}
                 rows={1}
                 placeholder={placeholder}
@@ -565,9 +568,9 @@ export function ChatInput({
               />
 
               {showCompactStreamingComposer ? (
-                <div className="flex flex-col gap-2 border-t border-border/50 px-2 pt-2.5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-2 border-t border-border px-2 pt-2.5 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                    <span className="inline-flex items-center rounded-full border border-border/60 bg-background/92 px-2.5 py-1">
+                    <span className="inline-flex items-center rounded-full border border-border bg-background px-2.5 py-1">
                       Transcript stays live above
                     </span>
                     <span
@@ -591,14 +594,14 @@ export function ChatInput({
                   </Button>
                 </div>
               ) : (
-                <div className="flex flex-col gap-3 border-t border-border/50 px-2 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 border-t border-border px-2 pt-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                    <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/92 px-2.5 py-1">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1">
                       <Command className="h-3.5 w-3.5" />
                       Enter sends
                     </span>
                     {canAttachFiles ? (
-                      <span className="inline-flex items-center rounded-full border border-border/60 bg-background/92 px-2.5 py-1">
+                      <span className="inline-flex items-center rounded-full border border-border bg-background px-2.5 py-1">
                         {pendingFiles.length}/{MAX_FILES} attachments
                       </span>
                     ) : null}
@@ -631,6 +634,7 @@ export function ChatInput({
                         !hasQueuedContent && 'cursor-not-allowed opacity-60 hover:translate-y-0 hover:bg-primary',
                       )}
                       type="submit"
+                      data-testid="chat-composer-submit"
                       aria-disabled={!hasQueuedContent}
                     >
                       <ArrowUp className="mr-1.5 h-4 w-4" />

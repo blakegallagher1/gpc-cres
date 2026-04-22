@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
+  AlertCircle,
   AlertTriangle,
   ChevronDown,
   ClipboardCopy,
@@ -41,6 +42,7 @@ import type { ChatMessage, ChatStreamEvent } from '@/lib/chat/types';
 import { MiniMapMessage } from './MiniMapMessage';
 import { useMapChatDispatch } from '@/lib/chat/MapChatContext';
 import { StructuredMessageRenderer } from './StructuredMessageRenderer';
+import { sanitizeChatErrorMessage } from '@/lib/chat/errorHandling';
 
 type MessageBubbleEventMap = Record<string, ComponentType<{ className?: string }>>;
 
@@ -59,6 +61,7 @@ interface MessageBubbleProps {
   conversationId?: string | null;
   onToolApprovalEvents?: (events: ChatStreamEvent[]) => void;
   onVerifyTrust?: (messageId: string) => void;
+  onRetry?: () => void;
 }
 
 export async function writeClipboardTextSafely(text: string): Promise<boolean> {
@@ -115,7 +118,7 @@ function TrustIndicator({
   const missingCount = trust.missingEvidence?.length ?? 0;
 
   return (
-    <div className="mt-2 rounded-lg border border-border/50 bg-muted/20 px-3 py-2">
+    <div className="mt-2 rounded-lg border border-border bg-muted px-3 py-2">
       {/* Compact bar — clickable */}
       <button
         type="button"
@@ -148,7 +151,7 @@ function TrustIndicator({
 
       {/* Expanded details */}
       {expanded && (
-        <div className="mt-2 space-y-2 border-t border-border/40 pt-2">
+        <div className="mt-2 space-y-2 border-t border-border pt-2">
           {/* Evidence citations */}
           {trust.evidenceCitations && trust.evidenceCitations.length > 0 && (
             <div>
@@ -191,7 +194,7 @@ function TrustIndicator({
                 {trust.toolsInvoked.map((tool, i) => (
                   <span
                     key={i}
-                    className="rounded-md bg-muted/50 px-1.5 py-0.5 font-mono text-[10px] text-foreground/70"
+                    className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[10px] text-foreground/70"
                   >
                     {tool}
                   </span>
@@ -223,18 +226,82 @@ function TrustIndicator({
   );
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function formatToolResultValue(value: unknown): string {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return JSON.stringify(value);
+}
+
 function ToolResultCard({ name, result }: { name: string; result: unknown }) {
+  const resultText =
+    typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+  const parsedResult =
+    typeof result === 'string' ? safeParseJSON(result) ?? result : result;
+  const objectEntries = isRecord(parsedResult) ? Object.entries(parsedResult) : [];
+  const objectArray =
+    Array.isArray(parsedResult) && parsedResult.every((item) => isRecord(item))
+      ? (parsedResult as Record<string, unknown>[])
+      : null;
+  const primitiveArray =
+    Array.isArray(parsedResult) && !objectArray ? parsedResult : null;
+
   return (
-    <Card className="my-2 border-border/60 bg-background/75">
+    <Card className="my-2 border-border bg-background">
       <CardContent className="flex flex-col gap-2 p-3 text-xs">
         <div className="flex items-center gap-2 font-mono text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
           <FileText className="h-3.5 w-3.5" />
           <span>{name}</span>
         </div>
-        <ScrollArea className="max-h-64 rounded-xl border border-border/60 bg-muted/35">
-          <pre className="whitespace-pre-wrap p-3 font-mono text-foreground/80">
-            {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
-          </pre>
+        <ScrollArea className="max-h-64 rounded-xl border border-border bg-muted">
+          {objectEntries.length > 0 ? (
+            <div className="divide-y divide-border">
+              {objectEntries.map(([key, value]) => (
+                <div key={key} className="grid grid-cols-[minmax(0,140px)_1fr] gap-3 px-3 py-2 text-xs">
+                  <p className="font-mono uppercase tracking-[0.12em] text-muted-foreground">
+                    {key}
+                  </p>
+                  <p className="break-words text-foreground/85">{formatToolResultValue(value)}</p>
+                </div>
+              ))}
+            </div>
+          ) : objectArray ? (
+            <div className="flex flex-col gap-2 p-3">
+              {objectArray.slice(0, 5).map((entry, index) => (
+                <div key={`${name}-${index}`} className="rounded-lg border border-border bg-background px-3 py-2">
+                  <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                    Item {index + 1}
+                  </p>
+                  <div className="space-y-2">
+                    {Object.entries(entry).map(([key, value]) => (
+                      <div key={`${index}-${key}`} className="grid grid-cols-[minmax(0,120px)_1fr] gap-3 text-xs">
+                        <p className="font-mono uppercase tracking-[0.12em] text-muted-foreground">
+                          {key}
+                        </p>
+                        <p className="break-words text-foreground/85">
+                          {formatToolResultValue(value)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : primitiveArray ? (
+            <ul className="flex list-disc flex-col gap-1 px-6 py-3 text-xs text-foreground/85">
+              {primitiveArray.slice(0, 10).map((item, index) => (
+                <li key={`${name}-${index}`}>{formatToolResultValue(item)}</li>
+              ))}
+            </ul>
+          ) : (
+            <div className="p-3 text-foreground/80">
+              <StructuredMessageRenderer content={resultText} />
+            </div>
+          )}
         </ScrollArea>
       </CardContent>
     </Card>
@@ -438,8 +505,8 @@ const eventStyles: Record<string, { border: string; bg: string; text: string }> 
   agent_progress: { border: 'border-l-indigo-500', bg: 'bg-indigo-500/8', text: 'text-indigo-700 dark:text-indigo-200' },
   agent_switch: { border: 'border-l-amber-500', bg: 'bg-amber-500/8', text: 'text-amber-700 dark:text-amber-200' },
   handoff: { border: 'border-l-indigo-400', bg: 'bg-indigo-500/8', text: 'text-indigo-700 dark:text-indigo-200' },
-  tool_start: { border: 'border-l-slate-500', bg: 'bg-muted/50', text: 'text-foreground' },
-  tool_end: { border: 'border-l-slate-500', bg: 'bg-muted/50', text: 'text-foreground' },
+  tool_start: { border: 'border-l-slate-500', bg: 'bg-muted', text: 'text-foreground' },
+  tool_end: { border: 'border-l-slate-500', bg: 'bg-muted', text: 'text-foreground' },
   tool_approval: { border: 'border-l-amber-500', bg: 'bg-amber-500/8', text: 'text-amber-700 dark:text-amber-200' },
   agent_summary: { border: 'border-l-emerald-500', bg: 'bg-emerald-500/8', text: 'text-emerald-700 dark:text-emerald-200' },
   error: { border: 'border-l-red-500', bg: 'bg-destructive/8', text: 'text-destructive' },
@@ -447,7 +514,7 @@ const eventStyles: Record<string, { border: string; bg: string; text: string }> 
 };
 
 function getEventStyle(kind: string) {
-  return eventStyles[kind] ?? { border: 'border-l-slate-500', bg: 'bg-muted/50', text: 'text-foreground' };
+  return eventStyles[kind] ?? { border: 'border-l-slate-500', bg: 'bg-muted', text: 'text-foreground' };
 }
 
 function getEffectiveEventKind(
@@ -473,6 +540,7 @@ function renderSystemContent(
   message: ChatMessage,
   conversationId?: string | null,
   onToolApprovalEvents?: (events: ChatStreamEvent[]) => void,
+  onRetry?: () => void,
 ) {
   const eventKind = getEffectiveEventKind(message);
   const Icon = eventKind ? eventIcons[eventKind] : null;
@@ -481,7 +549,7 @@ function renderSystemContent(
   if (!eventKind) return null;
 
   const wrapperClass = cn(
-    'rounded-xl border border-border/60 border-l-[3px] px-3 py-2.5 text-sm',
+    'rounded-xl border border-border border-l-[3px] px-3 py-2.5 text-sm',
     style.border,
     style.bg,
   );
@@ -629,11 +697,46 @@ function renderSystemContent(
   }
 
   if (eventKind === 'error') {
+    const metadata = (message.metadata ?? {}) as Record<string, unknown>;
+    const correlationId = typeof metadata.correlationId === 'string' ? metadata.correlationId : undefined;
+    const toolName = typeof metadata.toolName === 'string' ? metadata.toolName : undefined;
+    const sanitizedError = sanitizeChatErrorMessage(message.content, correlationId);
+
     return (
       <SystemEventFrame className={wrapperClass}>
-        <EventHeader title="Agent Error" rightAction={Icon ? <Icon className={cn('h-3 w-3', style.text)} /> : undefined} />
-        <p className="text-xs text-destructive">{message.content}</p>
-        <MessageActions conversationId={conversationId} messageId={message.id} message={message} />
+        <div className="flex items-start gap-2">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <p className="font-mono text-[11px] font-medium uppercase tracking-wide text-destructive">
+              Agent Error
+            </p>
+            <p className="text-xs text-destructive/90">{sanitizedError.message}</p>
+            {toolName ? (
+              <p className="font-mono text-[10px] text-muted-foreground">
+                Failed during: <span className="text-foreground/70">{toolName}</span>
+              </p>
+            ) : null}
+            {sanitizedError.correlationId ? (
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                {sanitizedError.correlationId}
+              </code>
+            ) : null}
+            {onRetry ? (
+              <div className="mt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={onRetry}
+                  className="h-7 rounded-full px-3 text-xs text-muted-foreground"
+                >
+                  <RefreshCcw className="mr-1.5 h-3 w-3" />
+                  Retry this message
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        </div>
       </SystemEventFrame>
     );
   }
@@ -659,13 +762,14 @@ export function MessageBubble({
   conversationId,
   onToolApprovalEvents,
   onVerifyTrust,
+  onRetry,
 }: MessageBubbleProps) {
   const mapDispatch = useMapChatDispatch();
   const effectiveEventKind = getEffectiveEventKind(message);
   const isUser = message.role === 'user';
   const isSystemEvent = effectiveEventKind !== undefined && effectiveEventKind !== 'assistant';
   const hasEvent = effectiveEventKind !== undefined;
-  const systemContent = renderSystemContent(message, conversationId, onToolApprovalEvents);
+  const systemContent = renderSystemContent(message, conversationId, onToolApprovalEvents, onRetry);
   const showAssistantAvatar = !isUser && !isSystemEvent;
 
   const agentBorder = !isUser && message.agentName
@@ -732,7 +836,7 @@ export function MessageBubble({
             ) : (
               <Card
                 className={cn(
-                  'border border-border/60 border-l-[3px] bg-background/80 text-foreground',
+                  'border border-border border-l-[3px] bg-background text-foreground',
                   agentBorder,
                 )}
               >

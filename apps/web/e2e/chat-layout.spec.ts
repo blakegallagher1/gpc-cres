@@ -33,11 +33,7 @@ type MockChatShellOptions = {
 };
 
 function getVisibleComposer(page: Page): Locator {
-  return page
-    .locator(
-      'textarea[placeholder="Ask anything about your properties, deals, evidence, or next move..."]:visible',
-    )
-    .first();
+  return page.getByRole("textbox", { name: "Run brief input" }).first();
 }
 
 async function mockChatShell(page: Page, options: MockChatShellOptions = {}) {
@@ -141,12 +137,11 @@ test.describe("Chat layout", () => {
   test("keeps the run surface usable on first desktop load", async ({ page }) => {
     await openChat(page);
 
-    await expect(page.getByText("Start with a question.")).toBeVisible({
+    await expect(page.getByText("Run brief", { exact: true })).toBeVisible({
       timeout: CHAT_READY_TIMEOUT_MS,
     });
-    await expect(page.getByRole("button", { name: "Open advanced workspace" })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Advanced controls/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Run screening" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Controls/i })).toBeVisible();
+    await expect(page.getByTestId("chat-composer-submit")).toBeVisible();
     await expect(page.getByRole("button", { name: "Insert Deliverable prompt scaffold" })).toHaveCount(0);
 
     const viewport = page.viewportSize();
@@ -162,12 +157,11 @@ test.describe("Chat layout", () => {
     await page.setViewportSize(MOBILE_VIEWPORT);
     await openChat(page);
 
-    await expect(page.getByText("Start with a question.")).toBeVisible({
+    await expect(page.getByText("Run brief", { exact: true })).toBeVisible({
       timeout: CHAT_READY_TIMEOUT_MS,
     });
-    await expect(page.getByRole("button", { name: "Open advanced workspace" })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Advanced controls/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Run screening" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Controls/i })).toBeVisible();
+    await expect(page.getByTestId("chat-composer-submit")).toBeVisible();
     await expect(page.getByRole("button", { name: "Insert Deliverable prompt scaffold" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "History", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Verification", exact: true })).toHaveCount(0);
