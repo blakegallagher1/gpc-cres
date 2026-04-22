@@ -1508,6 +1508,17 @@ export function MapPageClient() {
           overlayState={Object.fromEntries(
             mapHudState.activeOverlays.map((k) => [k, true]),
           )}
+          onOverlayToggle={(key) => {
+            setMapHudState((prev) => {
+              const has = prev.activeOverlays.includes(key);
+              return {
+                ...prev,
+                activeOverlays: has
+                  ? prev.activeOverlays.filter((k) => k !== key)
+                  : [...prev.activeOverlays, key],
+              };
+            });
+          }}
         />
 
         {/* Map canvas */}
