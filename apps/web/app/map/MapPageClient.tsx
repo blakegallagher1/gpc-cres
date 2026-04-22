@@ -20,6 +20,7 @@ import {
   type MapTrackedParcel,
 } from "@/components/maps/mapOperatorNotebook";
 import type { MapHudState, MapParcel } from "@/components/maps/types";
+import { useOverlayState } from "@/components/maps/hooks/useOverlayState";
 import { useMapInvestorWorkbench } from "@/components/maps/useMapInvestorWorkbench";
 import { useMapTrackedParcelWorkspace } from "@/components/maps/useMapTrackedParcelWorkspace";
 import { recordClientMetricEvent } from "@/components/observability/client-telemetry";
@@ -298,6 +299,7 @@ export function MapPageClient() {
   const setCopilotOpen = useUIStore((state) => state.setCopilotOpen);
   const mapState = useMapChatState();
   const mapDispatch = useMapChatDispatch();
+  const overlays = useOverlayState();
   const mapRef = useRef<ParcelMapRef | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
   const [mapRefVersion, setMapRefVersion] = useState(0);
@@ -1505,20 +1507,8 @@ export function MapPageClient() {
         <AtlasLeftRail
           trackedParcels={trackedParcels}
           onTrackedParcelClick={focusTrackedParcel}
-          overlayState={Object.fromEntries(
-            mapHudState.activeOverlays.map((k) => [k, true]),
-          )}
-          onOverlayToggle={(key) => {
-            setMapHudState((prev) => {
-              const has = prev.activeOverlays.includes(key);
-              return {
-                ...prev,
-                activeOverlays: has
-                  ? prev.activeOverlays.filter((k) => k !== key)
-                  : [...prev.activeOverlays, key],
-              };
-            });
-          }}
+          overlayState={overlays}
+          onOverlayToggle={(key) => overlays.toggle(key as Parameters<typeof overlays.toggle>[0])}
         />
 
         {/* Map canvas */}
@@ -1557,6 +1547,7 @@ export function MapPageClient() {
             latencyLabel={latencyLabel}
             selectedParcelIds={selectedParcelIds}
             highlightParcelIds={trackedParcelIds}
+            overlayOverrides={overlays}
           />
 
           {/* Floating tool rail */}

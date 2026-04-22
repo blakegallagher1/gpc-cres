@@ -28,7 +28,7 @@ interface AtlasLeftRailProps {
   onPromoteToDeal?: () => void;
   onExportCsv?: () => void;
   onGeofenceClick?: (id: string) => void;
-  overlayState?: Record<string, boolean>;
+  overlayState?: Record<string, boolean | ((...args: unknown[]) => unknown) | number>;
   onOverlayToggle?: (key: string) => void;
   savedGeofences?: SavedGeofence[];
 }
@@ -233,9 +233,10 @@ export function AtlasLeftRail({
                   {group.groupLabel}
                 </p>
                 {group.items.map((item) => {
+                  const rawVal = overlayState[item.key];
                   const on =
-                    overlayState[item.key] !== undefined
-                      ? overlayState[item.key]
+                    typeof rawVal === "boolean"
+                      ? rawVal
                       : item.defaultOn;
                   return (
                     <button

@@ -43,6 +43,7 @@ interface ParcelMapProps {
   searchSlot?: React.ReactNode;
   dataFreshnessLabel?: string;
   latencyLabel?: string;
+  overlayOverrides?: Record<string, boolean>;
 }
 
 export type ParcelMapRef = MapLibreParcelMapRef;
@@ -78,6 +79,7 @@ export const ParcelMap = forwardRef<MapLibreParcelMapRef, ParcelMapProps>(functi
   searchSlot,
   dataFreshnessLabel,
   latencyLabel,
+  overlayOverrides,
 }, ref) {
   const mlCenter: [number, number] = useMemo(() => [center[1], center[0]], [center]);
 
@@ -107,6 +109,7 @@ export const ParcelMap = forwardRef<MapLibreParcelMapRef, ParcelMapProps>(functi
         searchSlot={searchSlot}
         dataFreshnessLabel={dataFreshnessLabel}
         latencyLabel={latencyLabel}
+        overlayOverrides={overlayOverrides}
       />
     );
   }
@@ -136,6 +139,7 @@ export const ParcelMap = forwardRef<MapLibreParcelMapRef, ParcelMapProps>(functi
       searchSlot={searchSlot}
       dataFreshnessLabel={dataFreshnessLabel}
       latencyLabel={latencyLabel}
+      overlayOverrides={overlayOverrides}
     />
   );
 });

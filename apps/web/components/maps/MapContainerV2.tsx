@@ -54,6 +54,8 @@ type ZoningFeature = {
   };
 };
 
+type OverlayStateOverride = ReturnType<typeof useOverlayState>;
+
 interface MapContainerV2Props {
   height?: string;
   className?: string;
@@ -64,6 +66,7 @@ interface MapContainerV2Props {
   onParcelClick?: (parcelId: string) => void;
   onSelectionChange?: (ids: Set<string>) => void;
   onMapReady?: (map: maplibregl.Map) => void;
+  overlayState?: OverlayStateOverride;
 }
 
 function MapReadyBridge({ onMapReady }: { onMapReady?: (map: maplibregl.Map) => void }) {
@@ -107,9 +110,11 @@ export function MapContainerV2({
   onParcelClick,
   onSelectionChange,
   onMapReady,
+  overlayState: overlayStateProp,
 }: MapContainerV2Props) {
   const { viewState, onMove } = useMapViewState(initialCenter, initialZoom);
-  const overlays = useOverlayState();
+  const internalOverlays = useOverlayState();
+  const overlays = overlayStateProp ?? internalOverlays;
   const { selectedIds, updateSelection } = useMapSelection({
     selectedParcelIds,
     onSelectionChange,

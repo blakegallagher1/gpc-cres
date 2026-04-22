@@ -51,6 +51,7 @@ interface MapPageV2Props {
   dataFreshnessLabel?: string;
   latencyLabel?: string;
   className?: string;
+  overlayOverrides?: Record<string, boolean>;
 }
 
 function requiresLegacyMap(props: MapPageV2Props): boolean {

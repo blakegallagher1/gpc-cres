@@ -159,6 +159,8 @@ interface MapLibreParcelMapProps {
   /** Optional status labels shown in the workbench footer. */
   dataFreshnessLabel?: string;
   latencyLabel?: string;
+  /** External overlay control — keys match useOverlayState field names. When provided, overrides internal state. */
+  overlayOverrides?: Record<string, boolean>;
 }
 
 export interface MapLibreParcelMapRef {
@@ -622,6 +624,7 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   searchSlot,
   dataFreshnessLabel,
   latencyLabel,
+  overlayOverrides,
 }, ref) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -667,6 +670,31 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   const [imperativeHighlightIds, setImperativeHighlightIds] = useState<Set<string>>(new Set());
   const [compareOpen, setCompareOpen] = useState(false);
   const selectedParcelIds = selectedParcelIdsProp ?? internalSelectedParcelIds;
+
+  useEffect(() => {
+    if (!overlayOverrides) return;
+    const setters: Record<string, (v: boolean) => void> = {
+      showFlood: setShowFlood,
+      showSoils: setShowSoils,
+      showWetlands: setShowWetlands,
+      showEpa: setShowEpa,
+      showZoning: setShowZoning,
+      showFlu: setShowFlu,
+      showParcelBoundaries: setShowParcelBoundaries,
+      showHeatmap: setShowHeatmap,
+      showTerrain: () => {},
+      showRecentSales: setShowRecentSales,
+      showNewPermits: setShowNewPermits,
+      showTruckRoutes: setShowTruckRoutes,
+      showPorts: setShowPorts,
+      showRail: setShowRail,
+      showInterchanges: setShowInterchanges,
+      showIsochrone: setShowIsochrone,
+    };
+    for (const [key, value] of Object.entries(overlayOverrides)) {
+      setters[key]?.(value);
+    }
+  }, [overlayOverrides]);
   const selectedParcelIdsRef = useRef<Set<string>>(selectedParcelIds);
   const onSelectionChangeRef = useRef(onSelectionChange);
   const isSelectionControlledRef = useRef(selectedParcelIdsProp !== undefined);
