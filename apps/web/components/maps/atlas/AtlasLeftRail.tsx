@@ -28,7 +28,7 @@ interface AtlasLeftRailProps {
   onPromoteToDeal?: () => void;
   onExportCsv?: () => void;
   onGeofenceClick?: (id: string) => void;
-  overlayState?: Record<string, boolean | ((...args: unknown[]) => unknown) | number>;
+  overlayState?: Record<string, unknown>;
   onOverlayToggle?: (key: string) => void;
   savedGeofences?: SavedGeofence[];
 }

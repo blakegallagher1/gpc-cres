@@ -1098,7 +1098,7 @@ export function MapPageClient() {
       }
     }
     void loadBaseParcels();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [markRequestComplete]);
 
   // ── Viewport parcel refresh ──────────────────────────────────────────────
@@ -1213,7 +1213,7 @@ export function MapPageClient() {
     return () => {
       active = false;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [debouncedSearch, markRequestComplete, parcels, searchSubmitId, polygon]);
 
   // ── Auto-focus single search result ─────────────────────────────────────
@@ -1336,7 +1336,7 @@ export function MapPageClient() {
           }
         : null,
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [mapDispatch, polygon, polygonParcels]);
 
   // ── Status text ──────────────────────────────────────────────────────────
@@ -1382,7 +1382,7 @@ export function MapPageClient() {
     if (diff < 5) return "Live";
     if (diff < 60) return `${diff}s ago`;
     return `${Math.floor(diff / 60)}m ago`;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [lastDataRefreshAt, parcels.length, searchParcels?.length]);
 
   const latencyLabel = useMemo(
