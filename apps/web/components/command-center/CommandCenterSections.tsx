@@ -2,6 +2,7 @@
 
 import type { ElementType, ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Activity,
   AlertCircle,
@@ -21,6 +22,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatOperatorTime } from "@/lib/formatters/operatorFormatters";
 import { cn } from "@/lib/utils";
 import { PIPELINE_STAGES } from "@/lib/data/portfolioConstants";
+import {
+  createOperatorContextEnvelope,
+  writeOperatorContextEnvelope,
+  type OperatorContextItem,
+} from "@/lib/chat/operatorContext";
 import type {
   CommandCenterAttentionItem,
   CommandCenterAutomationItem,
@@ -62,6 +68,40 @@ function Surface({ title, description, action, children, className }: SurfacePro
       </div>
       {children}
     </section>
+  );
+}
+
+function CommandCenterMissionLaunchButton({
+  contextItem,
+  prompt,
+  className,
+}: {
+  contextItem: OperatorContextItem;
+  prompt: string;
+  className?: string;
+}) {
+  const router = useRouter();
+
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      className={cn("h-8 shrink-0 gap-2", className)}
+      onClick={() => {
+        writeOperatorContextEnvelope(
+          createOperatorContextEnvelope({
+            sourceSurface: "command-center",
+            prompt,
+            items: [contextItem],
+          }),
+        );
+        router.push("/chat");
+      }}
+    >
+      <Sparkles className="h-3.5 w-3.5" />
+      Launch mission
+    </Button>
   );
 }
 
@@ -232,25 +272,44 @@ export function PriorityQueueSection({
       ) : items.length > 0 ? (
         <div className="workspace-list">
           {items.map((item) => (
-            <Link
+            <div
               key={`${item.dealId}-${item.title}`}
-              href={`/deals/${item.dealId}`}
-              className="workspace-list-row group items-start transition-colors hover:bg-muted"
+              className="workspace-list-row items-start gap-3 transition-colors hover:bg-muted"
             >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
-                <AlertTriangle className="h-4 w-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="truncate text-sm font-semibold">{item.title}</p>
-                  <Badge variant="outline" className="hidden sm:inline-flex">
-                    {item.dealName}
-                  </Badge>
+              <Link
+                href={`/deals/${item.dealId}`}
+                className="group flex min-w-0 flex-1 items-start gap-3"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+                  <AlertTriangle className="h-4 w-4" />
                 </div>
-                <p className="mt-1 text-sm leading-6 text-muted-foreground">{item.reason}</p>
-              </div>
-              <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-foreground" />
-            </Link>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-sm font-semibold">{item.title}</p>
+                    <Badge variant="outline" className="hidden sm:inline-flex">
+                      {item.dealName}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">{item.reason}</p>
+                </div>
+                <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-foreground" />
+              </Link>
+              <CommandCenterMissionLaunchButton
+                contextItem={{
+                  id: `attention:${item.dealId}:${item.title}`,
+                  source: "command-center",
+                  label: item.title,
+                  detail: `${item.dealName}: ${item.reason}`,
+                  href: `/deals/${item.dealId}`,
+                  payload: {
+                    kind: "attention",
+                    dealId: item.dealId,
+                    dealName: item.dealName,
+                  },
+                }}
+                prompt={`Open a mission for ${item.dealName}. Start with the priority queue item "${item.title}", explain why it matters, identify missing evidence, and recommend the next operator action.`}
+              />
+            </div>
           ))}
         </div>
       ) : (
@@ -590,27 +649,48 @@ export function DeadlineLoadSection({
 
           <div className="divide-y divide-border/60 rounded-xl border border-border">
             {deadlines.slice(0, 6).map((deadline) => (
-              <Link
+              <div
                 key={deadline.taskId}
-                href={`/deals/${deadline.dealId}`}
-                className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted"
+                className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted"
               >
-                <div
-                  className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-full bg-muted",
-                    urgencyTextClass(deadline.urgency),
-                  )}
+                <Link
+                  href={`/deals/${deadline.dealId}`}
+                  className="group flex min-w-0 flex-1 items-center gap-3"
                 >
-                  <Clock3 className="h-4 w-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{deadline.taskTitle}</p>
-                  <p className="truncate text-xs text-muted-foreground">{deadline.dealName}</p>
-                </div>
-                <span className={cn("text-xs font-semibold", urgencyTextClass(deadline.urgency))}>
-                  {formatDue(deadline.hoursUntilDue)}
-                </span>
-              </Link>
+                  <div
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-full bg-muted",
+                      urgencyTextClass(deadline.urgency),
+                    )}
+                  >
+                    <Clock3 className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{deadline.taskTitle}</p>
+                    <p className="truncate text-xs text-muted-foreground">{deadline.dealName}</p>
+                  </div>
+                  <span className={cn("text-xs font-semibold", urgencyTextClass(deadline.urgency))}>
+                    {formatDue(deadline.hoursUntilDue)}
+                  </span>
+                </Link>
+                <CommandCenterMissionLaunchButton
+                  contextItem={{
+                    id: `deadline:${deadline.taskId}`,
+                    source: "command-center",
+                    label: deadline.taskTitle,
+                    detail: `${deadline.dealName}: due ${formatDue(deadline.hoursUntilDue)}`,
+                    href: `/deals/${deadline.dealId}`,
+                    payload: {
+                      kind: "deadline",
+                      taskId: deadline.taskId,
+                      dealId: deadline.dealId,
+                      urgency: deadline.urgency,
+                    },
+                  }}
+                  prompt={`Open a deadline mission for ${deadline.dealName}. Start with "${deadline.taskTitle}", check the timeline pressure, list evidence gaps, and recommend the next operator action.`}
+                  className="hidden sm:inline-flex"
+                />
+              </div>
             ))}
           </div>
 

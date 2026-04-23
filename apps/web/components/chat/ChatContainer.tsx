@@ -15,6 +15,7 @@ import { AgentIndicator } from './AgentIndicator';
 import { ConversationSidebar } from './ConversationSidebar';
 import { DealSelector } from './DealSelector';
 import { useCuaModel } from './CuaModelToggle';
+import { MissionControlPanel, type MissionControlState } from './MissionControlPanel';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { parseSSEStream } from '@/lib/chat/stream';
@@ -39,6 +40,12 @@ import {
 import { mapFeaturesFromActionPayload } from '@/lib/chat/mapFeatureUtils';
 import { parseToolResultMapFeatures } from '@/lib/chat/toolResultWrapper';
 import { useAgentWebSocket } from '@/lib/chat/useAgentWebSocket';
+import {
+  buildOperatorContextPrompt,
+  consumeOperatorContextEnvelope,
+  removeOperatorContextItem,
+  type OperatorContextEnvelope,
+} from '@/lib/chat/operatorContext';
 
 type RawConversationMessage = {
   id?: unknown;
@@ -300,6 +307,7 @@ export function ChatContainer() {
   );
   const presenterRef = useRef<StreamPresenterState>(createStreamPresenterState());
   const [recentConversationIds, setRecentConversationIds] = useState<string[]>([]);
+  const [operatorContext, setOperatorContext] = useState<OperatorContextEnvelope | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const eventCounterRef = useRef(0);
   const conversationIdRef = useRef<string | null>(null);
@@ -383,6 +391,10 @@ export function ChatContainer() {
   }, []);
 
   useEffect(() => {
+    setOperatorContext(consumeOperatorContextEnvelope());
+  }, []);
+
+  useEffect(() => {
     if (!isMobile) {
       setIsHistoryOpen(true);
     }
@@ -404,12 +416,25 @@ export function ChatContainer() {
   const threadStatusLabel = conversationId ? 'Saved thread' : 'Draft thread';
   const transportLabel = WS_ENABLED ? 'Live socket' : 'HTTP stream';
   const scopeLabel = selectedDealId ? 'Deal-linked' : 'No deal scope';
+  const operatorContextCount = operatorContext?.items.length ?? 0;
+  const attachmentStatusLabel =
+    operatorContextCount > 0
+      ? `${operatorContextCount} context item${operatorContextCount === 1 ? '' : 's'} attached`
+      : selectedDealId
+        ? 'Deal context attached'
+        : mapState.selectedParcelIds.length > 0
+          ? `${mapState.selectedParcelIds.length} map parcels attached`
+          : scopeLabel;
 
   const syncRecent = useCallback((id: string) => {
     writeRecentConversationId(id);
     setRecentConversationIds((current) =>
       createRecentState([id, ...current.filter((value) => value !== id)]),
     );
+  }, []);
+
+  const handleRemoveOperatorContextItem = useCallback((itemId: string) => {
+    setOperatorContext((current) => removeOperatorContextItem(current, itemId));
   }, []);
 
   const setConversationState = useCallback((id: string | null) => {
@@ -716,7 +741,9 @@ export function ChatContainer() {
         fileContext = fileContextParts.join('\n') + '\n';
       }
 
-      const messageForAgent = fileContext + (text || 'Please review the attached files.');
+      const operatorContextPrefix = buildOperatorContextPrompt(operatorContext);
+      const messageForAgent =
+        operatorContextPrefix + fileContext + (text || 'Please review the attached files.');
       const displayText = text || `Uploaded ${files?.length ?? 0} file${(files?.length ?? 0) > 1 ? 's' : ''}`;
 
       const userMessage: ChatMessage = {
@@ -803,7 +830,16 @@ export function ChatContainer() {
         setCurrentAgent(null);
       }
     },
-    [applyEvent, authToken, cuaModel, mapDispatch, mapState, selectedDealId, wsSendMessage],
+    [
+      applyEvent,
+      authToken,
+      cuaModel,
+      mapDispatch,
+      mapState,
+      operatorContext,
+      selectedDealId,
+      wsSendMessage,
+    ],
   );
 
   const handleStop = useCallback(() => {
@@ -871,6 +907,17 @@ export function ChatContainer() {
     { label: 'Sources', prompt: 'Use the strongest verified sources and keep citations attached to the response.' },
     { label: 'Prompt library', prompt: 'Show the strongest prompt pattern for this task, then run it against the current scope.' },
   ] as const;
+  const missionControlState: MissionControlState = {
+    activeAgentLabel,
+    attachmentStatusLabel,
+    conversationCount: conversations.length,
+    recentConversationLabel: messageSectionTitle,
+    threadStatusLabel,
+    transportLabel,
+    agentSummary,
+    contextItems: operatorContext?.items ?? [],
+    onRemoveContextItem: handleRemoveOperatorContextItem,
+  };
   const chatInput = (
     <ChatInput
       onSend={stableChatInputOptions.onSend}
@@ -934,6 +981,11 @@ export function ChatContainer() {
                     </div>
 
                     <div className="px-6 py-5">
+                      <MissionControlPanel
+                        state={missionControlState}
+                        className="mx-auto mb-6 max-w-[980px]"
+                      />
+
                       <div className="mb-6 flex items-center gap-4 border-b border-rule pb-5">
                         <span className="font-mono text-[9.5px] tracking-[0.14em] uppercase text-ink-fade">Matter</span>
                         <div className="min-w-[240px] max-w-[360px] flex-1">
@@ -1010,6 +1062,10 @@ export function ChatContainer() {
                       <AgentIndicator agentName={currentAgent} />
                     </div>
                   ) : null}
+
+                  <div className="border-b border-rule bg-paper px-4 py-4 sm:px-5">
+                    <MissionControlPanel state={missionControlState} />
+                  </div>
 
                   <div className="min-h-0 flex-1 overflow-hidden">
                     <MessageList

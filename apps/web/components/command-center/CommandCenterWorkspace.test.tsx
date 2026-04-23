@@ -1,8 +1,11 @@
 import type { HTMLAttributes, ReactNode } from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { useSWRMock } = vi.hoisted(() => ({
+const OPERATOR_CONTEXT_STORAGE_KEY = "gpc.operatorContext.v1";
+
+const { routerPushMock, useSWRMock } = vi.hoisted(() => ({
+  routerPushMock: vi.fn(),
   useSWRMock: vi.fn(),
 }));
 
@@ -23,6 +26,12 @@ vi.mock("next/link", () => ({
       {children}
     </a>
   ),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: routerPushMock,
+  }),
 }));
 
 vi.mock("framer-motion", () => {
@@ -56,6 +65,8 @@ import { CommandCenterWorkspace } from "./CommandCenterWorkspace";
 
 describe("CommandCenterWorkspace", () => {
   beforeEach(() => {
+    routerPushMock.mockReset();
+    window.sessionStorage.clear();
     useSWRMock.mockReset();
     useSWRMock.mockImplementation((url: string) => {
       if (url === "/api/intelligence/daily-briefing") {
@@ -319,5 +330,41 @@ describe("CommandCenterWorkspace", () => {
       screen.getByText("Opportunity data could not be refreshed. Using cached data."),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+
+  it("launches a priority queue item into chat with operator context", () => {
+    render(<CommandCenterWorkspace />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Launch mission" })[0]);
+
+    const rawEnvelope = window.sessionStorage.getItem(OPERATOR_CONTEXT_STORAGE_KEY);
+    const envelope = JSON.parse(rawEnvelope ?? "{}") as {
+      sourceSurface?: string;
+      prompt?: string;
+      items?: Array<{
+        label?: string;
+        detail?: string;
+        href?: string;
+        payload?: {
+          kind?: string;
+          dealId?: string;
+          dealName?: string;
+        };
+      }>;
+    };
+
+    expect(routerPushMock).toHaveBeenCalledWith("/chat");
+    expect(envelope.sourceSurface).toBe("command-center");
+    expect(envelope.prompt).toContain("Variance package incomplete");
+    expect(envelope.items?.[0]).toMatchObject({
+      label: "Variance package incomplete",
+      detail: "Airline Yard: Missing the stormwater memo before submission.",
+      href: "/deals/deal-1",
+      payload: {
+        kind: "attention",
+        dealId: "deal-1",
+        dealName: "Airline Yard",
+      },
+    });
   });
 });

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const CHAT_CONTAINER_TEST_TIMEOUT_MS = 15_000;
 const RESTORED_SUMMARY_CONVERSATION_ID = "11111111-1111-4111-8111-111111111111";
+const OPERATOR_CONTEXT_STORAGE_KEY = "gpc.operatorContext.v1";
 
 const { useAgentWebSocketMock, mapDispatchMock, buildMapContextInputMock, useIsMobileMock } =
   vi.hoisted(() => ({
@@ -98,6 +99,7 @@ describe("ChatContainer", () => {
   beforeEach(() => {
     process.env.NEXT_PUBLIC_AGENT_WS_URL = "wss://agents.example.com";
     window.history.replaceState({}, "", "/chat");
+    window.sessionStorage.clear();
     const localStorageStore = new Map<string, string>();
     const localStorageMock = {
       getItem: vi.fn((key: string) => localStorageStore.get(key) ?? null),
@@ -202,6 +204,7 @@ describe("ChatContainer", () => {
 
   afterEach(() => {
     process.env.NEXT_PUBLIC_AGENT_WS_URL = originalWsUrl;
+    window.sessionStorage.clear();
     Object.defineProperty(window, "localStorage", {
       configurable: true,
       value: originalLocalStorage,
@@ -276,6 +279,44 @@ describe("ChatContainer", () => {
       expect(
         screen.queryByRole("button", { name: "Verification", exact: true }),
       ).not.toBeInTheDocument();
+    },
+    CHAT_CONTAINER_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    "restores attached operator context from the previous workspace",
+    async () => {
+      window.sessionStorage.setItem(
+        OPERATOR_CONTEXT_STORAGE_KEY,
+        JSON.stringify({
+          version: 1,
+          sourceSurface: "command-center",
+          createdAt: "2026-04-23T12:00:00.000Z",
+          items: [
+            {
+              id: "deadline-risk",
+              source: "command-center",
+              label: "Deadline risk",
+              detail: "ALTA survey due tomorrow",
+              href: "/command-center",
+              createdAt: "2026-04-23T12:00:00.000Z",
+            },
+          ],
+        }),
+      );
+
+      const { ChatContainer } = await import("@/components/chat/ChatContainer");
+
+      render(<ChatContainer />);
+
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledWith("/api/chat/conversations");
+      });
+
+      expect(await screen.findByText("1 context item")).toBeInTheDocument();
+      expect(screen.getByText("Attached working context")).toBeInTheDocument();
+      expect(screen.getByText("Deadline risk")).toBeInTheDocument();
+      expect(screen.getByText("ALTA survey due tomorrow")).toBeInTheDocument();
     },
     CHAT_CONTAINER_TEST_TIMEOUT_MS,
   );

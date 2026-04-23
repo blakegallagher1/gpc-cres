@@ -101,4 +101,116 @@ test.describe("Command Center KPI Smoke", () => {
     await expect(page.getByText("Monthly Trend")).toBeVisible();
     await expect(page.locator(".recharts-wrapper")).toBeVisible();
   });
+
+  test("hands priority context into chat mission control", async ({ page }) => {
+    await page.route("**/api/intelligence/daily-briefing", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          generatedAt: new Date().toISOString(),
+          summary: "One queue item needs intervention.",
+          sections: {
+            newActivity: { label: "New Activity", items: [] },
+            needsAttention: {
+              label: "Needs Attention",
+              items: [
+                {
+                  title: "Variance package incomplete",
+                  dealId: "deal-1",
+                  dealName: "Airline Yard",
+                  reason: "Missing the stormwater memo before submission.",
+                },
+              ],
+            },
+            automationActivity: { label: "Automation Activity", items: [] },
+            pipelineSnapshot: {
+              label: "Pipeline Snapshot",
+              stages: [{ status: "INTAKE", count: 1 }],
+            },
+          },
+        }),
+      });
+    });
+
+    await page.route("**/api/portfolio", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          deals: [{ status: "INTAKE", updatedAt: new Date().toISOString() }],
+          metrics: { totalDeals: 1, byStatus: { INTAKE: 1 } },
+        }),
+      });
+    });
+
+    await page.route("**/api/intelligence/deadlines", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ total: 0, deadlines: [] }),
+      });
+    });
+
+    await page.route("**/api/opportunities?limit=6", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ total: 0, opportunities: [] }),
+      });
+    });
+
+    await page.route("**/api/jurisdictions", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ jurisdictions: [] }),
+      });
+    });
+
+    await page.route("**/api/intelligence/entitlements?**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          sampleSize: 0,
+          matchedPredictionCount: 0,
+          medianDecisionDays: null,
+          medianTimelineAbsoluteErrorDays: null,
+          meanTimelineAbsoluteErrorDays: null,
+          approvalCalibrationGap: null,
+          trend: [],
+          byStrategy: [],
+        }),
+      });
+    });
+
+    await page.route("**/api/auth/token", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ token: "test-token" }),
+      });
+    });
+
+    await page.route("**/api/chat/conversations", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ conversations: [] }),
+      });
+    });
+
+    await page.goto("/command-center", { waitUntil: "domcontentloaded" });
+    await ensureCopilotClosed(page);
+
+    await page.getByRole("button", { name: "Launch mission" }).first().click();
+
+    await expect(page).toHaveURL(/\/chat/);
+    await expect(page.getByText("Attached working context")).toBeVisible();
+    await expect(page.getByText("Variance package incomplete")).toBeVisible();
+    await expect(
+      page.getByText("Airline Yard: Missing the stormwater memo before submission."),
+    ).toBeVisible();
+  });
 });
