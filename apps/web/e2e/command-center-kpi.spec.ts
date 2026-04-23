@@ -90,9 +90,8 @@ test.describe("Command Center KPI Smoke", () => {
     await page.goto("/command-center", { waitUntil: "domcontentloaded" });
     await ensureCopilotClosed(page);
 
-    await expect(
-      page.getByRole("heading", { name: "Command Center", level: 1 }),
-    ).toBeVisible();
+    // The command-center hero uses an eyebrow paragraph, not an h1, for the label.
+    await expect(page.getByText("Command Center").first()).toBeVisible();
 
     await expect(page.getByText("Entitlement KPI Monitor")).toBeVisible();
     await expect(page.getByText("Median Entitlement Days")).toBeVisible();

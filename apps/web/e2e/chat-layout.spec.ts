@@ -137,7 +137,7 @@ test.describe("Chat layout", () => {
   test("keeps the run surface usable on first desktop load", async ({ page }) => {
     await openChat(page);
 
-    await expect(page.getByText("Run brief", { exact: true })).toBeVisible({
+    await expect(page.getByTestId("chat-composer")).toBeVisible({
       timeout: CHAT_READY_TIMEOUT_MS,
     });
     await expect(page.getByRole("button", { name: /Controls/i })).toBeVisible();
@@ -157,7 +157,7 @@ test.describe("Chat layout", () => {
     await page.setViewportSize(MOBILE_VIEWPORT);
     await openChat(page);
 
-    await expect(page.getByText("Run brief", { exact: true })).toBeVisible({
+    await expect(page.getByTestId("chat-composer")).toBeVisible({
       timeout: CHAT_READY_TIMEOUT_MS,
     });
     await expect(page.getByRole("button", { name: /Controls/i })).toBeVisible();
