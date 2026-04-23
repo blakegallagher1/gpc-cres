@@ -68,7 +68,7 @@ const sharedEnv: Record<string, string> = {
     "pk_test_ZW5qb3llZC1jYXRmaXNoLTMwLmNsZXJrLmFjY291bnRzLmRldiQ",
   CLERK_SECRET_KEY:
     process.env.CLERK_SECRET_KEY ??
-    "sk_test_e2e_placeholder_key_not_called_with_auth_disabled",
+    "sk_test_3NVM2Y2CuRIq2w9FH0gWRUpzc6lM2eNZ6jgOoitk3E",
   // Next 16 currently emits DEP0060 from its bundled http-proxy dependency in
   // production-style E2E runs. Suppress only that upstream warning code here.
   NODE_OPTIONS: appendNodeOption(process.env.NODE_OPTIONS, "--disable-warning=DEP0060"),
