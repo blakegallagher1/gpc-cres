@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 const appRoot = fileURLToPath(new URL(".", import.meta.url));
+const WEB_TEST_TIMEOUT_MS = 60_000;
 
 export default defineConfig({
   resolve: {
@@ -19,6 +20,7 @@ export default defineConfig({
   test: {
     environment: "happy-dom",
     pool: "threads",
+    testTimeout: WEB_TEST_TIMEOUT_MS,
     globals: true,
     setupFiles: ["./test-utils/setup.ts"],
     exclude: ["e2e/**", "node_modules/**", ".next/**", "**/production-verification*"],

@@ -17,7 +17,8 @@ import { TriageResultPanel } from "@/components/deals/TriageResultPanel";
 import type { TaskItem } from "@/components/deals/TaskCard";
 import { WorkflowTimeline } from "@/components/deals/WorkflowTimeline";
 import { ScreeningScorecard } from "@/components/maps/ScreeningScorecard";
-import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import { formatOperatorDateTime } from "@/lib/formatters/operatorFormatters";
+import { cn, formatCurrency } from "@/lib/utils";
 
 type DealOverviewDeal = {
   id: string;
@@ -159,7 +160,7 @@ function formatNumericValue(value: string | number | null | undefined): string {
 }
 
 function formatDateValue(value: string | null | undefined): string {
-  return value ? formatDate(value) : "—";
+  return value ? formatOperatorDateTime(value, { timeZone: "UTC" }) : "—";
 }
 
 function formatAppealFiled(value: boolean | null): string {
@@ -436,11 +437,11 @@ export function DealOverviewWorkspace({
   const timelineRows: DetailRow[] = [
     {
       label: "Created",
-      value: <span className="font-mono tabular-nums">{formatDate(deal.createdAt)}</span>,
+      value: <span className="font-mono tabular-nums">{formatDateValue(deal.createdAt)}</span>,
     },
     {
       label: "Last updated",
-      value: <span className="font-mono tabular-nums">{formatDate(deal.updatedAt)}</span>,
+      value: <span className="font-mono tabular-nums">{formatDateValue(deal.updatedAt)}</span>,
     },
     {
       label: "Target close",
