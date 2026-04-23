@@ -63,6 +63,9 @@ const sharedEnv: Record<string, string> = {
   NEXT_TSCONFIG_PATH: playwrightTsconfigPath,
   NEXT_PUBLIC_E2E: "true",
   NEXT_PUBLIC_DISABLE_AUTH: "true",
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ??
+    "pk_test_ZW5qb3llZC1jYXRmaXNoLTMwLmNsZXJrLmFjY291bnRzLmRldiQ",
   // Next 16 currently emits DEP0060 from its bundled http-proxy dependency in
   // production-style E2E runs. Suppress only that upstream warning code here.
   NODE_OPTIONS: appendNodeOption(process.env.NODE_OPTIONS, "--disable-warning=DEP0060"),
