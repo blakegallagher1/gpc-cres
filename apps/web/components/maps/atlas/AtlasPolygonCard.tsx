@@ -1,5 +1,7 @@
 "use client";
 
+import React from "react";
+
 interface ZoningRow {
   code: string;
   count: number;
@@ -87,26 +89,23 @@ export function AtlasPolygonCard({
             <span className="font-mono text-[9px] tracking-[0.1em] text-ink-fade">PARCELS</span>
             <span className="font-mono text-[9px] tracking-[0.1em] text-ink-fade">ACRES</span>
             {zoningRows.map((row) => (
-              <>
+              <React.Fragment key={row.code}>
                 <span
-                  key={`${row.code}-code`}
                   className="border-t border-dashed border-rule py-[3px] font-mono text-[11px] text-ink"
                 >
                   {row.code}
                 </span>
                 <span
-                  key={`${row.code}-count`}
                   className="border-t border-dashed border-rule py-[3px] font-mono text-[11px] text-ink"
                 >
                   {row.count}
                 </span>
                 <span
-                  key={`${row.code}-acres`}
                   className="border-t border-dashed border-rule py-[3px] font-mono text-[11px] text-ink"
                 >
                   {row.acres.toFixed(1)}
                 </span>
-              </>
+              </React.Fragment>
             ))}
           </div>
         </div>

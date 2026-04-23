@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, type FormEvent, type KeyboardEvent } from "react";
+import Link from "next/link";
+import { useRef, type FormEvent, type KeyboardEvent, type RefObject } from "react";
 
 interface AtlasTopChromeProps {
   searchText: string;
@@ -12,6 +13,7 @@ interface AtlasTopChromeProps {
   onAnalysisSubmit: (event?: FormEvent<HTMLFormElement>) => void;
   runsCount?: number;
   onFindFocus?: () => void;
+  findInputRef?: RefObject<HTMLInputElement | null>;
 }
 
 export function AtlasTopChrome({
@@ -24,8 +26,10 @@ export function AtlasTopChrome({
   onAnalysisSubmit,
   runsCount = 2,
   onFindFocus,
+  findInputRef,
 }: AtlasTopChromeProps) {
-  const findRef = useRef<HTMLInputElement | null>(null);
+  const internalFindRef = useRef<HTMLInputElement | null>(null);
+  const findRef = findInputRef ?? internalFindRef;
   const askRef = useRef<HTMLInputElement | null>(null);
 
   return (
@@ -41,13 +45,14 @@ export function AtlasTopChrome({
         <nav className="hidden items-center gap-5 md:flex">
           {(
             [
-              { label: "Map", active: true },
-              { label: "Deals", active: false },
-              { label: "Market", active: false },
+              { label: "Map", href: "/map", active: true },
+              { label: "Deals", href: "/deals", active: false },
+              { label: "Market", href: "/opportunities", active: false },
             ] as const
           ).map((item) => (
-            <span
+            <Link
               key={item.label}
+              href={item.href}
               className={
                 item.active
                   ? "cursor-pointer border-b-2 border-ink pb-[3px] font-sans text-[12.5px] font-semibold text-ink"
@@ -55,7 +60,7 @@ export function AtlasTopChrome({
               }
             >
               {item.label}
-            </span>
+            </Link>
           ))}
         </nav>
       </div>

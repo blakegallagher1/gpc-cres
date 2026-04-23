@@ -126,6 +126,10 @@ interface ParcelSuggestApiResponse {
 
 const SURROUNDING_PARCELS_RADIUS_MILES = 1.25;
 const SEARCH_PARAMS_EVENT = "map:search-params-change";
+const AUTH_DISABLED_HINT =
+  process.env.NODE_ENV !== "production"
+    ? " Start the dev server with NEXT_PUBLIC_DISABLE_AUTH=true or sign in."
+    : " Please sign in and try again.";
 
 // ── URL search-params shim ─────────────────────────────────────────────────
 
@@ -409,6 +413,7 @@ export function MapPageClient() {
       });
       if (!action) return;
       event.preventDefault();
+      if (action === "toggle-sidebar") return;
       if (action === "zoom-in") {
         (
           mapRef.current as (ParcelMapRef & {
@@ -425,7 +430,9 @@ export function MapPageClient() {
         )?.zoomOut?.();
         return;
       }
-      mapDispatch({ type: "DESELECT_ALL" });
+      if (action === "deselect-all") {
+        mapDispatch({ type: "DESELECT_ALL" });
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -442,11 +449,6 @@ export function MapPageClient() {
   const PARCEL_MIN_INIT_ZOOM = 11;
   const rawZoom = mapState.zoom ?? initialZoomFromUrl ?? PARCEL_MIN_INIT_ZOOM;
   const mapZoom = Math.max(rawZoom, PARCEL_MIN_INIT_ZOOM);
-
-  const authDisabledHint =
-    process.env.NODE_ENV !== "production"
-      ? " Start the dev server with NEXT_PUBLIC_DISABLE_AUTH=true or sign in."
-      : " Please sign in and try again.";
 
   // ── Focus helpers ────────────────────────────────────────────────────────
   const focusCoordinates = useCallback(
@@ -1069,7 +1071,7 @@ export function MapPageClient() {
         if (!res.ok) {
           setLoadError(
             res.status === 401
-              ? `Unauthorized.${authDisabledHint}`
+              ? `Unauthorized.${AUTH_DISABLED_HINT}`
               : "Failed to load parcels. Please refresh and try again.",
           );
           return;
@@ -1118,7 +1120,7 @@ export function MapPageClient() {
         const result = await requestViewportParcels({ bounds: boundsForRefresh });
         if (!active) return;
         if (result.error) {
-          if (result.unauthorized) setLoadError(`Unauthorized.${authDisabledHint}`);
+          if (result.unauthorized) setLoadError(`Unauthorized.${AUTH_DISABLED_HINT}`);
           return;
         }
         setLoadError(null);
@@ -1133,7 +1135,7 @@ export function MapPageClient() {
     return () => {
       active = false;
     };
-  }, [authDisabledHint, mapState.viewportBounds, markRequestComplete, parcels.length, polygon]);
+  }, [AUTH_DISABLED_HINT, mapState.viewportBounds, markRequestComplete, parcels.length, polygon]);
 
   // ── URL sync ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1174,7 +1176,7 @@ export function MapPageClient() {
         if (!res.ok || !active) {
           if (active) {
             setSearchParcels([]);
-            if (res.status === 401) setLoadError(`Unauthorized.${authDisabledHint}`);
+            if (res.status === 401) setLoadError(`Unauthorized.${AUTH_DISABLED_HINT}`);
           }
           return;
         }
@@ -1323,22 +1325,6 @@ export function MapPageClient() {
     mapDispatch({ type: "CONSUME_PENDING_ACTION" });
   }, [isMapReady, mapDispatch, mapRefVersion, mapState.pendingActions]);
 
-  // ── Spatial selection sync ───────────────────────────────────────────────
-  useEffect(() => {
-    mapDispatch({
-      type: "SET_SPATIAL_SELECTION",
-      selection: polygon
-        ? {
-            kind: "polygon",
-            coordinates: polygon,
-            parcelIds: polygonParcels?.map((p) => p.id),
-            label: statusText,
-          }
-        : null,
-    });
-
-  }, [mapDispatch, polygon, polygonParcels]);
-
   // ── Status text ──────────────────────────────────────────────────────────
   const statusText = useMemo(() => {
     if (loading) return "Loading...";
@@ -1370,6 +1356,21 @@ export function MapPageClient() {
     source,
     visibleParcels.length,
   ]);
+
+  // ── Spatial selection sync ───────────────────────────────────────────────
+  useEffect(() => {
+    mapDispatch({
+      type: "SET_SPATIAL_SELECTION",
+      selection: polygon
+        ? {
+            kind: "polygon",
+            coordinates: polygon,
+            parcelIds: polygonParcels?.map((p) => p.id),
+            label: statusText,
+          }
+        : null,
+    });
+  }, [mapDispatch, polygon, polygonParcels, statusText]);
 
   useEffect(() => {
     if (mapState.viewportLabel === statusText) return;
@@ -1440,7 +1441,6 @@ export function MapPageClient() {
   // ── Reference retained state to satisfy exhaustive-deps / no-unused-vars ─
   // These are read by child components or reserved for future panels.
   const _refs = {
-    isMobile,
     trackedSummary,
     workingSetCount,
     searchMatchCount,
@@ -1485,6 +1485,7 @@ export function MapPageClient() {
         analysisText={analysisText}
         onAnalysisChange={setAnalysisText}
         onAnalysisSubmit={handleAnalysisSubmit}
+        findInputRef={addressInputRef}
         onFindFocus={() => addressInputRef.current?.focus()}
       />
 
@@ -1502,14 +1503,16 @@ export function MapPageClient() {
       />
 
       {/* Body: LeftRail | Map canvas | Feed panel */}
-      <div className="flex min-h-0 flex-1" style={{ display: "grid", gridTemplateColumns: "260px 1fr 360px" }}>
+      <div className="flex min-h-0 flex-1" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "260px 1fr 360px" }}>
         {/* Left rail */}
-        <AtlasLeftRail
-          trackedParcels={trackedParcels}
-          onTrackedParcelClick={focusTrackedParcel}
-          overlayState={overlays}
-          onOverlayToggle={(key) => overlays.toggle(key as Parameters<typeof overlays.toggle>[0])}
-        />
+        {!isMobile && (
+          <AtlasLeftRail
+            trackedParcels={trackedParcels}
+            onTrackedParcelClick={focusTrackedParcel}
+            overlayState={overlays}
+            onOverlayToggle={(key) => overlays.toggle(key as Parameters<typeof overlays.toggle>[0])}
+          />
+        )}
 
         {/* Map canvas */}
         <div className="relative min-h-0 overflow-hidden bg-paper-map">
@@ -1524,6 +1527,7 @@ export function MapPageClient() {
             onPolygonDrawn={(coords) => setPolygon(coords)}
             onPolygonCleared={clearPolygon}
             onParcelClick={(id) => {
+              mapDispatch({ type: "SELECT_PARCELS", parcelIds: [id] });
               const parcel = activeParcels.find((p) => p.id === id);
               if (parcel?.dealId) router.push(`/deals/${parcel.dealId}`);
             }}
@@ -1592,20 +1596,22 @@ export function MapPageClient() {
         </div>
 
         {/* Right feed panel */}
-        <div className="flex min-h-0 flex-col overflow-hidden border-l border-rule bg-paper-panel">
-          <AtlasFeedPanel
-            tab={feedTab}
-            onTabChange={setFeedTab}
-            selectedParcel={selectedParcel}
-            results={feedResults}
-            suggestions={suggestionChips}
-            onSuggestionClick={(prompt) => {
-              setAnalysisText(prompt);
-              void handleNlQuery(prompt);
-            }}
-            onDispatchScreening={() => setFeedTab("screening")}
-          />
-        </div>
+        {!isMobile && (
+          <div className="flex min-h-0 flex-col overflow-hidden bg-paper-panel">
+            <AtlasFeedPanel
+              tab={feedTab}
+              onTabChange={setFeedTab}
+              selectedParcel={selectedParcel}
+              results={feedResults}
+              suggestions={suggestionChips}
+              onSuggestionClick={(prompt) => {
+                setAnalysisText(prompt);
+                void handleNlQuery(prompt);
+              }}
+              onDispatchScreening={() => setFeedTab("screening")}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
