@@ -41,6 +41,14 @@ type BackupManifest = {
     sha256: string;
     bytes: number;
   };
+  offsite: {
+    provider: "backblaze-b2";
+    prefix: string;
+    dumpKey: string;
+    manifestKey: string;
+    uploadedAt: string;
+    verified: boolean;
+  };
   rowCountsByParish: ParishCount[];
 };
 
@@ -49,15 +57,26 @@ type GatewayConfig = {
   statusUrl: string;
 };
 
+type B2UploadResult = {
+  ok: boolean;
+  bucketMasked: string;
+  endpointHost: string;
+  dumpKey: string;
+  manifestKey: string;
+  dumpBytes: number;
+  manifestBytes: number;
+};
+
 function optionalEnv(name: string, fallback: string): string {
   const value = process.env[name];
   return value && value.trim().length > 0 ? value : fallback;
 }
 
-function run(command: string, args: string[]): CommandResult {
+function run(command: string, args: string[], input?: string): CommandResult {
   const output = execFileSync(command, args, {
     encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
+    input,
+    stdio: input ? ["pipe", "pipe", "pipe"] : ["ignore", "pipe", "pipe"],
   });
   return { command: [command, ...args].join(" "), output: output.trim() };
 }
@@ -72,6 +91,11 @@ function sha256(filePath: string): string {
 
 function slugTimestamp(date: Date): string {
   return date.toISOString().replace(/[:.]/g, "-");
+}
+
+function b2ObjectKey(prefix: string, fileName: string): string {
+  const normalizedPrefix = prefix.replace(/^\/+|\/+$/g, "");
+  return normalizedPrefix ? `${normalizedPrefix}/${fileName}` : fileName;
 }
 
 function firstPresent(values: Array<string | undefined>): string | undefined {
@@ -135,15 +159,121 @@ async function fetchContractStatus(): Promise<ContractStatus> {
   return status;
 }
 
+const b2UploadScript = String.raw`
+import json
+import os
+import sys
+from urllib.parse import urlparse
+
+import boto3
+
+dump_path, manifest_path, dump_key, manifest_key = sys.argv[1:5]
+endpoint_url = os.environ["B2_S3_ENDPOINT_URL"]
+bucket = os.environ["B2_BUCKET"]
+
+s3 = boto3.client(
+    "s3",
+    endpoint_url=endpoint_url,
+    aws_access_key_id=os.environ["B2_ACCESS_KEY_ID"],
+    aws_secret_access_key=os.environ["B2_SECRET_ACCESS_KEY"],
+    region_name=os.environ.get("B2_REGION") or "us-east-005",
+)
+
+def upload_and_check(local_path, key):
+    s3.upload_file(local_path, bucket, key)
+    head = s3.head_object(Bucket=bucket, Key=key)
+    local_size = os.path.getsize(local_path)
+    remote_size = int(head["ContentLength"])
+    if remote_size != local_size:
+        raise RuntimeError(f"size mismatch for {key}: local={local_size} remote={remote_size}")
+    return remote_size
+
+dump_bytes = upload_and_check(dump_path, dump_key)
+manifest_bytes = upload_and_check(manifest_path, manifest_key)
+bucket_masked = bucket[:3] + "..." + bucket[-3:] if len(bucket) > 6 else "***"
+
+print(json.dumps({
+    "ok": True,
+    "bucketMasked": bucket_masked,
+    "endpointHost": urlparse(endpoint_url).netloc,
+    "dumpKey": dump_key,
+    "manifestKey": manifest_key,
+    "dumpBytes": dump_bytes,
+    "manifestBytes": manifest_bytes,
+}))
+`;
+
+function uploadBackupToB2(params: {
+  sshHost: string;
+  gatewayContainer: string;
+  remoteDumpPath: string;
+  remoteManifestPath: string;
+  dumpKey: string;
+  manifestKey: string;
+}): B2UploadResult {
+  const containerDumpPath = `/tmp/${path.basename(params.remoteDumpPath)}`;
+  const containerManifestPath = `/tmp/${path.basename(params.remoteManifestPath)}`;
+
+  runSsh(params.sshHost, [
+    "docker",
+    "cp",
+    params.remoteDumpPath,
+    `${params.gatewayContainer}:${containerDumpPath}`,
+  ]);
+  runSsh(params.sshHost, [
+    "docker",
+    "cp",
+    params.remoteManifestPath,
+    `${params.gatewayContainer}:${containerManifestPath}`,
+  ]);
+
+  try {
+    const result = run(
+      "ssh",
+      [
+        params.sshHost,
+        "docker",
+        "exec",
+        "-i",
+        params.gatewayContainer,
+        "python",
+        "-",
+        containerDumpPath,
+        containerManifestPath,
+        params.dumpKey,
+        params.manifestKey,
+      ],
+      b2UploadScript,
+    );
+    const parsed = JSON.parse(result.output) as B2UploadResult;
+    if (!parsed.ok) {
+      throw new Error("B2 upload did not report ok=true");
+    }
+    return parsed;
+  } finally {
+    runSsh(params.sshHost, [
+      "docker",
+      "exec",
+      params.gatewayContainer,
+      "rm",
+      "-f",
+      containerDumpPath,
+      containerManifestPath,
+    ]);
+  }
+}
+
 async function main(): Promise<void> {
   const generatedAt = new Date();
   const stamp = slugTimestamp(generatedAt);
   const sshHost = optionalEnv("PROPERTY_DB_SSH_HOST", "bg");
   const container = optionalEnv("PROPERTY_DB_CONTAINER", "entitlement-os-postgres");
+  const gatewayContainer = optionalEnv("PROPERTY_DB_GATEWAY_CONTAINER", "fastapi-gateway");
   const database = optionalEnv("PROPERTY_DB_NAME", "entitlement_os");
   const user = optionalEnv("PROPERTY_DB_USER", "postgres");
   const outputDir = optionalEnv("PROPERTY_DB_BACKUP_OUTPUT_DIR", DEFAULT_OUTPUT_DIR);
   const remoteDir = optionalEnv("PROPERTY_DB_REMOTE_BACKUP_DIR", DEFAULT_REMOTE_DIR);
+  const b2Prefix = optionalEnv("PROPERTY_DB_B2_PREFIX", "property-db-backups");
   const dumpFileName = `property-db-${stamp}.dump`;
   const manifestFileName = `property-db-${stamp}.manifest.json`;
   const localDumpPath = path.join(outputDir, dumpFileName);
@@ -151,6 +281,8 @@ async function main(): Promise<void> {
   const remoteDumpPath = `${remoteDir}/${dumpFileName}`;
   const remoteManifestPath = `${remoteDir}/${manifestFileName}`;
   const containerDumpPath = `/tmp/${dumpFileName}`;
+  const dumpKey = b2ObjectKey(b2Prefix, dumpFileName);
+  const manifestKey = b2ObjectKey(b2Prefix, manifestFileName);
 
   mkdirSync(outputDir, { recursive: true });
   const status = await fetchContractStatus();
@@ -186,14 +318,30 @@ async function main(): Promise<void> {
       sha256: sha256(localDumpPath),
       bytes: statSync(localDumpPath).size,
     },
+    offsite: {
+      provider: "backblaze-b2",
+      prefix: b2Prefix.replace(/^\/+|\/+$/g, ""),
+      dumpKey,
+      manifestKey,
+      uploadedAt: new Date().toISOString(),
+      verified: true,
+    },
     rowCountsByParish: status.rowCountsByParish,
   };
 
   writeFileSync(localManifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   run("scp", [localManifestPath, `${sshHost}:${remoteManifestPath}`]);
+  const b2Upload = uploadBackupToB2({
+    sshHost,
+    gatewayContainer,
+    remoteDumpPath,
+    remoteManifestPath,
+    dumpKey,
+    manifestKey,
+  });
 
   console.log(
-    `[property-db-backup] ok file=${localDumpPath} bytes=${manifest.files.bytes} sha256=${manifest.files.sha256}`,
+    `[property-db-backup] ok file=${localDumpPath} bytes=${manifest.files.bytes} sha256=${manifest.files.sha256} b2=${b2Upload.dumpKey} bucket=${b2Upload.bucketMasked} endpoint=${b2Upload.endpointHost}`,
   );
 }
 

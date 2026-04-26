@@ -46,6 +46,7 @@
     "property-db:backup": "pnpm exec tsx scripts/property-db/backup.ts",
     "property-db:backup:monitor": "pnpm exec tsx scripts/property-db/monitor_backups.ts",
     "property-db:restore:dry": "pnpm exec tsx scripts/property-db/restore.ts",
+    "property-db:restore:verify-b2": "pnpm exec tsx scripts/property-db/restore.ts --from-b2-latest",
     "property-db:restore:apply": "pnpm exec tsx scripts/property-db/restore.ts --apply",
     "property-db:ingestion:apply": "pnpm exec tsx scripts/property-db/ingestion.ts apply-contract",
     "property-db:ingestion:smoke": "pnpm exec tsx scripts/property-db/ingestion.ts smoke",
