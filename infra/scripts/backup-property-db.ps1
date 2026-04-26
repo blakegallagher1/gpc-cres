@@ -13,10 +13,13 @@ param(
     [string]$BackupDir = "C:\gpc-cres-backups\property-db",
     [int]$RetentionDays = 30,
     [string]$ContainerName = "entitlement-os-postgres",
+    [string]$GatewayContainerName = "fastapi-gateway",
     [string]$DbName = "entitlement_os",
     [string]$User = "postgres",
     [string]$ContractVersion = "property-db-contract-v1",
-    [int]$MinimumEastBatonRougeRows = 150000
+    [int]$MinimumEastBatonRougeRows = 150000,
+    [string]$B2Prefix = "property-db-backups",
+    [switch]$SkipB2Upload
 )
 
 $ErrorActionPreference = "Stop"
@@ -75,6 +78,95 @@ function Read-ParishCounts {
     return $counts
 }
 
+function Format-B2Prefix {
+    param([string]$Prefix)
+
+    return $Prefix.Trim("/")
+}
+
+function Join-B2Key {
+    param(
+        [string]$Prefix,
+        [string]$FileName
+    )
+
+    $normalizedPrefix = Format-B2Prefix $Prefix
+    if ($normalizedPrefix -eq "") {
+        return $FileName
+    }
+    return "$normalizedPrefix/$FileName"
+}
+
+function Upload-BackupToB2 {
+    param(
+        [string]$DumpFile,
+        [string]$ManifestFile,
+        [string]$DumpKey,
+        [string]$ManifestKey
+    )
+
+    $containerDumpPath = "/tmp/$(Split-Path -Leaf $DumpFile)"
+    $containerManifestPath = "/tmp/$(Split-Path -Leaf $ManifestFile)"
+    $python = @'
+import json
+import os
+import sys
+from urllib.parse import urlparse
+
+import boto3
+
+dump_path, manifest_path, dump_key, manifest_key = sys.argv[1:5]
+endpoint_url = os.environ["B2_S3_ENDPOINT_URL"]
+bucket = os.environ["B2_BUCKET"]
+
+s3 = boto3.client(
+    "s3",
+    endpoint_url=endpoint_url,
+    aws_access_key_id=os.environ["B2_ACCESS_KEY_ID"],
+    aws_secret_access_key=os.environ["B2_SECRET_ACCESS_KEY"],
+    region_name=os.environ.get("B2_REGION") or "us-east-005",
+)
+
+def upload_and_check(local_path, key):
+    s3.upload_file(local_path, bucket, key)
+    head = s3.head_object(Bucket=bucket, Key=key)
+    local_size = os.path.getsize(local_path)
+    remote_size = int(head["ContentLength"])
+    if remote_size != local_size:
+        raise RuntimeError(f"size mismatch for {key}: local={local_size} remote={remote_size}")
+    return remote_size
+
+dump_bytes = upload_and_check(dump_path, dump_key)
+manifest_bytes = upload_and_check(manifest_path, manifest_key)
+bucket_masked = bucket[:3] + "..." + bucket[-3:] if len(bucket) > 6 else "***"
+
+print(json.dumps({
+    "ok": True,
+    "bucketMasked": bucket_masked,
+    "endpointHost": urlparse(endpoint_url).netloc,
+    "dumpKey": dump_key,
+    "manifestKey": manifest_key,
+    "dumpBytes": dump_bytes,
+    "manifestBytes": manifest_bytes,
+}))
+'@
+
+    docker cp $DumpFile "${GatewayContainerName}:$containerDumpPath"
+    if ($LASTEXITCODE -ne 0) { throw "docker cp dump to $GatewayContainerName failed with exit code $LASTEXITCODE" }
+    docker cp $ManifestFile "${GatewayContainerName}:$containerManifestPath"
+    if ($LASTEXITCODE -ne 0) { throw "docker cp manifest to $GatewayContainerName failed with exit code $LASTEXITCODE" }
+
+    try {
+        $uploadResult = $python | docker exec -i $GatewayContainerName python - $containerDumpPath $containerManifestPath $DumpKey $ManifestKey
+        if ($LASTEXITCODE -ne 0) {
+            throw "B2 upload failed with exit code $LASTEXITCODE"
+        }
+        return ($uploadResult | Select-Object -Last 1)
+    } finally {
+        docker exec $GatewayContainerName rm -f $containerDumpPath $containerManifestPath 2>$null | Out-Null
+    }
+}
+
 New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
 
 $containerState = docker inspect --format '{{.State.Running}}' $ContainerName 2>&1
@@ -89,6 +181,9 @@ $manifestName = "property-db-$timestamp.manifest.json"
 $dumpFile = Join-Path $BackupDir $dumpName
 $manifestFile = Join-Path $BackupDir $manifestName
 $containerTmp = "/tmp/$dumpName"
+$normalizedB2Prefix = Format-B2Prefix $B2Prefix
+$dumpKey = Join-B2Key $normalizedB2Prefix $dumpName
+$manifestKey = Join-B2Key $normalizedB2Prefix $manifestName
 
 Write-Host "Verifying property DB contract before backup..."
 $ebrRows = Assert-PropertyDbContract
@@ -125,6 +220,14 @@ $manifest = [ordered]@{
         sha256 = $hash
         bytes = $dumpItem.Length
     }
+    offsite = [ordered]@{
+        provider = "backblaze-b2"
+        prefix = $normalizedB2Prefix
+        dumpKey = $dumpKey
+        manifestKey = $manifestKey
+        uploadedAt = (Get-Date).ToUniversalTime().ToString("o")
+        verified = -not $SkipB2Upload
+    }
     checks = [ordered]@{
         eastBatonRougeRows = $ebrRows
         minimumEastBatonRougeRows = $MinimumEastBatonRougeRows
@@ -133,6 +236,12 @@ $manifest = [ordered]@{
 }
 
 $manifest | ConvertTo-Json -Depth 8 | Set-Content -Path $manifestFile -Encoding UTF8
+
+if (-not $SkipB2Upload) {
+    Write-Host "Uploading backup to B2: $dumpKey"
+    $b2Upload = Upload-BackupToB2 -DumpFile $dumpFile -ManifestFile $manifestFile -DumpKey $dumpKey -ManifestKey $manifestKey
+    Write-Host "B2 upload verified: $b2Upload"
+}
 
 Write-Host "Backup complete: $dumpFile ($([math]::Round($dumpItem.Length / 1MB, 2)) MB)"
 Write-Host "Manifest: $manifestFile"

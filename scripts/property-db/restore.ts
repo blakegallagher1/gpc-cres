@@ -126,7 +126,7 @@ function findCachedVerifiedBackup(outputDir: string): string | null {
     .filter((fileName) => fileName.endsWith(".manifest.json"))
     .map((fileName) => {
       const manifestPath = path.join(localDir, fileName);
-      const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as BackupManifest;
+      const manifest = JSON.parse(readFileSync(manifestPath, "utf8").replace(/^\uFEFF/, "")) as BackupManifest;
       const dumpPath = manifestPath.replace(/\.manifest\.json$/, ".dump");
       const generatedAt = manifest.generatedAt ? new Date(manifest.generatedAt).getTime() : statSync(manifestPath).mtimeMs;
       return { dumpPath, generatedAt };
@@ -195,7 +195,7 @@ def download_key(key, target_path):
 
 download_key(manifest_key, manifest_path)
 
-manifest = json.loads(manifest_path.read_text())
+manifest = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
 dump_key = manifest.get("offsite", {}).get("dumpKey") or manifest_key.replace(".manifest.json", ".dump")
 dump_path = target_dir / Path(dump_key).name
 download_key(dump_key, dump_path)
@@ -335,7 +335,7 @@ function readManifest(dumpPath: string): BackupManifest | null {
   if (!existsSync(manifestPath)) {
     return null;
   }
-  return JSON.parse(readFileSync(manifestPath, "utf8")) as BackupManifest;
+  return JSON.parse(readFileSync(manifestPath, "utf8").replace(/^\uFEFF/, "")) as BackupManifest;
 }
 
 function verifyManifest(dumpPath: string): BackupManifest | null {
