@@ -104,6 +104,7 @@ temp/
 
 # Docs builds
 docs/_build/
+docs/memory/
 .vercel
 .env*.local
 

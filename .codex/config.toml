@@ -6,7 +6,7 @@
 # ---------------------------------------------------------------------------
 # Core Model & Reasoning
 # ---------------------------------------------------------------------------
-model                   = "gpt-5.4"
+model                   = "gpt-5.5"
 personality             = "pragmatic"
 approval_policy         = "never"
 sandbox_mode            = "danger-full-access"
@@ -15,6 +15,7 @@ sandbox_mode            = "danger-full-access"
 # Use the "review" profile for deep analysis when needed.
 model_reasoning_effort  = "high"
 model_reasoning_summary = "concise"
+model_supports_reasoning_summaries = true
 
 # LOW verbosity — enforces terse output at the API level, saving tokens for code.
 # AGENTS.md already instructs brevity; this makes it structural.
@@ -118,7 +119,6 @@ voice_transcription             = true
 # Multi-agent — trimmed to essentials
 # ---------------------------------------------------------------------------
 [agents]
-max_threads              = 4       # Down from 11 — most tasks need 1-2 agents
 max_depth                = 2
 job_max_runtime_seconds  = 900     # 15 min — down from 30
 
@@ -172,7 +172,7 @@ memories = true
 [profiles.review]
 approval_policy         = "on-request"
 sandbox_mode            = "read-only"
-model                   = "gpt-5.4"
+model                   = "gpt-5.5"
 model_reasoning_effort  = "xhigh"
 model_reasoning_summary = "detailed"
 web_search              = "cached"
