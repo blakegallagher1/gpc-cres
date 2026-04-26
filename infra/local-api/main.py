@@ -37,6 +37,32 @@ ALLOWED_ORIGINS = [
     o.strip() for o in (os.getenv("ALLOWED_ORIGINS") or "").split(",") if o.strip()
 ]
 INTERNAL_SCOPE_HEADER = "x-gpc-internal-scope"
+PROPERTY_DB_CONTRACT_VERSION = "property-db-contract-v1"
+PROPERTY_DB_MIN_EBR_ROWS = int(os.getenv("PROPERTY_DB_MIN_EBR_ROWS", "150000"))
+PROPERTY_DB_REQUIRED_VIEW_COLUMNS = (
+    "id",
+    "parish",
+    "parcel_uid",
+    "parcel_id",
+    "owner_name",
+    "situs_address",
+    "address",
+    "zip",
+    "acreage",
+    "geom",
+    "source_key",
+    "ingested_at",
+)
+PROPERTY_DB_REQUIRED_TABLE_COLUMNS = (
+    "id",
+    "parcel_id",
+    "owner",
+    "address",
+    "parish",
+    "zip",
+    "geom",
+)
+PROPERTY_DB_REQUIRED_INDEXES = ("idx_ebr_parcels_parish_parcel_id",)
 
 if not API_KEYS:
     print("⚠️  WARNING: No API_KEYS set! API is INSECURE!")
@@ -256,6 +282,132 @@ async def health_check():
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "database": db_status,
     }
+
+
+async def _relation_exists(conn: asyncpg.Connection, relation: str) -> bool:
+    exists = await conn.fetchval("SELECT to_regclass($1) IS NOT NULL", relation)
+    return bool(exists)
+
+
+async def _relation_columns(
+    conn: asyncpg.Connection,
+    schema: str,
+    relation: str,
+) -> list[str]:
+    rows = await conn.fetch(
+        """
+        SELECT a.attname AS column_name
+        FROM pg_attribute a
+        JOIN pg_class c ON c.oid = a.attrelid
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = $1
+          AND c.relname = $2
+          AND a.attnum > 0
+          AND NOT a.attisdropped
+        ORDER BY a.attnum
+        """,
+        schema,
+        relation,
+    )
+    return [row["column_name"] for row in rows]
+
+
+async def _required_indexes(conn: asyncpg.Connection) -> list[str]:
+    rows = await conn.fetch(
+        """
+        SELECT indexname
+        FROM pg_indexes
+        WHERE schemaname = 'public'
+          AND tablename = 'ebr_parcels'
+          AND indexname = ANY($1::text[])
+        ORDER BY indexname
+        """,
+        list(PROPERTY_DB_REQUIRED_INDEXES),
+    )
+    return [row["indexname"] for row in rows]
+
+
+async def _parish_counts(conn: asyncpg.Connection) -> list[dict[str, int | str | None]]:
+    rows = await conn.fetch(
+        """
+        SELECT parish, COUNT(*)::bigint AS row_count
+        FROM public.ebr_parcels
+        GROUP BY parish
+        ORDER BY row_count DESC
+        LIMIT 25
+        """
+    )
+    return [{"parish": row["parish"], "rowCount": int(row["row_count"])} for row in rows]
+
+
+def _property_db_contract_report(
+    view_exists: bool,
+    table_exists: bool,
+    view_columns: list[str],
+    table_columns: list[str],
+    indexes: list[str],
+    parish_counts: list[dict[str, int | str | None]],
+) -> dict[str, object]:
+    ebr_count = next(
+        (row["rowCount"] for row in parish_counts if row["parish"] == "East Baton Rouge"),
+        0,
+    )
+    missing_view_columns = sorted(set(PROPERTY_DB_REQUIRED_VIEW_COLUMNS) - set(view_columns))
+    missing_table_columns = sorted(set(PROPERTY_DB_REQUIRED_TABLE_COLUMNS) - set(table_columns))
+    missing_indexes = sorted(set(PROPERTY_DB_REQUIRED_INDEXES) - set(indexes))
+    checks = {
+        "canonicalViewExists": view_exists,
+        "legacyTableExists": table_exists,
+        "requiredViewColumnsPresent": not missing_view_columns,
+        "requiredLegacyColumnsPresent": not missing_table_columns,
+        "requiredIndexesPresent": not missing_indexes,
+        "eastBatonRougeCountOk": int(ebr_count) >= PROPERTY_DB_MIN_EBR_ROWS,
+    }
+
+    return {
+        "ok": all(checks.values()),
+        "contractVersion": PROPERTY_DB_CONTRACT_VERSION,
+        "canonicalView": "property.parcels",
+        "legacyTable": "public.ebr_parcels",
+        "minimumEastBatonRougeRows": PROPERTY_DB_MIN_EBR_ROWS,
+        "checks": checks,
+        "columns": {
+            "property.parcels": {"present": view_columns, "missing": missing_view_columns},
+            "public.ebr_parcels": {"present": table_columns, "missing": missing_table_columns},
+        },
+        "indexes": {
+            "required": list(PROPERTY_DB_REQUIRED_INDEXES),
+            "present": indexes,
+            "missing": missing_indexes,
+        },
+        "rowCountsByParish": parish_counts,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.get("/property-db/status")
+async def property_db_status(api_key: str = Depends(verify_api_key)):
+    """Protected live contract report for the property DB gateway."""
+    del api_key
+    if not db_pool:
+        raise HTTPException(status_code=503, detail="Property database not configured")
+
+    async with db_pool.acquire() as conn:
+        view_exists = await _relation_exists(conn, "property.parcels")
+        table_exists = await _relation_exists(conn, "public.ebr_parcels")
+        view_columns = await _relation_columns(conn, "property", "parcels") if view_exists else []
+        table_columns = await _relation_columns(conn, "public", "ebr_parcels") if table_exists else []
+        indexes = await _required_indexes(conn) if table_exists else []
+        parish_counts = await _parish_counts(conn) if table_exists else []
+
+    return _property_db_contract_report(
+        view_exists,
+        table_exists,
+        view_columns,
+        table_columns,
+        indexes,
+        parish_counts,
+    )
 
 
 # =============================================================================

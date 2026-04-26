@@ -42,6 +42,7 @@
     "parcel:address-backfill:dry": "pnpm exec tsx scripts/parcels/backfill_org_parcel_addresses.ts",
     "parcel:address-backfill:apply": "pnpm exec tsx scripts/parcels/backfill_org_parcel_addresses.ts --apply",
     "parcel:smoke:prod": "pnpm exec tsx scripts/parcels/smoke_map_parcel_prod.ts",
+    "property-db:contract:smoke": "pnpm exec tsx scripts/property-db/verify_contract.ts",
     "ebr:load": "pnpm exec tsx scripts/parcels/load_ebr_parcels.ts",
     "copy-gpc-moat-tables": "pnpm exec tsx scripts/copy-gpc-moat-tables.ts",
     "smoke:endpoints": "pnpm exec tsx scripts/smoke_endpoints.ts",
