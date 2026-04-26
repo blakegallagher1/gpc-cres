@@ -7,18 +7,23 @@
  * Called automatically by `npm run predeploy`
  * ------------------------------------------------------------------ */
 
-import { writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const GENERATED_DIR = join(__dirname, "..", "src", "generated");
+const TOOL_SCHEMAS_PATH = join(GENERATED_DIR, "tool-schemas.json");
+const INSTRUCTIONS_PATH = join(GENERATED_DIR, "instructions.json");
 
-async function main() {
-  mkdirSync(GENERATED_DIR, { recursive: true });
+export type GeneratedAgentArtifacts = {
+  toolSchemas: Array<Record<string, unknown>>;
+  instructions: { COORDINATOR_INSTRUCTIONS: string };
+};
 
+export async function buildGeneratedAgentArtifacts(): Promise<GeneratedAgentArtifacts> {
   // Dynamic import to load the built package
   const tools = await import("@entitlement-os/openai");
   const coordinator = await import("@entitlement-os/openai");
@@ -82,31 +87,80 @@ async function main() {
 
   // Add hosted tool declarations
   schemas.push({
-    type: "web_search_preview" as any,
+    type: "web_search_preview",
     search_context_size: "medium",
-  } as any);
-
-  const toolSchemasPath = join(GENERATED_DIR, "tool-schemas.json");
-  writeFileSync(toolSchemasPath, JSON.stringify(schemas, null, 2));
-  console.log(`Wrote ${schemas.length} tool schemas to ${toolSchemasPath}`);
+  });
 
   // --- Extract coordinator instructions ---
-  const instructionsExport = (coordinator as Record<string, unknown>)
-    .COORDINATOR_INSTRUCTIONS;
+  const coordinatorModule = coordinator as Record<string, unknown>;
+  const createCoordinator = coordinatorModule.createConfiguredCoordinator;
+  const configuredCoordinator =
+    typeof createCoordinator === "function" ? createCoordinator() : null;
+  const configuredInstructions =
+    configuredCoordinator &&
+    typeof configuredCoordinator === "object" &&
+    "instructions" in configuredCoordinator
+      ? (configuredCoordinator as { instructions?: unknown }).instructions
+      : null;
+  const instructionsExport =
+    typeof coordinatorModule.COORDINATOR_INSTRUCTIONS === "string"
+      ? coordinatorModule.COORDINATOR_INSTRUCTIONS
+      : configuredInstructions;
 
   if (typeof instructionsExport !== "string") {
     console.error(
-      "ERROR: COORDINATOR_INSTRUCTIONS not found or not a string",
+      "ERROR: coordinator instructions not found or not a string",
     );
     process.exit(1);
   }
 
-  const instructionsPath = join(GENERATED_DIR, "instructions.json");
-  writeFileSync(
-    instructionsPath,
-    JSON.stringify({ COORDINATOR_INSTRUCTIONS: instructionsExport }, null, 2),
-  );
-  console.log(`Wrote coordinator instructions to ${instructionsPath}`);
+  return {
+    toolSchemas: schemas,
+    instructions: { COORDINATOR_INSTRUCTIONS: instructionsExport },
+  };
+}
+
+function formatJson(value: unknown): string {
+  return JSON.stringify(value, null, 2);
+}
+
+function readGeneratedJson(path: string): unknown {
+  return JSON.parse(readFileSync(path, "utf8"));
+}
+
+function assertGeneratedArtifactsCurrent(artifacts: GeneratedAgentArtifacts): void {
+  const staleFiles: string[] = [];
+  if (formatJson(readGeneratedJson(TOOL_SCHEMAS_PATH)) !== formatJson(artifacts.toolSchemas)) {
+    staleFiles.push(TOOL_SCHEMAS_PATH);
+  }
+  if (formatJson(readGeneratedJson(INSTRUCTIONS_PATH)) !== formatJson(artifacts.instructions)) {
+    staleFiles.push(INSTRUCTIONS_PATH);
+  }
+
+  if (staleFiles.length > 0) {
+    throw new Error(
+      `Generated Cloudflare Agent artifacts are stale: ${staleFiles.join(", ")}. ` +
+        "Run pnpm --filter entitlement-os-agent export-tools.",
+    );
+  }
+}
+
+async function main() {
+  mkdirSync(GENERATED_DIR, { recursive: true });
+
+  const artifacts = await buildGeneratedAgentArtifacts();
+
+  if (process.argv.includes("--check")) {
+    assertGeneratedArtifactsCurrent(artifacts);
+    console.log("Generated Cloudflare Agent artifacts are up to date.");
+    return;
+  }
+
+  writeFileSync(TOOL_SCHEMAS_PATH, formatJson(artifacts.toolSchemas));
+  console.log(`Wrote ${artifacts.toolSchemas.length} tool schemas to ${TOOL_SCHEMAS_PATH}`);
+
+  writeFileSync(INSTRUCTIONS_PATH, formatJson(artifacts.instructions));
+  console.log(`Wrote coordinator instructions to ${INSTRUCTIONS_PATH}`);
 
   console.log("\nExport complete!");
 }
@@ -144,7 +198,9 @@ function stripFormatConstraints(schema: Record<string, unknown>): void {
   }
 }
 
-main().catch((err) => {
-  console.error("Export failed:", err);
-  process.exit(1);
-});
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  main().catch((err) => {
+    console.error("Export failed:", err);
+    process.exit(1);
+  });
+}

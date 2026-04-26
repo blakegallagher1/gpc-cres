@@ -46,8 +46,16 @@
       "type": "object",
       "properties": {
         "orgId": {
-          "type": "string",
-          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            {
+              "type": "string",
+              "const": "00000000-0000-0000-0000-000000000001"
+            }
+          ],
           "description": "The org ID for security scoping"
         },
         "dealId": {
@@ -70,8 +78,16 @@
       "type": "object",
       "properties": {
         "orgId": {
-          "type": "string",
-          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            {
+              "type": "string",
+              "const": "00000000-0000-0000-0000-000000000001"
+            }
+          ],
           "description": "The org ID for security scoping"
         },
         "status": {
@@ -140,13 +156,21 @@
   {
     "type": "function",
     "name": "create_deal",
-    "description": "Create a new deal with a name, SKU type, and jurisdiction",
+    "description": "Create a new deal with a name, legacy SKU compatibility hint, and jurisdiction. Canonical workflow routing should use workflow template and current stage from the application layer.",
     "parameters": {
       "type": "object",
       "properties": {
         "orgId": {
-          "type": "string",
-          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            {
+              "type": "string",
+              "const": "00000000-0000-0000-0000-000000000001"
+            }
+          ],
           "description": "The org ID for security scoping"
         },
         "createdBy": {
@@ -210,13 +234,21 @@
   {
     "type": "function",
     "name": "update_deal_status",
-    "description": "Update the status of a deal (e.g. INTAKE -> TRIAGE_DONE)",
+    "description": "Update the legacy compatibility status echo for a deal. Use this only when a legacy entitlement-facing workflow still needs a status change; generalized workflows should reason from workflow template and current stage.",
     "parameters": {
       "type": "object",
       "properties": {
         "orgId": {
-          "type": "string",
-          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            {
+              "type": "string",
+              "const": "00000000-0000-0000-0000-000000000001"
+            }
+          ],
           "description": "The org ID for security scoping"
         },
         "dealId": {
@@ -238,7 +270,7 @@
             "EXITED",
             "KILLED"
           ],
-          "description": "The new deal status"
+          "description": "The new legacy compatibility status"
         },
         "notes": {
           "anyOf": [
@@ -281,8 +313,16 @@
       "type": "object",
       "properties": {
         "orgId": {
-          "type": "string",
-          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            {
+              "type": "string",
+              "const": "00000000-0000-0000-0000-000000000001"
+            }
+          ],
           "description": "The org ID for security scoping"
         },
         "dealId": {
@@ -355,8 +395,16 @@
       "type": "object",
       "properties": {
         "orgId": {
-          "type": "string",
-          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            {
+              "type": "string",
+              "const": "00000000-0000-0000-0000-000000000001"
+            }
+          ],
           "description": "The org ID for security scoping"
         },
         "taskId": {
@@ -448,8 +496,16 @@
       "type": "object",
       "properties": {
         "orgId": {
-          "type": "string",
-          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            {
+              "type": "string",
+              "const": "00000000-0000-0000-0000-000000000001"
+            }
+          ],
           "description": "The org ID for security scoping"
         },
         "dealId": {
@@ -486,7 +542,7 @@
   {
     "type": "function",
     "name": "search_parcels",
-    "description": "Search for parcels by STREET ADDRESS only (geocodes the address to coordinates, then finds nearby parcels). Only use this when the user provides a specific street address like '222 St Louis St'. Do NOT use this for ZIP code, zoning, acreage, or owner-based searches \u2014 use query_property_db instead. For a known parcel number, use get_parcel_details.",
+    "description": "Search for parcels by STREET ADDRESS only (geocodes the address to coordinates, then finds nearby parcels). Only use this when the user provides a specific street address like '222 St Louis St'. Do NOT use this for ZIP code, zoning, acreage, or owner-based searches — use query_property_db instead. For a known parcel number, use get_parcel_details.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -562,8 +618,16 @@
       "type": "object",
       "properties": {
         "orgId": {
-          "type": "string",
-          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            {
+              "type": "string",
+              "const": "00000000-0000-0000-0000-000000000001"
+            }
+          ],
           "description": "The org ID for security scoping"
         },
         "parcelId": {
@@ -1044,6 +1108,292 @@
   },
   {
     "type": "function",
+    "name": "lookup_entity_by_address",
+    "description": "Look up what the system knows about a property by address or parcel_id. Returns entity_id and current truth view (verified facts, open conflicts, corrections). READ-ONLY — does not write anything to the database. Use this instead of store_memory when the user asks about a property without providing new data.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Street address of the property (e.g. '2550 Cedarcrest Ave, Baton Rouge, LA 70816')"
+        },
+        "parcel_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Parcel ID from property database"
+        }
+      },
+      "required": [
+        "address",
+        "parcel_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "ingest_comps",
+    "description": "Batch-ingest structured comp records into the memory system. Use when the user provides a table or list of comps with known fields (address, sale price, buyer, seller, cap rate, etc.). Each comp is entity-resolved, duplicate-checked, and stored in draft or verified memory. Returns a summary of how many comps were stored, skipped as duplicates, or flagged as collisions.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "comps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "address": {
+                "type": "string",
+                "description": "Street address of the property"
+              },
+              "city": {
+                "type": "string",
+                "description": "City"
+              },
+              "state": {
+                "type": "string",
+                "description": "State abbreviation, e.g. LA"
+              },
+              "zip": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "ZIP code"
+              },
+              "property_type": {
+                "type": "string",
+                "enum": [
+                  "industrial_flex",
+                  "cold_storage",
+                  "outdoor_storage",
+                  "truck_terminal",
+                  "distribution_center",
+                  "warehouse",
+                  "manufacturing",
+                  "mixed_use"
+                ],
+                "description": "Property type"
+              },
+              "transaction_type": {
+                "type": "string",
+                "enum": [
+                  "sale",
+                  "lease",
+                  "listing"
+                ],
+                "description": "Type of transaction"
+              },
+              "sale_price": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Sale price in dollars"
+              },
+              "price_per_sf": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Price per square foot"
+              },
+              "cap_rate": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Cap rate as decimal, e.g. 0.065 for 6.5%"
+              },
+              "building_size_sf": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Building size in square feet"
+              },
+              "land_size_acres": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Land size in acres"
+              },
+              "year_built": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Year built"
+              },
+              "transaction_date": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Transaction date as ISO 8601 string or YYYY-MM-DD"
+              },
+              "lease_rate": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Lease rate per SF per year"
+              },
+              "lease_term": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Lease term in months"
+              },
+              "buyer": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Buyer name"
+              },
+              "seller": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Seller name"
+              },
+              "broker_notes": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Broker notes or comments"
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "loopnet",
+                  "costar",
+                  "crexi",
+                  "rca",
+                  "broker_package",
+                  "tax_assessor",
+                  "manual_entry",
+                  "api_integration"
+                ],
+                "description": "Data source"
+              }
+            },
+            "required": [
+              "address",
+              "city",
+              "state",
+              "zip",
+              "property_type",
+              "transaction_type",
+              "sale_price",
+              "price_per_sf",
+              "cap_rate",
+              "building_size_sf",
+              "land_size_acres",
+              "year_built",
+              "transaction_date",
+              "lease_rate",
+              "lease_term",
+              "buyer",
+              "seller",
+              "broker_notes",
+              "source"
+            ],
+            "additionalProperties": false
+          },
+          "description": "Array of comp records to ingest"
+        },
+        "auto_verify": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "If true, store comps as verified immediately. Default false (stored as draft pending review)."
+        }
+      },
+      "required": [
+        "comps",
+        "auto_verify"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
     "name": "search_knowledge_base",
     "description": "Search the firm's historical knowledge base for relevant past deals, analyses, and learnings using semantic similarity. Use this when analyzing a new deal to find patterns from similar past deals, check for precedent in entitlement decisions, reference market analyses, or recall past agent findings. Results include the matched text, source type, similarity score, and temporal relevance. IMPORTANT: Always search the knowledge base before making recommendations to check for relevant precedent and avoid repeating past mistakes.",
     "parameters": {
@@ -1066,7 +1416,9 @@
                   "market_report",
                   "user_note",
                   "outcome_record",
-                  "reasoning_trace"
+                  "reasoning_trace",
+                  "episodic_summary",
+                  "procedural_skill"
                 ]
               }
             },
@@ -1168,8 +1520,64 @@
   },
   {
     "type": "function",
+    "name": "search_procedural_skills",
+    "description": "Search reusable procedural playbooks derived from successful prior agent runs.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string"
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "query",
+        "limit"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "search_similar_episodes",
+    "description": "Search prior completed agent runs for similar tasks, conclusions, and evidence-backed patterns.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string"
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "query",
+        "limit"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
     "name": "store_knowledge_entry",
-    "description": "Store an agent analysis pattern, reasoning trace, or general conclusion in the knowledge base. NOT for property-specific facts (comps, prices, cap rates, NOI, lender terms, tour notes) \u2014 use store_memory for those. This tool is for meta-level insights, analytical patterns, and reasoning chains that inform future deal analyses.",
+    "description": "Store an agent analysis pattern, reasoning trace, or general conclusion in the knowledge base. NOT for property-specific facts (comps, prices, cap rates, NOI, lender terms, tour notes) — use store_memory for those. This tool is for meta-level insights, analytical patterns, and reasoning chains that inform future deal analyses.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -1319,7 +1727,7 @@
   {
     "type": "function",
     "name": "share_analysis_finding",
-    "description": "Publish an analysis finding to the shared context so other specialist agents can reference it. Use this when you discover something that would be relevant to other agents' analyses \u2014 for example, Risk agent discovering flood zone issues that Finance should factor into insurance costs, or Research finding market data that Design should consider for site planning. Include a confidence level and any caveats.",
+    "description": "Publish an analysis finding to the shared context so other specialist agents can reference it. Use this when you discover something that would be relevant to other agents' analyses — for example, Risk agent discovering flood zone issues that Finance should factor into insurance costs, or Research finding market data that Design should consider for site planning. Include a confidence level and any caveats.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -1402,7 +1810,7 @@
   {
     "type": "function",
     "name": "assess_uncertainty",
-    "description": "Quantify the uncertainty in your current analysis and identify what information would most reduce it. Use this before making final recommendations to ensure you've identified the key unknowns. This drives autonomous information-seeking behavior \u2014 the system can then prioritize gathering the most impactful missing data.",
+    "description": "Quantify the uncertainty in your current analysis and identify what information would most reduce it. Use this before making final recommendations to ensure you've identified the key unknowns. This drives autonomous information-seeking behavior — the system can then prioritize gathering the most impactful missing data.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -3311,15 +3719,29 @@
   {
     "type": "function",
     "name": "query_property_db_sql",
-    "description": "Run a read-only SQL query against the Louisiana Property Database for advanced spatial or analytical questions. Available tables: ebr_parcels (198K parcels with parcel_id, address, owner, area_sqft, assessed_value, geom, zoning_type, existing_land_use, future_land_use), fema_flood (5.2K flood zone polygons), soils (37K soil units), wetlands (39K wetland polygons), epa_facilities (6.7K facilities). PostGIS functions available: ST_Area, ST_DWithin, ST_Intersects, ST_Contains, ST_Centroid, ST_MakeEnvelope, etc. Acreage from area_sqft: area_sqft / 43560.0. SELECT only, max 100 rows.",
+    "description": "Run a read-only SQL query against the Louisiana Property Database. USE THIS for aggregate queries (COUNT, SUM, AVG, GROUP BY), spatial queries (ST_DWithin, ST_Intersects), complex filtering, and any question the structured query_property_db tool cannot express.\n\nSCHEMA (exact columns — do NOT assume columns that are not listed):\n  ebr_parcels (560K rows, multi-parish — NOT just EBR despite the legacy table name):\n    parcel_id TEXT, address TEXT (street only, no city/state), owner TEXT, parish TEXT (indexed), zip TEXT (ZCTA zip code, 99.95% populated),\n    area_sqft NUMERIC, assessed_value NUMERIC, zoning_type TEXT (34% populated, NULL for many parcels),\n    geom GEOMETRY(MultiPolygon,4326), created_at TIMESTAMP, id UUID\n    NOTE: ebr_parcels is multi-parish. Use parish for parish-scoped parcel queries.\n  fema_flood (5.2K rows): id UUID, zone TEXT, bfe TEXT, panel_id TEXT, parish TEXT, geom GEOMETRY, effective_date TEXT\n  soils (37K rows): id UUID, mapunit_key TEXT, drainage_class TEXT, hydric_rating TEXT, shrink_swell TEXT, parish TEXT, geom GEOMETRY\n  wetlands (39K rows): id UUID, wetland_type TEXT, parish TEXT, geom GEOMETRY\n  epa_facilities (6.7K rows): id UUID, name TEXT, street_address TEXT, city TEXT, state TEXT, zip TEXT, registry_id TEXT, status TEXT, violations_last_3yr INT, penalties_last_3yr INT, lat NUMERIC, lon NUMERIC, parish TEXT, geom GEOMETRY(Point,4326)\n  zcta (516 rows — Louisiana ZIP code polygons): id SERIAL, zip TEXT, state_fips TEXT, land_area_sqm BIGINT, lat NUMERIC, lon NUMERIC, geom GEOMETRY(MultiPolygon,4326)\n\nIMPORTANT CONSTRAINTS:\n  - ebr_parcels has indexed parish and zip columns; use them before spatial joins for parish/ZIP filters.\n  - For ZIP breakdowns: SELECT zip, COUNT(*) FROM ebr_parcels WHERE zoning_type = 'A4' GROUP BY zip ORDER BY count DESC\n  - Do NOT use CTEs, subqueries, or temp table names that match non-allowed table names — the gateway parser will reject them.\n  - fema_flood, soils, wetlands, epa_facilities also have a 'parish' column for overlay-specific filters.\n  - Zoning is only ~34% populated — always mention this caveat when reporting zoning counts.\n  - NEVER use = (SELECT ...) for subqueries that can return multiple rows — always use IN (SELECT ...).\n\nPARISH-SCOPED PARCEL SEARCH (CRITICAL):\n  Use the indexed ebr_parcels.parish column for parcel membership. Do NOT join soils/flood/wetlands just to determine parish.\n  PATTERN: SELECT parcel_id, address, owner, parish, area_sqft/43560.0 AS acres, zoning_type\n    FROM ebr_parcels\n    WHERE parish ILIKE 'Livingston' AND area_sqft/43560.0 >= 10\n    ORDER BY area_sqft DESC LIMIT 50\n  For overlay screening, then join overlay tables on geometry and keep their parish filters overlay-specific.\n\nTIPS:\n  - Acreage: area_sqft / 43560.0\n  - PostGIS: ST_DWithin(geom, ST_SetSRID(ST_MakePoint(lng,lat),4326), meters), ST_Intersects, ST_Contains, ST_Area, ST_Centroid\n  - Distance in meters: ST_Distance(geom::geography, point::geography)\n  - Always include parcel_id and address in SELECT for map display\n  - Use LIMIT (max 500 for data, no limit needed for COUNT/aggregate)\n  - SELECT only, no DDL/DML. Gateway enforces table allowlist.\n\nEXAMPLES:\n  Count by zoning: SELECT zoning_type, COUNT(*) AS cnt FROM ebr_parcels WHERE zoning_type IS NOT NULL GROUP BY zoning_type ORDER BY cnt DESC\n  Large parcels: SELECT parcel_id, address, owner, area_sqft/43560.0 AS acres FROM ebr_parcels WHERE area_sqft/43560.0 >= 5 ORDER BY area_sqft DESC LIMIT 20\n  Near a point: SELECT parcel_id, address, area_sqft/43560.0 AS acres FROM ebr_parcels WHERE ST_DWithin(geom::geography, ST_SetSRID(ST_MakePoint(-91.1,30.45),4326)::geography, 1609) LIMIT 20\n  Flood zone check: SELECT e.parcel_id, e.address, f.zone FROM ebr_parcels e JOIN fema_flood f ON ST_Intersects(e.geom, f.geom) WHERE e.parcel_id = '001-5096-7'\n  Parish land search: SELECT parcel_id, address, owner, parish, area_sqft/43560.0 AS acres, zoning_type FROM ebr_parcels WHERE parish ILIKE 'Livingston' AND area_sqft/43560.0 >= 15 ORDER BY area_sqft DESC LIMIT 30",
     "parameters": {
       "type": "object",
       "properties": {
         "sql": {
           "type": "string",
-          "description": "Read-only SQL query. SELECT/WITH only, no semicolons. Tables: ebr_parcels, fema_flood, soils, wetlands, epa_facilities."
-        },
-        "limit": {
+          "description": "Read-only SQL query (SELECT/WITH only). Include parcel_id + address columns when returning parcels for map display."
+        }
+      },
+      "required": [
+        "sql"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "compute_drive_time_area",
+    "description": "Compute a drive-time isochrone polygon — the area reachable within N minutes from an origin point. Use this for spatial queries like 'parcels within 30 minutes of I-10' or 'find sites within a 15 minute drive of downtown'. Returns a GeoJSON polygon that can be used with query_property_db_sql ST_Within/ST_Intersects to find parcels inside the area. The polygon is also rendered on the map as an overlay.\n\nUSAGE PATTERN:\n1. Call compute_drive_time_area to get the isochrone polygon\n2. Use the returned polygon coordinates in a query_property_db_sql call with ST_Within\n   Example: SELECT ... FROM ebr_parcels WHERE ST_Within(geom, ST_GeomFromGeoJSON('{polygon}'))\n\nThe origin can be specified as lat/lng coordinates OR as an address (which will be geocoded).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "origin_lat": {
           "anyOf": [
             {
               "type": "number"
@@ -3328,12 +3750,163 @@
               "type": "null"
             }
           ],
-          "description": "Max rows (default 100, max 100)."
+          "description": "Origin latitude. Provide this OR origin_address."
+        },
+        "origin_lng": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Origin longitude. Provide this OR origin_address."
+        },
+        "origin_address": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Origin address to geocode (e.g. 'I-10 and Airline Hwy, Baton Rouge, LA'). Used if lat/lng not provided."
+        },
+        "travel_time_minutes": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 120,
+          "description": "Maximum travel time in minutes (1-120)."
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Travel mode: 'driving' (default), 'walking', or 'bicycling'."
         }
       },
       "required": [
-        "sql",
-        "limit"
+        "origin_lat",
+        "origin_lng",
+        "origin_address",
+        "travel_time_minutes",
+        "mode"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "get_area_summary",
+    "description": "Fetch a Google Maps neighborhood summary for a place, cache it in Postgres, and return summary text for screening and market intelligence.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "placeId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Google Place ID for the location to summarize. Pass null to use latitude/longitude fallback."
+        },
+        "latitude": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Latitude fallback if no placeId"
+        },
+        "longitude": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Longitude fallback if no placeId"
+        },
+        "orgId": {
+          "type": "string",
+          "description": "Organization ID for cache scoping"
+        }
+      },
+      "required": [
+        "placeId",
+        "latitude",
+        "longitude",
+        "orgId"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "type": "function",
+    "name": "get_poi_density",
+    "description": "Count POI density around a coordinate using Google Places aggregate counts, cache the result in Postgres, and return counts for screening enrichment.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "latitude": {
+          "type": "number",
+          "description": "Center latitude"
+        },
+        "longitude": {
+          "type": "number",
+          "description": "Center longitude"
+        },
+        "radiusMeters": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Search radius in meters (default 1600 = about 1 mile)"
+        },
+        "placeTypes": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Place types to count, e.g. ['restaurant', 'gas_station', 'school']"
+        },
+        "orgId": {
+          "type": "string",
+          "description": "Organization ID"
+        }
+      },
+      "required": [
+        "latitude",
+        "longitude",
+        "radiusMeters",
+        "placeTypes",
+        "orgId"
       ],
       "additionalProperties": false
     }
@@ -3461,72 +4034,250 @@
   },
   {
     "type": "function",
-    "name": "consult_finance_specialist",
-    "description": "Consult Finance Agent for focused underwriting/capital-structure questions while the Coordinator retains control.",
+    "name": "search_document_content",
+    "description": "Semantically search the full text content of uploaded deal documents using hybrid vector + keyword retrieval. Use this when you need to find specific clauses, provisions, terms, or language across documents — e.g. 'inspection contingency clause', 'wetland mitigation', 'environmental remediation liability', 'tenant estoppel requirements'. Returns matching text excerpts with relevance scores. This searches raw document text, not structured extractions — use query_document_extractions for structured field lookups instead.",
     "parameters": {
       "type": "object",
       "properties": {
-        "input": {
+        "query": {
           "type": "string",
-          "description": "The question or analysis request to pass to the specialist agent"
+          "description": "Natural language search query describing what you are looking for."
+        },
+        "org_id": {
+          "type": "string",
+          "description": "The organization ID (for multi-tenant scoping)."
+        },
+        "deal_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional deal ID to scope search to a specific deal. Pass null for org-wide search."
+        },
+        "doc_type": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "psa",
+                "phase_i_esa",
+                "financing_commitment",
+                "title_commitment",
+                "survey",
+                "zoning_letter",
+                "appraisal",
+                "lease",
+                "loi",
+                "rent_roll",
+                "trailing_financials",
+                "other"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional document type filter. Pass null to search all document types."
         }
       },
       "required": [
-        "input"
+        "query",
+        "org_id",
+        "deal_id",
+        "doc_type"
       ],
       "additionalProperties": false
     }
   },
   {
     "type": "function",
-    "name": "consult_risk_specialist",
-    "description": "Consult Risk Agent for focused hazard/compliance/uncertainty checks while the Coordinator retains control.",
+    "name": "run_underwriting_workflow",
+    "description": "Run a deterministic, shell-backed underwriting calculation that returns DSCR and implied value from key financial inputs.",
     "parameters": {
       "type": "object",
       "properties": {
-        "input": {
+        "propertyName": {
           "type": "string",
-          "description": "The question or analysis request to pass to the specialist agent"
+          "minLength": 1
+        },
+        "netOperatingIncome": {
+          "type": "number"
+        },
+        "annualDebtService": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "capRate": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "orgId": {
+          "type": "string",
+          "description": "The org ID for security scoping"
         }
       },
       "required": [
-        "input"
+        "propertyName",
+        "netOperatingIncome",
+        "annualDebtService",
+        "capRate",
+        "model",
+        "orgId"
       ],
       "additionalProperties": false
     }
   },
   {
     "type": "function",
-    "name": "consult_legal_specialist",
-    "description": "Consult Legal Agent for focused contract/zoning/legal-risk questions while the Coordinator retains control.",
+    "name": "describe_parcel_set",
+    "description": "Describe and materialize a parcel set. Accepts parcel IDs, a bounding box, or a registered set ID. Returns parcel count, facts (address, zoning, acres), screening results if available, and provenance information. Use this to understand the composition and characteristics of a parcel selection.",
     "parameters": {
       "type": "object",
       "properties": {
-        "input": {
+        "orgId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            {
+              "type": "string",
+              "const": "00000000-0000-0000-0000-000000000001"
+            }
+          ],
+          "description": "Organization ID for parcel set scoping"
+        },
+        "conversation_id": {
           "type": "string",
-          "description": "The question or analysis request to pass to the specialist agent"
+          "description": "Conversation ID for registry scoping"
+        },
+        "parcel_ids": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "List of parcel IDs to describe (e.g. ['p1', 'p2'])"
+        },
+        "bbox": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "minLng": {
+                  "type": "number"
+                },
+                "minLat": {
+                  "type": "number"
+                },
+                "maxLng": {
+                  "type": "number"
+                },
+                "maxLat": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "minLng",
+                "minLat",
+                "maxLng",
+                "maxLat"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Bounding box to search (minLng, minLat, maxLng, maxLat)"
+        },
+        "set_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Registered parcel set ID to materialize"
+        },
+        "screening_dimensions": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Environmental dimensions to screen (e.g. ['flood', 'zoning', 'soils'])"
         }
       },
       "required": [
-        "input"
+        "orgId",
+        "conversation_id",
+        "parcel_ids",
+        "bbox",
+        "set_id",
+        "screening_dimensions"
       ],
       "additionalProperties": false
     }
   },
   {
     "type": "function",
-    "name": "consult_market_trajectory_specialist",
-    "description": "Consult Market Trajectory Agent for neighborhood growth analysis, permit activity mapping, and gentrification indicator tracking.",
+    "name": "list_parcel_sets",
+    "description": "List all parcel sets registered in the current conversation. Shows set IDs, origins, statuses, and member counts.",
     "parameters": {
       "type": "object",
       "properties": {
-        "input": {
+        "orgId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            {
+              "type": "string",
+              "const": "00000000-0000-0000-0000-000000000001"
+            }
+          ],
+          "description": "Organization ID for parcel set scoping"
+        },
+        "conversation_id": {
           "type": "string",
-          "description": "The question or analysis request to pass to the specialist agent"
+          "description": "Conversation ID for registry scoping"
         }
       },
       "required": [
-        "input"
+        "orgId",
+        "conversation_id"
       ],
       "additionalProperties": false
     }

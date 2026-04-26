@@ -84,6 +84,11 @@ import {
   type ResearchLaneSelection,
 } from "./researchRouting";
 import { unifiedRetrieval } from "./retrievalAdapter";
+import {
+  getResponsesWebSocketRunner,
+  isResponsesWebSocketTransportError,
+  shouldUseResponsesWebSocketTransport,
+} from "./openaiResponsesTransport";
 
 type CuaModelPreference = "gpt-5.4" | "gpt-5.4-mini";
 
@@ -200,6 +205,38 @@ function buildAgentRuntimeLogContext(
 type AgentRunInput =
   | ReturnType<typeof buildAgentInputItems>
   | RunState<unknown, ReturnType<typeof createConfiguredCoordinator>>;
+type AgentRunOptions = Parameters<typeof run>[2];
+type CoordinatorAgent = ReturnType<typeof createConfiguredCoordinator>;
+
+async function runCoordinatorWithPreferredTransport(params: {
+  coordinator: CoordinatorAgent;
+  input: AgentRunInput;
+  options: AgentRunOptions;
+  logContext: Record<string, unknown>;
+}): Promise<unknown> {
+  if (!shouldUseResponsesWebSocketTransport()) {
+    return run(params.coordinator, params.input, params.options);
+  }
+
+  try {
+    logger.debug("Agent run using OpenAI Responses WebSocket transport", params.logContext);
+    return await getResponsesWebSocketRunner().run(
+      params.coordinator,
+      params.input,
+      params.options,
+    );
+  } catch (error) {
+    if (!isResponsesWebSocketTransportError(error)) {
+      throw error;
+    }
+
+    logger.warn("OpenAI Responses WebSocket transport failed; falling back to HTTP", {
+      ...params.logContext,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return run(params.coordinator, params.input, params.options);
+  }
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -1846,11 +1883,16 @@ export async function executeAgentWorkflow(
       let attemptText = "";
       let attemptPendingApprovalState: AgentRunAttemptState["pendingApprovalState"] = null;
 
-      const result = await run(
+      const result = await runCoordinatorWithPreferredTransport({
         coordinator,
-        attemptInput,
-        runOptions,
-      );
+        input: attemptInput,
+        options: runOptions,
+        logContext: {
+          ...runtimeLogContext,
+          runAttemptLabel: label,
+          websocketTransportEnabled: shouldUseResponsesWebSocketTransport(),
+        },
+      });
       attemptResult = result;
       if (
         isRecord(result) &&

@@ -9,6 +9,7 @@
     "deploy": "tsx scripts/export-tools.ts && wrangler deploy",
     "predeploy": "tsx scripts/export-tools.ts",
     "export-tools": "tsx scripts/export-tools.ts",
+    "check-generated": "tsx scripts/export-tools.ts --check",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
