@@ -672,7 +672,9 @@ function main(): void {
   } finally {
     cleanup(options, containerDumpPath, containerSqlPath);
   }
-  run("pnpm", ["property-db:contract:smoke"]);
+  if (!booleanEnv("PROPERTY_DB_RESTORE_SKIP_GATEWAY_SMOKE", false)) {
+    run("pnpm", ["property-db:contract:smoke"]);
+  }
   console.log("[property-db-restore] ok");
 }
 
