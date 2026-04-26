@@ -111,6 +111,8 @@ docs/_build/
 
 # Local Playwright artifacts
 .playwright-cli/
+.playwright-mcp/
+chat-local-*.png
 output/playwright/
 output/playwright-*.png
 output/observability/
