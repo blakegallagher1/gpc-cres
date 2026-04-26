@@ -119,13 +119,9 @@ function isParishScopedParcelQueryMissingDimension(sql: string): {
   missing: boolean;
   parish: string | null;
 } {
-  const lowered = sql.toLowerCase();
   const parish = extractRequestedParish(sql);
   if (!parish) return { missing: false, parish: null };
-  if (!lowered.includes("from ebr_parcels")) return { missing: false, parish };
-
-  // ebr_parcels has no parish column; apply downstream authoritative tiering.
-  return { missing: true, parish };
+  return { missing: false, parish };
 }
 
 type ParishVerificationTier = "verified" | "probable" | "unknown";
@@ -823,7 +819,8 @@ export const queryPropertyDb = tool({
     "This tool is a convenience wrapper for basic filter combinations only.",
   parameters: z.object({
     zoning: z.string().optional().nullable().describe("Zoning type to filter by (e.g. 'C2', 'M1', 'A1'). Case/hyphen insensitive."),
-    zip: z.string().optional().nullable().describe("ZIP code to filter parcels by (matched in situs address)."),
+    parish: z.string().optional().nullable().describe("Parish name to filter parcels by (uses indexed ebr_parcels.parish)."),
+    zip: z.string().optional().nullable().describe("ZIP code to filter parcels by (uses ebr_parcels.zip)."),
     min_acreage: z.number().optional().nullable().describe("Minimum parcel acreage."),
     max_acreage: z.number().optional().nullable().describe("Maximum parcel acreage."),
     owner_contains: z.string().optional().nullable().describe("Filter parcels where owner name contains this text (case-insensitive)."),
@@ -833,7 +830,7 @@ export const queryPropertyDb = tool({
   }),
   execute: async (params) => {
     // Build SQL dynamically from structured filters via /tools/parcels.sql
-    // Columns: parcel_id, address, owner, area_sqft, assessed_value, zoning_type, geom
+    // Columns: parcel_id, address, owner, parish, zip, area_sqft, assessed_value, zoning_type, geom
     const conditions: string[] = [];
     const limit = Math.min(params.limit ?? 10, 100);
 
@@ -841,9 +838,13 @@ export const queryPropertyDb = tool({
       const z = params.zoning.replace(/'/g, "''").toUpperCase().replace(/-/g, "");
       conditions.push(`UPPER(REPLACE(zoning_type, '-', '')) = '${z}'`);
     }
+    if (params.parish) {
+      const parish = params.parish.replace(/'/g, "''");
+      conditions.push(`parish ILIKE '${parish}'`);
+    }
     if (params.zip) {
       const zip = params.zip.replace(/'/g, "''");
-      conditions.push(`address LIKE '%${zip}%'`);
+      conditions.push(`zip = '${zip}'`);
     }
     if (params.min_acreage != null) {
       conditions.push(`area_sqft / 43560.0 >= ${Number(params.min_acreage)}`);
@@ -867,7 +868,7 @@ export const queryPropertyDb = tool({
     else if (params.sort === "assessed_value_desc") orderBy = "ORDER BY assessed_value DESC NULLS LAST";
     else if (params.sort === "address_asc") orderBy = "ORDER BY address ASC";
 
-    const sql = `SELECT parcel_id, address, owner, area_sqft / 43560.0 AS acres, assessed_value, zoning_type FROM ebr_parcels ${where} ${orderBy} LIMIT ${limit}`;
+    const sql = `SELECT parcel_id, address, owner, parish, zip, area_sqft / 43560.0 AS acres, assessed_value, zoning_type FROM ebr_parcels ${where} ${orderBy} LIMIT ${limit}`;
     const result = await gatewayPost("/tools/parcels.sql", { sql });
     // Gateway returns {ok, rows, rowCount} — extract rows array
     const rows = Array.isArray(result) ? result : (result as Record<string, unknown>)?.rows;
@@ -884,32 +885,30 @@ export const queryPropertyDbSql = tool({
     "Run a read-only SQL query against the Louisiana Property Database. USE THIS for aggregate queries (COUNT, SUM, AVG, GROUP BY), " +
     "spatial queries (ST_DWithin, ST_Intersects), complex filtering, and any question the structured query_property_db tool cannot express.\n\n" +
     "SCHEMA (exact columns — do NOT assume columns that are not listed):\n" +
-    "  ebr_parcels (560K rows, multi-parish — NOT just EBR despite the table name):\n" +
-    "    parcel_id TEXT, address TEXT (street only, no city/state), owner TEXT, zip TEXT (ZCTA zip code, 99.95% populated),\n" +
+    "  ebr_parcels (560K rows, multi-parish — NOT just EBR despite the legacy table name):\n" +
+    "    parcel_id TEXT, address TEXT (street only, no city/state), owner TEXT, parish TEXT (indexed), zip TEXT (ZCTA zip code, 99.95% populated),\n" +
     "    area_sqft NUMERIC, assessed_value NUMERIC, zoning_type TEXT (34% populated, NULL for many parcels),\n" +
     "    geom GEOMETRY(MultiPolygon,4326), created_at TIMESTAMP, id UUID\n" +
-    "    NOTE: No city or parish column. zip is from ZCTA spatial join, not from address text.\n" +
+    "    NOTE: ebr_parcels is multi-parish. Use parish for parish-scoped parcel queries.\n" +
     "  fema_flood (5.2K rows): id UUID, zone TEXT, bfe TEXT, panel_id TEXT, parish TEXT, geom GEOMETRY, effective_date TEXT\n" +
     "  soils (37K rows): id UUID, mapunit_key TEXT, drainage_class TEXT, hydric_rating TEXT, shrink_swell TEXT, parish TEXT, geom GEOMETRY\n" +
     "  wetlands (39K rows): id UUID, wetland_type TEXT, parish TEXT, geom GEOMETRY\n" +
     "  epa_facilities (6.7K rows): id UUID, name TEXT, street_address TEXT, city TEXT, state TEXT, zip TEXT, registry_id TEXT, status TEXT, violations_last_3yr INT, penalties_last_3yr INT, lat NUMERIC, lon NUMERIC, parish TEXT, geom GEOMETRY(Point,4326)\n" +
     "  zcta (516 rows — Louisiana ZIP code polygons): id SERIAL, zip TEXT, state_fips TEXT, land_area_sqm BIGINT, lat NUMERIC, lon NUMERIC, geom GEOMETRY(MultiPolygon,4326)\n\n" +
     "IMPORTANT CONSTRAINTS:\n" +
-    "  - ebr_parcels has zip (from ZCTA spatial join) but NO city or parish column.\n" +
+    "  - ebr_parcels has indexed parish and zip columns; use them before spatial joins for parish/ZIP filters.\n" +
     "  - For ZIP breakdowns: SELECT zip, COUNT(*) FROM ebr_parcels WHERE zoning_type = 'A4' GROUP BY zip ORDER BY count DESC\n" +
     "  - Do NOT use CTEs, subqueries, or temp table names that match non-allowed table names — the gateway parser will reject them.\n" +
-    "  - fema_flood, soils, wetlands, epa_facilities have a 'parish' column. ebr_parcels does NOT.\n" +
+    "  - fema_flood, soils, wetlands, epa_facilities also have a 'parish' column for overlay-specific filters.\n" +
     "  - Zoning is only ~34% populated — always mention this caveat when reporting zoning counts.\n" +
     "  - NEVER use = (SELECT ...) for subqueries that can return multiple rows — always use IN (SELECT ...).\n\n" +
-    "PARISH-SCOPED PARCEL SEARCH (CRITICAL — follow this pattern for any non-EBR parish):\n" +
-    "  Since ebr_parcels has NO parish column, use a spatial join with a reference table that has one.\n" +
-    "  The most reliable approach joins ebr_parcels with soils (37K rows, parish column, good geometry coverage).\n" +
-    "  PATTERN: SELECT DISTINCT e.parcel_id, e.address, e.owner, e.area_sqft/43560.0 AS acres, e.zoning_type\n" +
-    "    FROM ebr_parcels e JOIN soils s ON ST_Intersects(e.geom, s.geom)\n" +
-    "    WHERE s.parish ILIKE 'Livingston' AND e.area_sqft/43560.0 >= 10\n" +
-    "    ORDER BY e.area_sqft DESC LIMIT 50\n" +
-    "  This is authoritative geometry-based parish membership — far more reliable than ZIP code filtering.\n" +
-    "  For flood screening add: LEFT JOIN fema_flood f ON ST_Intersects(e.geom, f.geom) AND f.parish ILIKE 'Livingston'\n\n" +
+    "PARISH-SCOPED PARCEL SEARCH (CRITICAL):\n" +
+    "  Use the indexed ebr_parcels.parish column for parcel membership. Do NOT join soils/flood/wetlands just to determine parish.\n" +
+    "  PATTERN: SELECT parcel_id, address, owner, parish, area_sqft/43560.0 AS acres, zoning_type\n" +
+    "    FROM ebr_parcels\n" +
+    "    WHERE parish ILIKE 'Livingston' AND area_sqft/43560.0 >= 10\n" +
+    "    ORDER BY area_sqft DESC LIMIT 50\n" +
+    "  For overlay screening, then join overlay tables on geometry and keep their parish filters overlay-specific.\n\n" +
     "TIPS:\n" +
     "  - Acreage: area_sqft / 43560.0\n" +
     "  - PostGIS: ST_DWithin(geom, ST_SetSRID(ST_MakePoint(lng,lat),4326), meters), ST_Intersects, ST_Contains, ST_Area, ST_Centroid\n" +
@@ -922,7 +921,7 @@ export const queryPropertyDbSql = tool({
     "  Large parcels: SELECT parcel_id, address, owner, area_sqft/43560.0 AS acres FROM ebr_parcels WHERE area_sqft/43560.0 >= 5 ORDER BY area_sqft DESC LIMIT 20\n" +
     "  Near a point: SELECT parcel_id, address, area_sqft/43560.0 AS acres FROM ebr_parcels WHERE ST_DWithin(geom::geography, ST_SetSRID(ST_MakePoint(-91.1,30.45),4326)::geography, 1609) LIMIT 20\n" +
     "  Flood zone check: SELECT e.parcel_id, e.address, f.zone FROM ebr_parcels e JOIN fema_flood f ON ST_Intersects(e.geom, f.geom) WHERE e.parcel_id = '001-5096-7'\n" +
-    "  Parish land search: SELECT DISTINCT e.parcel_id, e.address, e.owner, e.area_sqft/43560.0 AS acres, e.zoning_type FROM ebr_parcels e JOIN soils s ON ST_Intersects(e.geom, s.geom) WHERE s.parish ILIKE 'Livingston' AND e.area_sqft/43560.0 >= 15 ORDER BY e.area_sqft DESC LIMIT 30",
+    "  Parish land search: SELECT parcel_id, address, owner, parish, area_sqft/43560.0 AS acres, zoning_type FROM ebr_parcels WHERE parish ILIKE 'Livingston' AND area_sqft/43560.0 >= 15 ORDER BY area_sqft DESC LIMIT 30",
   parameters: z.object({
     sql: z.string().describe("Read-only SQL query (SELECT/WITH only). Include parcel_id + address columns when returning parcels for map display."),
   }),

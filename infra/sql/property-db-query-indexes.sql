@@ -27,3 +27,10 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_ebr_parcels_zoning_area
 --    Added 2026-03-24. Improved query speed from 18 rows/s to 1,087 rows/s.
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_ebr_parcels_parcel_id
   ON ebr_parcels (parcel_id);
+
+-- 5. Parish-scoped parcel search (canonical multi-parish filter)
+--    Keep parish queries on the indexed parcel column; do not join overlay
+--    tables just to infer parish membership.
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_ebr_parcels_parish_parcel_id
+  ON ebr_parcels (parish, parcel_id)
+  WHERE parish IS NOT NULL;

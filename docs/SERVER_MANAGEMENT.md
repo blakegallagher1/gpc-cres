@@ -148,7 +148,7 @@ The Windows PC runs **two Docker Compose stacks on separate Docker networks**:
 Network 172.18.x (Production stack — C:\gpc-cres-backend\docker-compose.yml)
 ├── FastAPI gateway (:8000) → connects to property DB
 ├── Martin tile server (:3000) → reads from property DB
-├── Property DB PostgreSQL → ebr_parcels (198K), fema_flood, soils, wetlands, epa_facilities
+├── Property DB PostgreSQL → ebr_parcels (560K multi-parish; 198,949 East Baton Rouge), fema_flood, soils, wetlands, epa_facilities
 ├── Qdrant (:6333)
 └── Cloudflare Tunnel (cloudflared)
 
@@ -157,7 +157,7 @@ Network 172.19.x (Repo stack — infra/docker/docker-compose.yml)
 └── Temporal services
 ```
 
-### Accessing Property Data (ebr_parcels, screening tables)
+### Accessing Property Data (property.parcels / ebr_parcels, screening tables)
 
 | Method | Works? | Notes |
 |--------|--------|-------|
@@ -166,6 +166,12 @@ Network 172.19.x (Repo stack — infra/docker/docker-compose.yml)
 | CF DB tunnel (`db.gallagherpropco.com`) | **NO** | Connects to App DB (172.19.x). Property tables don't exist here. |
 | SSH → `docker exec` | **YES** (when sshd is running) | Full DDL access. Required for materialized views, schema changes. |
 | Direct LAN (192.168.1.164) | **NO** | Windows Firewall blocks all TCP ports. Only ICMP (ping) allowed. |
+
+`ebr_parcels` is a legacy table name and now contains multiple parishes. Use
+`parish` for parish-scoped parcel filters; it is indexed and avoids slow
+geometry joins against overlay tables. `property.parcels` is the canonical
+view/alias for new SQL contracts, with `ebr_parcels` retained for existing
+queries and tile/search code.
 
 ### Accessing App Data (deals, conversations, Prisma)
 

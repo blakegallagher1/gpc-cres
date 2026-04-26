@@ -925,7 +925,7 @@ async def tools_parcels_search(
 # =============================================================================
 
 _ALLOWED_TABLES = {
-    "ebr_parcels", "fema_flood", "soils", "wetlands",
+    "ebr_parcels", "property.parcels", "fema_flood", "soils", "wetlands",
     "epa_facilities", "traffic_counts", "ldeq_permits", "zcta",
     "mobile_home_parks",
 }
@@ -978,7 +978,7 @@ async def tools_parcels_sql(
 
     # Table allowlist — extract table references from FROM / JOIN clauses
     # Simple regex approach: find word tokens after FROM or JOIN
-    table_refs = re.findall(r'\b(?:FROM|JOIN)\s+(\w+)', sql, re.IGNORECASE)
+    table_refs = re.findall(r'\b(?:FROM|JOIN)\s+((?:\w+\.)?\w+)', sql, re.IGNORECASE)
     disallowed = [t for t in table_refs if t.lower() not in _ALLOWED_TABLES]
     if disallowed:
         return {"ok": False, "error": f"Disallowed table(s) referenced: {', '.join(set(disallowed))}. Allowed: {', '.join(sorted(_ALLOWED_TABLES))}"}

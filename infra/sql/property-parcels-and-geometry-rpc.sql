@@ -1,17 +1,19 @@
 -- =============================================================================
 -- Property Parcels View + Geometry RPC for Map Polygon Shapes
 -- Target: yjddspdbxuseowxndrak.supabase.co (gpc-dashboard)
--- Prereqs: ebr_parcels table populated.
+-- Prereqs: ebr_parcels table populated with multi-parish parcel rows.
 -- Run in Supabase SQL Editor. Then run property-db-rpc-functions.sql (adapted).
 -- =============================================================================
 
--- 1. Create property schema and parcels view (maps ebr_parcels to RPC-expected shape)
+-- 1. Create property schema and canonical parcels view.
+--    ebr_parcels is retained as the legacy physical table name; new SQL
+--    contracts should prefer property.parcels.
 CREATE SCHEMA IF NOT EXISTS property;
 
 CREATE OR REPLACE VIEW property.parcels AS
 SELECT
   p.id,
-  'East Baton Rouge'::text AS parish,
+  p.parish,
   p.parcel_id AS parcel_uid,
   p.owner AS owner_name,
   p.address AS situs_address,
@@ -40,6 +42,9 @@ CREATE INDEX IF NOT EXISTS idx_ebr_parcels_address_gin
   ON public.ebr_parcels USING gin (to_tsvector('simple', coalesce(address, '')));
 CREATE INDEX IF NOT EXISTS idx_ebr_parcels_owner_gin
   ON public.ebr_parcels USING gin (to_tsvector('simple', coalesce(owner, '')));
+CREATE INDEX IF NOT EXISTS idx_ebr_parcels_parish_parcel_id
+  ON public.ebr_parcels (parish, parcel_id)
+  WHERE parish IS NOT NULL;
 
 -- 3. api_search_parcels (uses property.parcels)
 DROP FUNCTION IF EXISTS api_search_parcels(text, text, int);
