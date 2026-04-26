@@ -154,7 +154,7 @@ describe("AUTOMATION_CONFIG", () => {
       expect(AUTOMATION_CONFIG.agentLearning.createEpisodes).toBe(true);
       expect(AUTOMATION_CONFIG.agentLearning.injectEpisodes).toBe(true);
       expect(AUTOMATION_CONFIG.agentLearning.injectProcedures).toBe(true);
-      expect(AUTOMATION_CONFIG.agentLearning.promoteFacts).toBe(false);
+      expect(AUTOMATION_CONFIG.agentLearning.promoteFacts).toBe(true);
       expect(AUTOMATION_CONFIG.agentLearning.promoteProcedures).toBe(true);
       expect(AUTOMATION_CONFIG.agentLearning.minConfidenceForFactPromotion).toBe(0.72);
       expect(AUTOMATION_CONFIG.agentLearning.minEpisodesForSkill).toBe(3);

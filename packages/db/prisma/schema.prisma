@@ -353,6 +353,10 @@ model Org {
   assetPerformancePeriods        AssetPerformancePeriod[]
   capExItems                     CapExItem[]
   tenantChangeEvents             TenantChangeEvent[]
+  propertyObservations           PropertyObservation[]
+  propertyProfiles               PropertyProfile[]
+  propertyLearningCandidates     PropertyLearningCandidate[]
+  propertyLearningEvals          PropertyLearningEval[]
 
   @@map("orgs")
 }
@@ -1633,6 +1637,113 @@ model KnowledgeEmbedding {
   @@index([contentType])
   @@index([sourceId])
   @@map("knowledge_embeddings")
+}
+
+model PropertyObservation {
+  id               String    @id @default(uuid()) @db.Uuid
+  orgId            String    @map("org_id") @db.Uuid
+  observationKey   String    @map("observation_key") @db.Text
+  observationType  String    @map("observation_type") @db.Text
+  propertyKey      String    @map("property_key") @db.Text
+  parcelId         String?   @map("parcel_id") @db.Text
+  canonicalAddress String    @map("canonical_address") @db.Text
+  sourceRoute      String    @map("source_route") @db.Text
+  sourceSystem     String    @default("gpc-app") @map("source_system") @db.Text
+  payloadJson      Json      @map("payload_json") @db.JsonB
+  sourceHash       String    @map("source_hash") @db.Text
+  confidence       Float     @default(0.75) @db.DoublePrecision
+  freshnessTier    String    @default("live") @map("freshness_tier") @db.Text
+  observedAt       DateTime  @default(now()) @map("observed_at") @db.Timestamptz(6)
+  promotedAt       DateTime? @map("promoted_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org        Org                         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  candidates PropertyLearningCandidate[]
+
+  @@unique([orgId, observationKey])
+  @@index([orgId, propertyKey])
+  @@index([orgId, parcelId])
+  @@index([orgId, observedAt])
+  @@index([sourceHash])
+  @@map("property_observations")
+}
+
+model PropertyProfile {
+  id                String    @id @default(uuid()) @db.Uuid
+  orgId             String    @map("org_id") @db.Uuid
+  propertyKey       String    @map("property_key") @db.Text
+  parcelId          String?   @map("parcel_id") @db.Text
+  canonicalAddress  String?   @map("canonical_address") @db.Text
+  summaryText       String?   @map("summary_text") @db.Text
+  factsJson         Json      @default("{}") @map("facts_json") @db.JsonB
+  signalsJson       Json      @default("{}") @map("signals_json") @db.JsonB
+  confidence        Float     @default(0.5) @db.DoublePrecision
+  lastObservationAt DateTime? @map("last_observation_at") @db.Timestamptz(6)
+  lastSynthesizedAt DateTime? @map("last_synthesized_at") @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org        Org                         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  candidates PropertyLearningCandidate[]
+
+  @@unique([orgId, propertyKey])
+  @@index([orgId, parcelId])
+  @@index([orgId, lastObservationAt])
+  @@map("property_profiles")
+}
+
+model PropertyLearningCandidate {
+  id              String    @id @default(uuid()) @db.Uuid
+  orgId           String    @map("org_id") @db.Uuid
+  observationId   String    @map("observation_id") @db.Uuid
+  profileId       String    @map("profile_id") @db.Uuid
+  candidateKey    String    @map("candidate_key") @db.Text
+  candidateType   String    @map("candidate_type") @db.Text
+  propertyKey     String    @map("property_key") @db.Text
+  statement       String    @db.Text
+  payloadJson     Json      @map("payload_json") @db.JsonB
+  confidence      Float     @default(0.5) @db.DoublePrecision
+  status          String    @default("candidate") @db.Text
+  gradeScore      Float?    @map("grade_score") @db.DoublePrecision
+  gradeJson       Json?     @map("grade_json") @db.JsonB
+  rejectionReason String?   @map("rejection_reason") @db.Text
+  promotedAt      DateTime? @map("promoted_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org         Org                    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  observation PropertyObservation    @relation(fields: [observationId], references: [id], onDelete: Cascade)
+  profile     PropertyProfile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  evals       PropertyLearningEval[]
+
+  @@unique([orgId, candidateKey])
+  @@index([orgId, propertyKey])
+  @@index([orgId, status])
+  @@index([orgId, candidateType])
+  @@index([observationId])
+  @@index([profileId])
+  @@map("property_learning_candidates")
+}
+
+model PropertyLearningEval {
+  id            String   @id @default(uuid()) @db.Uuid
+  orgId         String   @map("org_id") @db.Uuid
+  candidateId   String   @map("candidate_id") @db.Uuid
+  evalKey       String   @map("eval_key") @db.Text
+  graderVersion String   @map("grader_version") @db.Text
+  score         Float    @db.DoublePrecision
+  passed        Boolean
+  gradeJson     Json     @map("grade_json") @db.JsonB
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  org       Org                       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  candidate PropertyLearningCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, evalKey])
+  @@index([orgId, passed])
+  @@index([candidateId])
+  @@map("property_learning_evals")
 }
 
 model EntitlementGraphNode {

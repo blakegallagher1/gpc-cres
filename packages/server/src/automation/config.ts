@@ -69,7 +69,7 @@ export const AUTOMATION_CONFIG = Object.freeze({
     createEpisodes: true,
     injectEpisodes: true,
     injectProcedures: true,
-    promoteFacts: false,
+    promoteFacts: true,
     promoteProcedures: true,
     minConfidenceForFactPromotion: 0.72,
     minEpisodesForSkill: 3,
