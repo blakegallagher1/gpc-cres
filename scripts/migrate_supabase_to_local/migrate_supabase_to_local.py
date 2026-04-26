@@ -342,7 +342,8 @@ def create_mv_parcel_intelligence(target: Engine) -> None:
             FROM ebr_parcels p
             WHERE p.geom IS NOT NULL
         """))
-        conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_parcel_intelligence_parcel_id ON mv_parcel_intelligence (parcel_id)"))
+        conn.execute(text("DROP INDEX IF EXISTS idx_mv_parcel_intelligence_parcel_id"))
+        conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_parcel_intelligence_id ON mv_parcel_intelligence (id)"))
         conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mv_parcel_intelligence_geom ON mv_parcel_intelligence USING gist (geom)"))
         conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mv_parcel_intelligence_centroid ON mv_parcel_intelligence USING gist (centroid)"))
         conn.commit()

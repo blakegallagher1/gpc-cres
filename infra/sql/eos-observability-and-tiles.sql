@@ -71,8 +71,10 @@ SELECT
 FROM ebr_parcels p
 WHERE p.geom IS NOT NULL;
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_parcel_intelligence_parcel_id
-  ON mv_parcel_intelligence (parcel_id);
+DROP INDEX IF EXISTS idx_mv_parcel_intelligence_parcel_id;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_parcel_intelligence_id
+  ON mv_parcel_intelligence (id);
 CREATE INDEX IF NOT EXISTS idx_mv_parcel_intelligence_geom
   ON mv_parcel_intelligence USING gist (geom);
 CREATE INDEX IF NOT EXISTS idx_mv_parcel_intelligence_centroid

@@ -7,7 +7,7 @@ import { execFileSync } from "node:child_process";
 
 const DEFAULT_REMOTE_DIR = "C:/gpc-cres-backups/property-db";
 const DEFAULT_OUTPUT_DIR = "output/property-db-backups";
-const DEFAULT_DRILL_EXCLUDED_RELATIONS = "public.mv_parcel_intelligence";
+const DEFAULT_DRILL_EXCLUDED_RELATIONS = "";
 const CONTRACT_SQL_PATH = "infra/sql/property-db-contract-v1.sql";
 
 type RestoreOptions = {
