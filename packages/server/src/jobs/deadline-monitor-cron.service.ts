@@ -41,14 +41,38 @@ async function updateRunAudit(
 }
 
 export async function runDeadlineMonitorCron(): Promise<DeadlineMonitorCronResult> {
-  const firstOrg = await prisma.org.findFirst({ select: { id: true } });
-  if (!firstOrg) {
-    throw new Error("No org found");
+  const start = Date.now();
+  const orgs = await prisma.org.findMany({ select: { id: true } });
+  if (orgs.length === 0) {
+    return {
+      success: true,
+      tasksScanned: 0,
+      notificationsCreated: 0,
+      errors: [],
+      duration_ms: Date.now() - start,
+    };
   }
 
-  const runId = await createRunAudit(firstOrg.id);
   const job = new DeadlineMonitorJob();
-  const result = await job.execute();
-  await updateRunAudit(runId, result);
-  return result;
+  const aggregate: DeadlineMonitorCronResult = {
+    success: true,
+    tasksScanned: 0,
+    notificationsCreated: 0,
+    errors: [],
+    duration_ms: 0,
+  };
+
+  for (const org of orgs) {
+    const runId = await createRunAudit(org.id);
+    const result = await job.execute({ orgId: org.id });
+    await updateRunAudit(runId, result);
+
+    aggregate.success = aggregate.success && result.success;
+    aggregate.tasksScanned += result.tasksScanned;
+    aggregate.notificationsCreated += result.notificationsCreated;
+    aggregate.errors.push(...result.errors);
+  }
+
+  aggregate.duration_ms = Date.now() - start;
+  return aggregate;
 }

@@ -9,6 +9,10 @@ export interface DeadlineJobResult {
   duration_ms: number;
 }
 
+export interface DeadlineMonitorOptions {
+  orgId?: string;
+}
+
 type DeadlineTier = "APPROACHING" | "IMMINENT" | "OVERDUE" | "CRITICAL";
 
 function classifyDeadline(dueAt: Date, now: Date): DeadlineTier | null {
@@ -45,7 +49,7 @@ const TIER_BODY: Record<DeadlineTier, (dueAt: Date) => string> = {
 };
 
 export class DeadlineMonitorJob {
-  async execute(): Promise<DeadlineJobResult> {
+  async execute(options: DeadlineMonitorOptions = {}): Promise<DeadlineJobResult> {
     const start = Date.now();
     const errors: string[] = [];
     let tasksScanned = 0;
@@ -62,6 +66,7 @@ export class DeadlineMonitorJob {
             lte: seventyTwoHoursFromNow,
           },
           status: { notIn: ["DONE", "CANCELED"] },
+          ...(options.orgId ? { deal: { orgId: options.orgId } } : {}),
         },
         select: {
           id: true,

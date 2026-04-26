@@ -9,6 +9,7 @@ Docker socket must be mounted into the container.
 """
 
 import os
+import re
 import time
 import traceback
 from typing import Any
@@ -25,6 +26,27 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "").strip()
 _bearer_scheme = HTTPBearer()
+
+MAX_ADMIN_SQL_LENGTH = 4_000
+MAX_ADMIN_SQL_PARAMS = 25
+MAX_ADMIN_SQL_ROWS = 500
+ADMIN_SQL_TIMEOUT_SECONDS = 10
+ADMIN_SQL_ALLOWED_TABLES = frozenset(
+    table.strip().lower()
+    for table in os.getenv(
+        "ADMIN_SQL_ALLOWED_TABLES",
+        "deploys,health_checks,parcels,screening,sync_status",
+    ).split(",")
+    if table.strip()
+)
+ADMIN_SQL_MUTATION_RE = re.compile(
+    r"\b(alter|analyze|call|copy|create|delete|drop|execute|grant|insert|listen|lock|merge|notify|refresh|reset|revoke|set|truncate|unlisten|update|vacuum)\b",
+    re.IGNORECASE,
+)
+ADMIN_SQL_TABLE_RE = re.compile(
+    r'\b(?:from|join)\s+(?:only\s+)?(?:(?:"?([A-Za-z_][\w]*)"?\.)?)"?([A-Za-z_][\w]*)"?',
+    re.IGNORECASE,
+)
 
 
 async def require_admin(
@@ -262,22 +284,72 @@ async def db_tables(conn=Depends(_get_conn)):
 
 # ---- Database: Read-Only Query --------------------------------------------
 
+
+def _validate_admin_sql(sql: str, params: Any) -> list[Any]:
+    if len(sql) > MAX_ADMIN_SQL_LENGTH:
+        raise HTTPException(status_code=400, detail="Query is too long")
+    if ";" in sql or "--" in sql or "/*" in sql:
+        raise HTTPException(status_code=400, detail="Query comments and statement separators are not permitted")
+    if not sql.upper().startswith("SELECT"):
+        raise HTTPException(status_code=400, detail="Only SELECT queries are permitted")
+    if ADMIN_SQL_MUTATION_RE.search(sql):
+        raise HTTPException(status_code=400, detail="Query contains a blocked SQL keyword")
+    if not isinstance(params, list):
+        raise HTTPException(status_code=400, detail="'params' must be an array")
+    if len(params) > MAX_ADMIN_SQL_PARAMS:
+        raise HTTPException(status_code=400, detail="Too many query parameters")
+
+    referenced_sources = ADMIN_SQL_TABLE_RE.findall(sql)
+    blocked_schemas = sorted(
+        {schema for schema, _table in referenced_sources if schema and schema.lower() != "public"}
+    )
+    if blocked_schemas:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Schema is not allowed for admin SQL: {', '.join(blocked_schemas)}",
+        )
+    referenced_tables = {table.lower() for _schema, table in referenced_sources}
+    if referenced_tables and "*" not in ADMIN_SQL_ALLOWED_TABLES:
+        blocked = sorted(referenced_tables - ADMIN_SQL_ALLOWED_TABLES)
+        if blocked:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Table is not allowed for admin SQL: {', '.join(blocked)}",
+            )
+
+    return params
+
+
+def _admin_sql_limit(value: Any) -> int:
+    if isinstance(value, int):
+        return min(max(value, 1), MAX_ADMIN_SQL_ROWS)
+    return MAX_ADMIN_SQL_ROWS
+
 @router.post("/db/query")
 async def db_query(body: dict[str, Any], conn=Depends(_get_conn)):
     sql = (body.get("sql") or "").strip()
     params = body.get("params") or []
+    limit = _admin_sql_limit(body.get("limit"))
 
     if not sql:
         raise HTTPException(status_code=400, detail="Missing 'sql' field")
 
-    if not sql.upper().startswith("SELECT"):
-        raise HTTPException(status_code=400, detail="Only SELECT queries are permitted")
+    params = _validate_admin_sql(sql, params)
 
     print(f"[admin/db/query] {sql}")
 
     try:
-        rows = await conn.fetch(sql, *params)
-        result = [dict(r) for r in rows[:500]]
+        limited_sql = f"SELECT * FROM ({sql}) AS admin_query LIMIT {limit}"
+        async with conn.transaction(readonly=True):
+            await conn.execute(
+                f"SET LOCAL statement_timeout = {ADMIN_SQL_TIMEOUT_SECONDS * 1000}"
+            )
+            rows = await conn.fetch(
+                limited_sql,
+                *params,
+                timeout=ADMIN_SQL_TIMEOUT_SECONDS,
+            )
+        result = [dict(r) for r in rows]
         # Convert non-serializable types
         for row in result:
             for k, v in row.items():

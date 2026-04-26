@@ -7,6 +7,7 @@
     "build": "node ./scripts/next-with-root-env.mjs build",
     "start": "node ./scripts/next-with-root-env.mjs start",
     "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run --configLoader runner",
     "test:observability": "vitest run --configLoader runner app/api/admin/observability/route.test.ts app/api/observability/events/route.test.ts components/observability/client-telemetry.test.ts components/observability/observability-provider.test.tsx components/observability/observability-boundary.test.tsx"
   },

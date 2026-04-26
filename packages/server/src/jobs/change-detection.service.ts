@@ -3,7 +3,6 @@ import { captureEvidence } from "@entitlement-os/evidence";
 import type { CaptureEvidenceResult, SourceScanResult } from "@entitlement-os/evidence";
 import {
   computeScanStats,
-  groupChangesByJurisdiction,
   withRetry,
   withTimeout,
 } from "@entitlement-os/evidence";
@@ -12,6 +11,11 @@ import { logger } from "../logger";
 
 const MAX_TIMEOUT_MS = 60_000;
 const MAX_RETRIES = 3;
+
+type OrgSourceScanResult = SourceScanResult & {
+  orgId: string;
+  runId: string;
+};
 
 export interface ChangeDetectionSummary {
   ok: boolean;
@@ -60,26 +64,36 @@ export async function runChangeDetection(): Promise<ChangeDetectionSummary> {
     };
   }
 
-  // Create a Run record for auditing
-  const orgId = sources[0].jurisdiction.orgId;
-  const run = await prisma.run.create({
-    data: {
-      orgId,
-      runType: "CHANGE_DETECT",
-      status: "running",
-    },
-  });
+  const orgIds = Array.from(new Set(sources.map((source) => source.jurisdiction.orgId)));
+  const runIdsByOrgId = new Map<string, string>();
+  for (const orgId of orgIds) {
+    const run = await prisma.run.create({
+      data: {
+        orgId,
+        runType: "CHANGE_DETECT",
+        status: "running",
+      },
+    });
+    runIdsByOrgId.set(orgId, run.id);
+  }
 
   // 2. Process each source with retry + timeout
-  const results: SourceScanResult[] = [];
+  const results: OrgSourceScanResult[] = [];
 
   for (const source of sources) {
     const label = `${source.jurisdiction.name}: ${source.url}`;
-    let result: SourceScanResult = {
+    const orgId = source.jurisdiction.orgId;
+    const runId = runIdsByOrgId.get(orgId);
+    if (!runId) {
+      throw new Error(`No change-detection run available for org ${orgId}`);
+    }
+    let result: OrgSourceScanResult = {
       url: source.url,
       jurisdictionId: source.jurisdictionId,
       jurisdictionName: source.jurisdiction.name,
       purpose: source.purpose,
+      orgId,
+      runId,
       changed: false,
       firstCapture: false,
       error: null,
@@ -92,8 +106,8 @@ export async function runChangeDetection(): Promise<ChangeDetectionSummary> {
           withTimeout(
             captureEvidence({
               url: source.url,
-              orgId: source.jurisdiction.orgId,
-              runId: run.id,
+              orgId,
+              runId,
               prisma,
               allowPlaywrightFallback: false,
               officialDomains: source.jurisdiction.officialDomains,
@@ -154,10 +168,19 @@ export async function runChangeDetection(): Promise<ChangeDetectionSummary> {
   }
 
   // 5. For material changes: create review tasks for active deals
-  const changedJurisdictions = groupChangesByJurisdiction(stats.materialChanges);
+  const changedJurisdictions = new Map<string, OrgSourceScanResult[]>();
+  for (const change of stats.materialChanges as OrgSourceScanResult[]) {
+    const key = `${change.orgId}:${change.jurisdictionId}`;
+    const existing = changedJurisdictions.get(key) ?? [];
+    existing.push(change);
+    changedJurisdictions.set(key, existing);
+  }
 
   let tasksCreated = 0;
-  for (const [jurisdictionId, changes] of changedJurisdictions) {
+  const tasksCreatedByOrgId = new Map<string, number>();
+  for (const changes of changedJurisdictions.values()) {
+    const orgId = changes[0].orgId;
+    const jurisdictionId = changes[0].jurisdictionId;
     const activeDeals = await prisma.deal.findMany({
       where: {
         jurisdictionId,
@@ -184,6 +207,7 @@ export async function runChangeDetection(): Promise<ChangeDetectionSummary> {
         },
       });
       tasksCreated++;
+      tasksCreatedByOrgId.set(orgId, (tasksCreatedByOrgId.get(orgId) ?? 0) + 1);
       logger.info("Cron change-detection created review task", {
         dealId: deal.id,
         dealName: deal.name,
@@ -192,32 +216,36 @@ export async function runChangeDetection(): Promise<ChangeDetectionSummary> {
     }
   }
 
-  // 6. Update run record
+  // 6. Update run records
   const elapsed = Date.now() - startTime;
-  await prisma.run.update({
-    where: { id: run.id },
-    data: {
-      status: "succeeded",
-      finishedAt: new Date(),
-      outputJson: {
-        totalSources: stats.total,
-        unreachableCount: stats.unreachable,
-        materialChangeCount: stats.materialChangeCount,
-        firstCaptureCount: stats.firstCaptureCount,
-        tasksCreated,
-        networkAlert: stats.networkAlert,
-        elapsedMs: elapsed,
-        changes: stats.materialChanges.map((c) => ({
-          url: c.url,
-          jurisdiction: c.jurisdictionName,
-          purpose: c.purpose,
-        })),
-        unreachable: results
-          .filter((r) => r.unreachable)
-          .map((r) => ({ url: r.url, error: r.error })),
+  for (const [orgId, runId] of runIdsByOrgId) {
+    const orgResults = results.filter((result) => result.orgId === orgId);
+    const orgStats = computeScanStats(orgResults);
+    await prisma.run.update({
+      where: { id: runId },
+      data: {
+        status: "succeeded",
+        finishedAt: new Date(),
+        outputJson: {
+          totalSources: orgStats.total,
+          unreachableCount: orgStats.unreachable,
+          materialChangeCount: orgStats.materialChangeCount,
+          firstCaptureCount: orgStats.firstCaptureCount,
+          tasksCreated: tasksCreatedByOrgId.get(orgId) ?? 0,
+          networkAlert: orgStats.networkAlert,
+          elapsedMs: elapsed,
+          changes: orgStats.materialChanges.map((c) => ({
+            url: c.url,
+            jurisdiction: c.jurisdictionName,
+            purpose: c.purpose,
+          })),
+          unreachable: orgResults
+            .filter((r) => r.unreachable)
+            .map((r) => ({ url: r.url, error: r.error })),
+        },
       },
-    },
-  });
+    });
+  }
 
   const summary: ChangeDetectionSummary = {
     ok: true,

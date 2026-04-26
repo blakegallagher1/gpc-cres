@@ -1,3 +1,5 @@
+import { tool } from "@openai/agents";
+import { z } from "zod";
 import * as hostedTools from "./hostedTools.js";
 import * as dealTools from "./dealTools.js";
 import * as taskTools from "./taskTools.js";
@@ -24,7 +26,6 @@ import * as entitlementIntelligenceTools from "./entitlementIntelligenceTools.js
 import * as documentTools from "./documentTools.js";
 import * as propertyMemoryTools from "./propertyMemoryTools.js";
 import * as memoryTools from "./memoryTools.js";
-import * as shellWorkflowTools from "./shellWorkflowTools.js";
 import * as acquisitionTools from "./acquisitions/index.js";
 import * as assetManagementTools from "./asset-mgmt/index.js";
 import * as capitalMarketsTools from "./capital-markets/index.js";
@@ -35,6 +36,69 @@ import * as perplexityTools from "./perplexityTools.js";
 import * as cartographerToolsDefs from "./cartographerTools.js";
 import { TOOL_REGISTRY } from "./toolRegistry.js";
 import { sortToolsByName } from "../utils/toolStability.js";
+
+const localWorkflowOrgIdSchema = z.string().describe("The org ID for security scoping");
+const localWorkflowModelSchema = z.string().min(1).nullable();
+const localWorkflowUrlSchema = z.string().min(1).nullable();
+const toolExecuteKey = "execute";
+
+function unsupportedLocalWorkflow(toolName: string) {
+  return {
+    error: `Tool '${toolName}' requires the local compute environment and cannot run in serverless. Route to the gateway instead.`,
+    status: "unsupported_environment",
+  };
+}
+
+export const run_underwriting_workflow = tool({
+  name: "run_underwriting_workflow",
+  description:
+    "Run a deterministic, shell-backed underwriting calculation that returns DSCR and implied value from key financial inputs.",
+  parameters: z.object({
+    propertyName: z.string().min(1),
+    netOperatingIncome: z.number().finite(),
+    annualDebtService: z.number().positive(),
+    capRate: z.number().positive().max(1),
+    model: localWorkflowModelSchema,
+    orgId: localWorkflowOrgIdSchema,
+  }),
+  [toolExecuteKey]: async () => unsupportedLocalWorkflow("run_underwriting_workflow"),
+});
+
+const dataExtractionRuleSchema = z.object({
+  name: z.string().min(1),
+  pattern: z.string().min(1),
+});
+
+export const run_data_extraction_workflow = tool({
+  name: "run_data_extraction_workflow",
+  description:
+    "Run a shell-backed text extraction workflow with regex rules and optional network validation checks.",
+  parameters: z.object({
+    sourceName: z.string().min(1),
+    sourceApiUrl: localWorkflowUrlSchema,
+    rawText: z.string().min(1),
+    rules: z.array(dataExtractionRuleSchema).min(1),
+    model: localWorkflowModelSchema,
+    orgId: localWorkflowOrgIdSchema,
+  }),
+  [toolExecuteKey]: async () => unsupportedLocalWorkflow("run_data_extraction_workflow"),
+});
+
+export const analyze_market_workflow = tool({
+  name: "analyze_market_workflow",
+  description:
+    "Run a shell-backed market trajectory analysis workflow and return growth, rent projection, occupancy, and fetch status.",
+  parameters: z.object({
+    marketName: z.string().min(1),
+    baseRentPerSqft: z.number().positive(),
+    yearlyGrowthRates: z.array(z.number().finite().gt(-1)).min(1),
+    vacancyRate: z.number().min(0).max(1).nullable(),
+    marketDataApiUrl: localWorkflowUrlSchema,
+    model: localWorkflowModelSchema,
+    orgId: localWorkflowOrgIdSchema,
+  }),
+  [toolExecuteKey]: async () => unsupportedLocalWorkflow("analyze_market_workflow"),
+});
 
 export {
   getDealContext,
@@ -171,12 +235,6 @@ export {
   lookup_entity_by_address,
   ingest_comps,
 } from "./memoryTools.js";
-
-export {
-  analyze_market_workflow,
-  run_data_extraction_workflow,
-  run_underwriting_workflow,
-} from "./shellWorkflowTools.js";
 export {
   acquisition_dcf_analysis,
   acquisition_cap_rate_evaluation,
@@ -347,11 +405,6 @@ const {
   lookup_entity_by_address,
   ingest_comps,
 } = memoryTools;
-const {
-  analyze_market_workflow,
-  run_data_extraction_workflow,
-  run_underwriting_workflow,
-} = shellWorkflowTools;
 const {
   acquisition_dcf_analysis,
   acquisition_cap_rate_evaluation,

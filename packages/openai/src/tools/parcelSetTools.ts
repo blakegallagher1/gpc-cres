@@ -9,6 +9,7 @@ import type {
   ParcelScreeningResult,
   ScreeningDimension,
 } from "@entitlement-os/shared";
+import { ToolOrgIdSchema } from "./orgIdSchema.js";
 
 /**
  * Parcel Set Tools — Materialization and description of parcel sets.
@@ -156,6 +157,7 @@ export const describeParcelSet = tool({
     "Returns parcel count, facts (address, zoning, acres), screening results if available, and provenance information. " +
     "Use this to understand the composition and characteristics of a parcel selection.",
   parameters: z.object({
+    orgId: ToolOrgIdSchema.describe("Organization ID for parcel set scoping"),
     conversation_id: z
       .string()
       .describe("Conversation ID for registry scoping"),
@@ -186,6 +188,7 @@ export const describeParcelSet = tool({
       .describe("Environmental dimensions to screen (e.g. ['flood', 'zoning', 'soils'])"),
   }),
   execute: async ({
+    orgId,
     conversation_id,
     parcel_ids,
     bbox,
@@ -207,12 +210,18 @@ export const describeParcelSet = tool({
             suggestion: "Provide parcel_ids or bbox instead",
           };
         }
+        if (setDef.orgId !== orgId) {
+          return {
+            error: `Parcel set ${set_id} is not available for this organization`,
+            suggestion: "Select a parcel set created in the current org",
+          };
+        }
       } else if (parcel_ids && parcel_ids.length > 0) {
         // Create ephemeral selection set from IDs
         const tempSetId = `set-${Math.random().toString(36).slice(2, 8)}`;
         setDef = {
           id: tempSetId,
-          orgId: "global", // placeholder for single-tenant context
+          orgId,
           label: null,
           origin: { kind: "selection" as const, parcelIds: parcel_ids, source: "agent" as const },
           lifecycle: { kind: "ephemeral" as const, scope: "conversation" as const },
@@ -232,7 +241,7 @@ export const describeParcelSet = tool({
         ];
         setDef = {
           id: tempSetId,
-          orgId: "global",
+          orgId,
           label: null,
           origin: {
             kind: "viewport" as const,
@@ -359,17 +368,19 @@ export const listParcelSets = tool({
   description:
     "List all parcel sets registered in the current conversation. Shows set IDs, origins, statuses, and member counts.",
   parameters: z.object({
+    orgId: ToolOrgIdSchema.describe("Organization ID for parcel set scoping"),
     conversation_id: z
       .string()
       .describe("Conversation ID for registry scoping"),
   }),
-  execute: async ({ conversation_id }) => {
+  execute: async ({ orgId, conversation_id }) => {
     const registry = getRegistry();
     const setIds = registry.listSetIds(conversation_id);
 
     const sets = setIds.map((id) => {
       const def = registry.getDefinition(conversation_id, id);
       if (!def) return null;
+      if (def.orgId !== orgId) return null;
 
       const mat = registry.getMaterialization(conversation_id, id);
       return {

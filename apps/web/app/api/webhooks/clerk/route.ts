@@ -7,6 +7,36 @@ import { randomUUID } from "node:crypto";
 import { isEmailAllowed } from "@/lib/auth/allowedEmails";
 import { logger } from "@/lib/logger";
 
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function parseOrgMap(raw?: string): Map<string, string> {
+  const entries = new Map<string, string>();
+  if (!raw) return entries;
+  for (const part of raw.split(",")) {
+    const [key, orgId] = part.split("=").map((value) => value?.trim());
+    if (key && orgId) {
+      entries.set(key.toLowerCase(), orgId);
+    }
+  }
+  return entries;
+}
+
+function resolveProvisioningOrgId(email: string): string | null {
+  const normalized = normalizeEmail(email);
+  const domain = normalized.slice(normalized.indexOf("@") + 1);
+  const orgMap = parseOrgMap(process.env.CLERK_WEBHOOK_ORG_MAP);
+  return (
+    orgMap.get(normalized) ??
+    orgMap.get(`@${domain}`) ??
+    orgMap.get(domain) ??
+    orgMap.get("*") ??
+    process.env.CLERK_WEBHOOK_DEFAULT_ORG_ID?.trim() ??
+    null
+  );
+}
+
 export async function POST(req: Request) {
   const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
   if (!WEBHOOK_SECRET) {
@@ -46,31 +76,37 @@ export async function POST(req: Request) {
       return new Response("OK", { status: 200 });
     }
 
-    if (!isEmailAllowed(email)) {
-      logger.warn("Clerk webhook user.created blocked by allowlist", { email });
+    const normalizedEmail = normalizeEmail(email);
+    if (!isEmailAllowed(normalizedEmail)) {
+      logger.warn("Clerk webhook user.created blocked by allowlist", { email: normalizedEmail });
       return new Response("OK", { status: 200 });
     }
 
     try {
-      const existing = await prisma.user.findFirst({ where: { email }, select: { id: true } });
+      const existing = await prisma.user.findFirst({ where: { email: normalizedEmail }, select: { id: true } });
       if (!existing) {
-        const userId = randomUUID();
-        const defaultOrg = await prisma.org.findFirst({
-          orderBy: { createdAt: "asc" },
-          select: { id: true },
-        });
-        if (!defaultOrg) {
-          logger.error("Clerk webhook provisioning failed: no default org", { email });
-          return new Response("No default org", { status: 500 });
+        const orgId = resolveProvisioningOrgId(normalizedEmail);
+        if (!orgId) {
+          logger.error("Clerk webhook provisioning skipped: no explicit org mapping", { email: normalizedEmail });
+          return new Response("No provisioning org configured", { status: 202 });
         }
-        await prisma.user.create({ data: { id: userId, email } });
+        const org = await prisma.org.findUnique({ where: { id: orgId }, select: { id: true } });
+        if (!org) {
+          logger.error("Clerk webhook provisioning failed: configured org not found", {
+            email: normalizedEmail,
+            orgId,
+          });
+          return new Response("Configured org not found", { status: 500 });
+        }
+        const userId = randomUUID();
+        await prisma.user.create({ data: { id: userId, email: normalizedEmail } });
         await prisma.orgMembership.create({
-          data: { userId, orgId: defaultOrg.id, role: "member" },
+          data: { userId, orgId: org.id, role: "member" },
         });
-        logger.info("Clerk webhook user provisioned", { email, orgId: defaultOrg.id });
+        logger.info("Clerk webhook user provisioned", { email: normalizedEmail, orgId: org.id });
       }
     } catch (error) {
-      logger.error("Clerk webhook provisioning error", { email, error });
+      logger.error("Clerk webhook provisioning error", { email: normalizedEmail, error });
       return new Response("Provisioning error", { status: 500 });
     }
   }

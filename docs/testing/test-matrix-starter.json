@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generated_at": "2026-04-13T07:52:24.369Z",
+    "generated_at": "2026-04-26T02:19:38.684Z",
     "generated_by": "scripts/testing/generate-test-matrix.mjs",
     "repository_root": "/Users/gallagherpropertycompany/Documents/gallagher-cres",
     "intent": "Starter matrix for complete component-level testing coverage.",
@@ -43,10 +43,10 @@
     "counts": {
       "agents": 5,
       "tools": 144,
-      "api_routes": 157,
+      "api_routes": 187,
       "automation_modules": 27,
       "features": 10,
-      "total_components": 343
+      "total_components": 373
     },
     "baseline_targets": {
       "agents": 13,
@@ -167,6 +167,38 @@
       "type": "api_route",
       "name": "admin/export",
       "path": "apps/web/app/api/admin/export/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:admin/inbound-emails",
+      "type": "api_route",
+      "name": "admin/inbound-emails",
+      "path": "apps/web/app/api/admin/inbound-emails/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:admin/inbound-emails/[id]/reparse",
+      "type": "api_route",
+      "name": "admin/inbound-emails/[id]/reparse",
+      "path": "apps/web/app/api/admin/inbound-emails/[id]/reparse/route.ts",
       "risk_tier": "P0",
       "owner": "TBD",
       "status": "todo",
@@ -359,22 +391,6 @@
       "type": "api_route",
       "name": "assets/[id]",
       "path": "apps/web/app/api/assets/[id]/route.ts",
-      "risk_tier": "P0",
-      "owner": "TBD",
-      "status": "todo",
-      "required_tests": [
-        "contract",
-        "security",
-        "integration",
-        "resilience"
-      ],
-      "notes": ""
-    },
-    {
-      "id": "api_route:auth/[...nextauth]",
-      "type": "api_route",
-      "name": "auth/[...nextauth]",
-      "path": "apps/web/app/api/auth/[...nextauth]/route.ts",
       "risk_tier": "P0",
       "owner": "TBD",
       "status": "todo",
@@ -675,6 +691,22 @@
       "notes": ""
     },
     {
+      "id": "api_route:cron/portfolio-watcher",
+      "type": "api_route",
+      "name": "cron/portfolio-watcher",
+      "path": "apps/web/app/api/cron/portfolio-watcher/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
       "id": "api_route:cron/source-ingestion",
       "type": "api_route",
       "name": "cron/source-ingestion",
@@ -759,6 +791,118 @@
       "type": "api_route",
       "name": "deals/[id]/artifacts",
       "path": "apps/web/app/api/deals/[id]/artifacts/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/capex",
+      "type": "api_route",
+      "name": "deals/[id]/capex",
+      "path": "apps/web/app/api/deals/[id]/capex/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/capex/[itemId]",
+      "type": "api_route",
+      "name": "deals/[id]/capex/[itemId]",
+      "path": "apps/web/app/api/deals/[id]/capex/[itemId]/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/comments",
+      "type": "api_route",
+      "name": "deals/[id]/comments",
+      "path": "apps/web/app/api/deals/[id]/comments/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/comments/[commentId]",
+      "type": "api_route",
+      "name": "deals/[id]/comments/[commentId]",
+      "path": "apps/web/app/api/deals/[id]/comments/[commentId]/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/context",
+      "type": "api_route",
+      "name": "deals/[id]/context",
+      "path": "apps/web/app/api/deals/[id]/context/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/contingencies",
+      "type": "api_route",
+      "name": "deals/[id]/contingencies",
+      "path": "apps/web/app/api/deals/[id]/contingencies/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/contingencies/[contingencyId]",
+      "type": "api_route",
+      "name": "deals/[id]/contingencies/[contingencyId]",
+      "path": "apps/web/app/api/deals/[id]/contingencies/[contingencyId]/route.ts",
       "risk_tier": "P0",
       "owner": "TBD",
       "status": "todo",
@@ -883,6 +1027,38 @@
       "notes": ""
     },
     {
+      "id": "api_route:deals/[id]/fit-score",
+      "type": "api_route",
+      "name": "deals/[id]/fit-score",
+      "path": "apps/web/app/api/deals/[id]/fit-score/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/inbound-email",
+      "type": "api_route",
+      "name": "deals/[id]/inbound-email",
+      "path": "apps/web/app/api/deals/[id]/inbound-email/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
       "id": "api_route:deals/[id]/parcels",
       "type": "api_route",
       "name": "deals/[id]/parcels",
@@ -903,6 +1079,38 @@
       "type": "api_route",
       "name": "deals/[id]/parcels/[parcelId]/enrich",
       "path": "apps/web/app/api/deals/[id]/parcels/[parcelId]/enrich/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/performance",
+      "type": "api_route",
+      "name": "deals/[id]/performance",
+      "path": "apps/web/app/api/deals/[id]/performance/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/performance/summary",
+      "type": "api_route",
+      "name": "deals/[id]/performance/summary",
+      "path": "apps/web/app/api/deals/[id]/performance/summary/route.ts",
       "risk_tier": "P0",
       "owner": "TBD",
       "status": "todo",
@@ -995,6 +1203,22 @@
       "notes": ""
     },
     {
+      "id": "api_route:deals/[id]/stage-history",
+      "type": "api_route",
+      "name": "deals/[id]/stage-history",
+      "path": "apps/web/app/api/deals/[id]/stage-history/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
       "id": "api_route:deals/[id]/stakeholders",
       "type": "api_route",
       "name": "deals/[id]/stakeholders",
@@ -1031,6 +1255,22 @@
       "type": "api_route",
       "name": "deals/[id]/tasks/[taskId]/run",
       "path": "apps/web/app/api/deals/[id]/tasks/[taskId]/run/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/tenant-events",
+      "type": "api_route",
+      "name": "deals/[id]/tenant-events",
+      "path": "apps/web/app/api/deals/[id]/tenant-events/route.ts",
       "risk_tier": "P0",
       "owner": "TBD",
       "status": "todo",
@@ -1123,10 +1363,58 @@
       "notes": ""
     },
     {
+      "id": "api_route:deals/[id]/workflows",
+      "type": "api_route",
+      "name": "deals/[id]/workflows",
+      "path": "apps/web/app/api/deals/[id]/workflows/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:deals/[id]/workflows/[executionId]",
+      "type": "api_route",
+      "name": "deals/[id]/workflows/[executionId]",
+      "path": "apps/web/app/api/deals/[id]/workflows/[executionId]/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
       "id": "api_route:deals/artifacts/[artifactId]/download",
       "type": "api_route",
       "name": "deals/artifacts/[artifactId]/download",
       "path": "apps/web/app/api/deals/artifacts/[artifactId]/download/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:email-webhook",
+      "type": "api_route",
+      "name": "email-webhook",
+      "path": "apps/web/app/api/email-webhook/route.ts",
       "risk_tier": "P0",
       "owner": "TBD",
       "status": "todo",
@@ -1475,6 +1763,38 @@
       "notes": ""
     },
     {
+      "id": "api_route:map/flu-tiles/[z]/[x]/[y]",
+      "type": "api_route",
+      "name": "map/flu-tiles/[z]/[x]/[y]",
+      "path": "apps/web/app/api/map/flu-tiles/[z]/[x]/[y]/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:map/interchanges-tiles/[z]/[x]/[y]",
+      "type": "api_route",
+      "name": "map/interchanges-tiles/[z]/[x]/[y]",
+      "path": "apps/web/app/api/map/interchanges-tiles/[z]/[x]/[y]/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
       "id": "api_route:map/isochrone",
       "type": "api_route",
       "name": "map/isochrone",
@@ -1507,10 +1827,58 @@
       "notes": ""
     },
     {
+      "id": "api_route:map/ownership-clusters",
+      "type": "api_route",
+      "name": "map/ownership-clusters",
+      "path": "apps/web/app/api/map/ownership-clusters/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:map/ownership-clusters/portfolio",
+      "type": "api_route",
+      "name": "map/ownership-clusters/portfolio",
+      "path": "apps/web/app/api/map/ownership-clusters/portfolio/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
       "id": "api_route:map/ownership-outreach",
       "type": "api_route",
       "name": "map/ownership-outreach",
       "path": "apps/web/app/api/map/ownership-outreach/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:map/ports-tiles/[z]/[x]/[y]",
+      "type": "api_route",
+      "name": "map/ports-tiles/[z]/[x]/[y]",
+      "path": "apps/web/app/api/map/ports-tiles/[z]/[x]/[y]/route.ts",
       "risk_tier": "P0",
       "owner": "TBD",
       "status": "todo",
@@ -1539,10 +1907,42 @@
       "notes": ""
     },
     {
+      "id": "api_route:map/rail-tiles/[z]/[x]/[y]",
+      "type": "api_route",
+      "name": "map/rail-tiles/[z]/[x]/[y]",
+      "path": "apps/web/app/api/map/rail-tiles/[z]/[x]/[y]/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
       "id": "api_route:map/tiles/[z]/[x]/[y]",
       "type": "api_route",
       "name": "map/tiles/[z]/[x]/[y]",
       "path": "apps/web/app/api/map/tiles/[z]/[x]/[y]/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:map/truck-routes-tiles/[z]/[x]/[y]",
+      "type": "api_route",
+      "name": "map/truck-routes-tiles/[z]/[x]/[y]",
+      "path": "apps/web/app/api/map/truck-routes-tiles/[z]/[x]/[y]/route.ts",
       "risk_tier": "P0",
       "owner": "TBD",
       "status": "todo",
@@ -2035,6 +2435,22 @@
       "notes": ""
     },
     {
+      "id": "api_route:org/investment-criteria",
+      "type": "api_route",
+      "name": "org/investment-criteria",
+      "path": "apps/web/app/api/org/investment-criteria/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
       "id": "api_route:outcomes",
       "type": "api_route",
       "name": "outcomes",
@@ -2199,6 +2615,38 @@
       "type": "api_route",
       "name": "portfolio/1031-matches/[dealId]",
       "path": "apps/web/app/api/portfolio/1031-matches/[dealId]/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:portfolio/alerts",
+      "type": "api_route",
+      "name": "portfolio/alerts",
+      "path": "apps/web/app/api/portfolio/alerts/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:portfolio/alerts/[id]",
+      "type": "api_route",
+      "name": "portfolio/alerts/[id]",
+      "path": "apps/web/app/api/portfolio/alerts/[id]/route.ts",
       "risk_tier": "P0",
       "owner": "TBD",
       "status": "todo",
@@ -2627,6 +3075,22 @@
       "notes": ""
     },
     {
+      "id": "api_route:webhooks/clerk",
+      "type": "api_route",
+      "name": "webhooks/clerk",
+      "path": "apps/web/app/api/webhooks/clerk/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
       "id": "api_route:workflows",
       "type": "api_route",
       "name": "workflows",
@@ -2647,6 +3111,22 @@
       "type": "api_route",
       "name": "workflows/[id]",
       "path": "apps/web/app/api/workflows/[id]/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:workflows/templates",
+      "type": "api_route",
+      "name": "workflows/templates",
+      "path": "apps/web/app/api/workflows/templates/route.ts",
       "risk_tier": "P0",
       "owner": "TBD",
       "status": "todo",

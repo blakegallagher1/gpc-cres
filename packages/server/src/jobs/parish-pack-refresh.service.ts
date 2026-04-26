@@ -235,13 +235,13 @@ export async function runParishPackRefresh(
     };
   }
 
-  const orgId = jurisdictions[0].orgId;
   const refreshed: string[] = [];
   const skipped: string[] = [];
   const errors: string[] = [];
 
   // 2. For each jurisdiction × SKU, check freshness and refresh if stale
   for (const jurisdiction of jurisdictions) {
+    const orgId = jurisdiction.orgId;
     for (const sku of skus) {
       const label = `${jurisdiction.name} / ${sku}`;
 

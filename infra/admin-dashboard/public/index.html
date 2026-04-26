@@ -544,7 +544,7 @@
         // Render uptime chart
         if (data.health_history && Array.isArray(data.health_history)) {
           const chart = document.getElementById('uptimeChart');
-          chart.innerHTML = '';
+          chart.replaceChildren();
           const max24h = Math.max(1, Math.min(data.health_history.length, 720));
           const recent = data.health_history.slice(-max24h);
           recent.forEach(check => {
@@ -568,37 +568,58 @@
         const res = await fetch('/api/containers');
         const data = await res.json();
         const list = document.getElementById('containersList');
-        list.innerHTML = '';
+        list.replaceChildren();
 
         if (data.error) {
-          list.innerHTML = `<div class="error">${data.error}</div>`;
+          const error = document.createElement('div');
+          error.className = 'error';
+          error.textContent = data.error;
+          list.replaceChildren(error);
           return;
         }
 
         if (!data.containers || !Array.isArray(data.containers)) {
-          list.innerHTML = '<div style="color: #999;">No containers found</div>';
+          const empty = document.createElement('div');
+          empty.style.color = '#999';
+          empty.textContent = 'No containers found';
+          list.replaceChildren(empty);
           return;
         }
 
         data.containers.forEach(c => {
           const item = document.createElement('div');
           item.className = `container-item ${c.state === 'running' ? '' : 'down'}`;
-          item.innerHTML = `
-            <div class="container-info">
-              <div class="container-name">${c.name}</div>
-              <div class="container-status">${c.image} • ${c.state}</div>
-            </div>
-            <div class="button-group">
-              <button class="button secondary" disabled>Restart</button>
-              <button class="button secondary" disabled>Logs</button>
-            </div>
-          `;
+
+          const info = document.createElement('div');
+          info.className = 'container-info';
+          const name = document.createElement('div');
+          name.className = 'container-name';
+          name.textContent = c.name || '—';
+          const status = document.createElement('div');
+          status.className = 'container-status';
+          status.textContent = `${c.image || '—'} • ${c.state || '—'}`;
+          info.append(name, status);
+
+          const actions = document.createElement('div');
+          actions.className = 'button-group';
+          ['Restart', 'Logs'].forEach(label => {
+            const button = document.createElement('button');
+            button.className = 'button secondary';
+            button.disabled = true;
+            button.textContent = label;
+            actions.appendChild(button);
+          });
+
+          item.append(info, actions);
           list.appendChild(item);
         });
 
         document.getElementById('containersLastUpdate').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
       } catch (err) {
-        document.getElementById('containersList').innerHTML = `<div class="error">${err.message}</div>`;
+        const error = document.createElement('div');
+        error.className = 'error';
+        error.textContent = err.message;
+        document.getElementById('containersList').replaceChildren(error);
       }
     }
 
@@ -632,8 +653,8 @@
           const thead = table.querySelector('thead');
           const tbody = table.querySelector('tbody');
 
-          thead.innerHTML = '';
-          tbody.innerHTML = '';
+          thead.replaceChildren();
+          tbody.replaceChildren();
 
           const headers = Object.keys(data.rows[0]);
           const headerRow = document.createElement('tr');
@@ -684,28 +705,60 @@
         const res = await fetch('/api/deploys');
         const data = await res.json();
         const tbody = document.getElementById('deploysList');
-        tbody.innerHTML = '';
+        tbody.replaceChildren();
 
         if (!Array.isArray(data) || data.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #999;">No deployments found</td></tr>';
+          const tr = document.createElement('tr');
+          const td = document.createElement('td');
+          td.colSpan = 5;
+          td.style.textAlign = 'center';
+          td.style.color = '#999';
+          td.textContent = 'No deployments found';
+          tr.appendChild(td);
+          tbody.replaceChildren(tr);
           return;
         }
 
         data.forEach(d => {
           const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td>${new Date(d.deployed_at).toLocaleString()}</td>
-            <td><code style="color: #3b82f6;">${(d.commit || '—').substring(0, 7)}</code></td>
-            <td>${d.message || '—'}</td>
-            <td><span class="status-dot ${d.status === 'success' ? 'healthy' : 'down'}" style="display: inline-block; margin-right: 5px;"></span>${d.status || '—'}</td>
-            <td>${d.duration_seconds ? `${d.duration_seconds}s` : '—'}</td>
-          `;
+
+          const deployedAt = document.createElement('td');
+          deployedAt.textContent = d.deployed_at ? new Date(d.deployed_at).toLocaleString() : '—';
+
+          const commit = document.createElement('td');
+          const commitCode = document.createElement('code');
+          commitCode.style.color = '#3b82f6';
+          commitCode.textContent = (d.commit || '—').substring(0, 7);
+          commit.appendChild(commitCode);
+
+          const message = document.createElement('td');
+          message.textContent = d.message || '—';
+
+          const status = document.createElement('td');
+          const statusDot = document.createElement('span');
+          statusDot.className = `status-dot ${d.status === 'success' ? 'healthy' : 'down'}`;
+          statusDot.style.display = 'inline-block';
+          statusDot.style.marginRight = '5px';
+          status.append(statusDot, d.status || '—');
+
+          const duration = document.createElement('td');
+          duration.textContent = d.duration_seconds ? `${d.duration_seconds}s` : '—';
+
+          tr.append(deployedAt, commit, message, status, duration);
           tbody.appendChild(tr);
         });
 
         document.getElementById('deploysLastUpdate').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
       } catch (err) {
-        document.getElementById('deploysList').innerHTML = `<tr><td colspan="5"><div class="error">${err.message}</div></td></tr>`;
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 5;
+        const error = document.createElement('div');
+        error.className = 'error';
+        error.textContent = err.message;
+        td.appendChild(error);
+        tr.appendChild(td);
+        document.getElementById('deploysList').replaceChildren(tr);
       }
     }
 

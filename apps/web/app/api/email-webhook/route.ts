@@ -60,6 +60,16 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+function isTrustedHeaderOrg(orgId: string): boolean {
+  const raw = process.env.EMAIL_WEBHOOK_TRUSTED_ORG_IDS;
+  if (!raw) return false;
+  const allowed = raw
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  return allowed.includes("*") || allowed.includes(orgId);
+}
+
 export async function POST(request: Request) {
   if (!verifyBearerToken(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -94,9 +104,9 @@ export async function POST(request: Request) {
     );
   }
 
-  // Resolve org: header first, then domain match, then null (manual triage).
+  // Resolve org: trusted header first, then domain match, then null (manual triage).
   const headerOrgId = request.headers.get("x-gpc-org-id")?.trim() || null;
-  let orgId: string | null = headerOrgId;
+  let orgId: string | null = headerOrgId && isTrustedHeaderOrg(headerOrgId) ? headerOrgId : null;
   if (!orgId && toAddress) {
     try {
       orgId = await resolveOrgFromRecipient(toAddress);
