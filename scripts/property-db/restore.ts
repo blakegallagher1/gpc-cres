@@ -1,7 +1,7 @@
 import "dotenv/config";
 
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 
@@ -79,6 +79,14 @@ function optionalEnv(name: string, fallback: string): string {
   return value && value.trim().length > 0 ? value : fallback;
 }
 
+function booleanEnv(name: string, fallback: boolean): boolean {
+  const raw = process.env[name];
+  if (!raw) {
+    return fallback;
+  }
+  return !["0", "false", "no"].includes(raw.trim().toLowerCase());
+}
+
 function run(command: string, args: string[], input?: string): string {
   return execFileSync(command, args, {
     encoding: "utf8",
@@ -97,6 +105,49 @@ function sha256(filePath: string): string {
 
 function b2Prefix(): string {
   return optionalEnv("PROPERTY_DB_B2_PREFIX", "property-db-backups").replace(/^\/+|\/+$/g, "");
+}
+
+function restoreVerifyDir(outputDir: string): string {
+  return path.resolve(outputDir, "restore-verify");
+}
+
+function isB2CapError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /cap exceeded|Caps & Alerts|download bandwidth|transaction \(Class B\) cap|HeadObject operation: Forbidden/i.test(message);
+}
+
+function findCachedVerifiedBackup(outputDir: string): string | null {
+  const localDir = restoreVerifyDir(outputDir);
+  if (!existsSync(localDir)) {
+    return null;
+  }
+
+  const candidates = readdirSync(localDir)
+    .filter((fileName) => fileName.endsWith(".manifest.json"))
+    .map((fileName) => {
+      const manifestPath = path.join(localDir, fileName);
+      const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as BackupManifest;
+      const dumpPath = manifestPath.replace(/\.manifest\.json$/, ".dump");
+      const generatedAt = manifest.generatedAt ? new Date(manifest.generatedAt).getTime() : statSync(manifestPath).mtimeMs;
+      return { dumpPath, generatedAt };
+    })
+    .filter((candidate) => existsSync(candidate.dumpPath))
+    .sort((left, right) => right.generatedAt - left.generatedAt);
+
+  for (const candidate of candidates) {
+    try {
+      verifyManifest(candidate.dumpPath);
+      return candidate.dumpPath;
+    } catch (error: unknown) {
+      console.error(
+        `[property-db-restore] ignoring invalid cached backup ${candidate.dumpPath}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
+  return null;
 }
 
 const b2DownloadLatestScript = String.raw`
@@ -135,12 +186,19 @@ manifest_key = latest["Key"]
 target_dir = Path(output_dir)
 target_dir.mkdir(parents=True, exist_ok=True)
 manifest_path = target_dir / Path(manifest_key).name
-s3.download_file(bucket, manifest_key, str(manifest_path))
+
+def download_key(key, target_path):
+    response = s3.get_object(Bucket=bucket, Key=key)
+    with target_path.open("wb") as target_file:
+        for chunk in iter(lambda: response["Body"].read(1024 * 1024), b""):
+            target_file.write(chunk)
+
+download_key(manifest_key, manifest_path)
 
 manifest = json.loads(manifest_path.read_text())
 dump_key = manifest.get("offsite", {}).get("dumpKey") or manifest_key.replace(".manifest.json", ".dump")
 dump_path = target_dir / Path(dump_key).name
-s3.download_file(bucket, dump_key, str(dump_path))
+download_key(dump_key, dump_path)
 
 hasher = hashlib.sha256()
 with dump_path.open("rb") as dump_file:
@@ -171,7 +229,7 @@ function downloadLatestB2Backup(params: {
   const stamp = Date.now().toString();
   const containerDir = `/tmp/property-db-restore-${stamp}`;
   const remoteStagingDir = `${params.remoteDir}/restore-verify-${stamp}`;
-  const localDir = path.resolve(params.outputDir, "restore-verify");
+  const localDir = restoreVerifyDir(params.outputDir);
   mkdirSync(localDir, { recursive: true });
   runSsh(params.sshHost, ["powershell", "-NoProfile", "-Command", `New-Item -ItemType Directory -Force -Path ${remoteStagingDir}`]);
   runSsh(params.sshHost, ["docker", "exec", params.gatewayContainer, "mkdir", "-p", containerDir]);
@@ -217,6 +275,17 @@ function downloadLatestB2Backup(params: {
       `[property-db-restore] downloaded latest B2 backup dumpKey=${result.dumpKey} manifestKey=${result.manifestKey} bytes=${result.dumpBytes} sha256=${result.sha256}`,
     );
     return localDumpPath;
+  } catch (error: unknown) {
+    if (booleanEnv("PROPERTY_DB_RESTORE_ALLOW_CACHE_ON_B2_CAP", true) && isB2CapError(error)) {
+      const cachedDumpPath = findCachedVerifiedBackup(params.outputDir);
+      if (cachedDumpPath) {
+        console.log(
+          `[property-db-restore] B2 download blocked by account cap; using verified cached backup ${cachedDumpPath}`,
+        );
+        return cachedDumpPath;
+      }
+    }
+    throw error;
   } finally {
     runSsh(params.sshHost, ["docker", "exec", params.gatewayContainer, "rm", "-rf", containerDir]);
     runSsh(params.sshHost, [
