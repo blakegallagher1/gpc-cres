@@ -1,62 +1,150 @@
-# Nightly backup of Property DB (local-postgis) via docker exec.
-# pg_dump runs inside the local-postgis container.
-# Usage: .\backup-property-db.ps1 [-BackupDir "C:\backups\property-db"] [-RetentionDays 30]
+# Nightly backup of the live Property DB.
+# Runs on the Windows gateway host and uses pg_dump inside the Postgres container.
 #
-# BG production: local-postgis container, port 5433 external
-# Contains: ebr_parcels (198K), soils, wetlands, epa_facilities, fema_flood,
-#           ldeq_permits, traffic_counts, mv_parcel_intelligence
+# Usage:
+#   .\backup-property-db.ps1
+#   .\backup-property-db.ps1 -BackupDir "C:\gpc-cres-backups\property-db" -RetentionDays 30
+#
+# Output:
+#   property-db-<timestamp>.dump
+#   property-db-<timestamp>.manifest.json
 
 param(
-    [string]$BackupDir = "C:\backups\property-db",
+    [string]$BackupDir = "C:\gpc-cres-backups\property-db",
     [int]$RetentionDays = 30,
-    [string]$ContainerName = "local-postgis",
-    [string]$DbName = "cres_db",
-    [string]$User = "postgres"
+    [string]$ContainerName = "entitlement-os-postgres",
+    [string]$DbName = "entitlement_os",
+    [string]$User = "postgres",
+    [string]$ContractVersion = "property-db-contract-v1",
+    [int]$MinimumEastBatonRougeRows = 150000
 )
 
 $ErrorActionPreference = "Stop"
 
-# Verify container is running
-$containerState = docker inspect --format '{{.State.Running}}' $ContainerName 2>&1
-if ($containerState -ne "True") {
-    Write-Error "Container '$ContainerName' is not running"
+function Invoke-ContainerPsqlScalar {
+    param([string]$Sql)
+
+    $result = docker exec $ContainerName psql -U $User -d $DbName -At -v ON_ERROR_STOP=1 -c $Sql
+    if ($LASTEXITCODE -ne 0) {
+        throw "psql failed for query: $Sql"
+    }
+    return ($result | Select-Object -First 1).Trim()
 }
 
-$timestamp = Get-Date -Format "yyyy-MM-dd-HHmm"
-$dumpFile = Join-Path $BackupDir "property_db_$timestamp.sql.gz"
-$containerTmp = "/tmp/property_db_backup.sql.gz"
+function Assert-PropertyDbContract {
+    $viewExists = Invoke-ContainerPsqlScalar "SELECT to_regclass('property.parcels') IS NOT NULL"
+    if ($viewExists -ne "t") {
+        throw "property.parcels contract view is missing"
+    }
+
+    $indexExists = Invoke-ContainerPsqlScalar "SELECT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'ebr_parcels' AND indexname = 'idx_ebr_parcels_parish_parcel_id')"
+    if ($indexExists -ne "t") {
+        throw "idx_ebr_parcels_parish_parcel_id is missing"
+    }
+
+    $liveContract = Invoke-ContainerPsqlScalar "SELECT version FROM property.contract_versions WHERE contract_key = 'property.parcels'"
+    if ($liveContract -ne $ContractVersion) {
+        throw "Expected contract $ContractVersion but found $liveContract"
+    }
+
+    $ebrRowsText = Invoke-ContainerPsqlScalar "SELECT COUNT(*)::bigint FROM public.ebr_parcels WHERE parish = 'East Baton Rouge'"
+    $ebrRows = [int64]$ebrRowsText
+    if ($ebrRows -lt $MinimumEastBatonRougeRows) {
+        throw "East Baton Rouge row count too low: $ebrRows"
+    }
+
+    return $ebrRows
+}
+
+function Read-ParishCounts {
+    $rows = docker exec $ContainerName psql -U $User -d $DbName -At -v ON_ERROR_STOP=1 -F "`t" -c "SELECT coalesce(parish, ''), COUNT(*)::bigint FROM public.ebr_parcels GROUP BY parish ORDER BY COUNT(*) DESC"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to read parish counts"
+    }
+
+    $counts = @()
+    foreach ($row in $rows) {
+        if (-not $row) { continue }
+        $parts = $row -split "`t", 2
+        $parish = if ($parts[0] -eq "") { $null } else { $parts[0] }
+        $counts += [ordered]@{
+            parish = $parish
+            rowCount = [int64]$parts[1]
+        }
+    }
+    return $counts
+}
 
 New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
 
+$containerState = docker inspect --format '{{.State.Running}}' $ContainerName 2>&1
+if ($containerState -ne "True") {
+    throw "Container '$ContainerName' is not running"
+}
+
+$generatedAt = (Get-Date).ToUniversalTime()
+$timestamp = $generatedAt.ToString("yyyy-MM-ddTHH-mm-ssZ")
+$dumpName = "property-db-$timestamp.dump"
+$manifestName = "property-db-$timestamp.manifest.json"
+$dumpFile = Join-Path $BackupDir $dumpName
+$manifestFile = Join-Path $BackupDir $manifestName
+$containerTmp = "/tmp/$dumpName"
+
+Write-Host "Verifying property DB contract before backup..."
+$ebrRows = Assert-PropertyDbContract
+$parishCounts = Read-ParishCounts
+
 Write-Host "Backing up $DbName from container $ContainerName..."
 try {
-    # Dump + gzip inside the container (avoids needing pg_dump/gzip on host)
-    docker exec $ContainerName bash -c "pg_dump -U $User $DbName | gzip > $containerTmp"
-    if ($LASTEXITCODE -ne 0) { throw "pg_dump inside container failed (exit code $LASTEXITCODE)" }
+    docker exec $ContainerName pg_dump -U $User -d $DbName -Fc --no-owner --no-acl -f $containerTmp
+    if ($LASTEXITCODE -ne 0) { throw "pg_dump failed with exit code $LASTEXITCODE" }
 
-    # Copy compressed dump from container to host
     docker cp "${ContainerName}:${containerTmp}" $dumpFile
-    if ($LASTEXITCODE -ne 0) { throw "docker cp failed (exit code $LASTEXITCODE)" }
-
-    # Clean up temp file inside container
-    docker exec $ContainerName rm -f $containerTmp
-} catch {
-    # Clean up container temp on failure
-    docker exec $ContainerName rm -f $containerTmp 2>$null
-    Write-Error "Backup failed: $_"
+    if ($LASTEXITCODE -ne 0) { throw "docker cp failed with exit code $LASTEXITCODE" }
+} finally {
+    docker exec $ContainerName rm -f $containerTmp 2>$null | Out-Null
 }
 
-if (Test-Path $dumpFile) {
-    $sizeMB = [math]::Round((Get-Item $dumpFile).Length / 1MB, 2)
-    Write-Host "Backup complete: $dumpFile ($sizeMB MB)"
-} else {
-    Write-Error "Backup file was not created"
+if (-not (Test-Path $dumpFile)) {
+    throw "Backup file was not created"
 }
 
-# Prune old backups
-Get-ChildItem $BackupDir -Filter "*.sql.gz" -ErrorAction SilentlyContinue |
+$dumpItem = Get-Item $dumpFile
+$hash = (Get-FileHash -Algorithm SHA256 -Path $dumpFile).Hash.ToLowerInvariant()
+$manifest = [ordered]@{
+    generatedAt = $generatedAt.ToString("o")
+    contractVersion = $ContractVersion
+    source = [ordered]@{
+        container = $ContainerName
+        database = $DbName
+        user = $User
+    }
+    files = [ordered]@{
+        dumpPath = $dumpFile
+        manifestPath = $manifestFile
+        sha256 = $hash
+        bytes = $dumpItem.Length
+    }
+    checks = [ordered]@{
+        eastBatonRougeRows = $ebrRows
+        minimumEastBatonRougeRows = $MinimumEastBatonRougeRows
+    }
+    rowCountsByParish = $parishCounts
+}
+
+$manifest | ConvertTo-Json -Depth 8 | Set-Content -Path $manifestFile -Encoding UTF8
+
+Write-Host "Backup complete: $dumpFile ($([math]::Round($dumpItem.Length / 1MB, 2)) MB)"
+Write-Host "Manifest: $manifestFile"
+Write-Host "SHA256: $hash"
+
+Get-ChildItem $BackupDir -Filter "property-db-*.dump" -ErrorAction SilentlyContinue |
     Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-$RetentionDays) } |
     ForEach-Object {
         Write-Host "Removing old backup: $($_.Name)"
         Remove-Item $_.FullName -Force
+        $oldManifest = $_.FullName -replace '\.dump$', '.manifest.json'
+        if (Test-Path $oldManifest) {
+            Remove-Item $oldManifest -Force
+        }
     }

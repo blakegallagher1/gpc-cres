@@ -44,6 +44,7 @@
     "parcel:smoke:prod": "pnpm exec tsx scripts/parcels/smoke_map_parcel_prod.ts",
     "property-db:contract:smoke": "pnpm exec tsx scripts/property-db/verify_contract.ts",
     "property-db:backup": "pnpm exec tsx scripts/property-db/backup.ts",
+    "property-db:backup:monitor": "pnpm exec tsx scripts/property-db/monitor_backups.ts",
     "property-db:restore:dry": "pnpm exec tsx scripts/property-db/restore.ts",
     "property-db:restore:apply": "pnpm exec tsx scripts/property-db/restore.ts --apply",
     "ebr:load": "pnpm exec tsx scripts/parcels/load_ebr_parcels.ts",
