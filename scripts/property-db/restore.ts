@@ -1,16 +1,18 @@
 import "dotenv/config";
 
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 
 const DEFAULT_REMOTE_DIR = "C:/gpc-cres-backups/property-db";
 const DEFAULT_OUTPUT_DIR = "output/property-db-backups";
+const DEFAULT_DRILL_EXCLUDED_RELATIONS = "public.mv_parcel_intelligence";
 const CONTRACT_SQL_PATH = "infra/sql/property-db-contract-v1.sql";
 
 type RestoreOptions = {
   apply: boolean;
+  drill: boolean;
   dumpPath: string;
   sshHost: string;
   container: string;
@@ -21,8 +23,15 @@ type RestoreOptions = {
 };
 
 type BackupManifest = {
+  generatedAt?: string;
+  contractVersion?: string;
   files?: {
+    bytes?: number;
     sha256?: string;
+  };
+  offsite?: {
+    dumpKey?: string;
+    manifestKey?: string;
   };
 };
 
@@ -34,6 +43,35 @@ type B2DownloadResult = {
   manifestFileName: string;
   dumpBytes: number;
   sha256: string;
+};
+
+type DrillStatus = {
+  contractVersion: string | null;
+  eastBatonRougeRows: number;
+  totalRows: number;
+};
+
+type RestoreDrillReport = {
+  ok: true;
+  generatedAt: string;
+  durationSeconds: number;
+  source: {
+    dumpPath: string;
+    manifestGeneratedAt: string | null;
+    b2DumpKey: string | null;
+    b2ManifestKey: string | null;
+    sha256: string;
+    bytes: number;
+  };
+  target: {
+    sshHost: string;
+    container: string;
+    image: string;
+    database: string;
+    user: string;
+    excludedRelations: string[];
+  };
+  checks: DrillStatus;
 };
 
 function optionalEnv(name: string, fallback: string): string {
@@ -193,14 +231,17 @@ function downloadLatestB2Backup(params: {
 function parseOptions(): RestoreOptions {
   const args = process.argv.slice(2);
   const apply = args.includes("--apply");
-  const fromB2Latest = args.includes("--from-b2-latest") || process.env.PROPERTY_DB_RESTORE_FROM_B2 === "latest";
+  const drill = args.includes("--drill");
+  const positionalDumpPath = args.find((arg) => !arg.startsWith("--"));
+  const fromB2Latest =
+    !positionalDumpPath && (drill || args.includes("--from-b2-latest") || process.env.PROPERTY_DB_RESTORE_FROM_B2 === "latest");
   const sshHost = optionalEnv("PROPERTY_DB_SSH_HOST", "bg");
   const remoteDir = optionalEnv("PROPERTY_DB_REMOTE_BACKUP_DIR", DEFAULT_REMOTE_DIR);
   const gatewayContainer = optionalEnv("PROPERTY_DB_GATEWAY_CONTAINER", "fastapi-gateway");
   const outputDir = optionalEnv("PROPERTY_DB_BACKUP_OUTPUT_DIR", DEFAULT_OUTPUT_DIR);
   const dumpPath = fromB2Latest
     ? downloadLatestB2Backup({ sshHost, gatewayContainer, remoteDir, outputDir })
-    : args.find((arg) => !arg.startsWith("--")) ?? process.env.PROPERTY_DB_RESTORE_FILE;
+    : positionalDumpPath ?? process.env.PROPERTY_DB_RESTORE_FILE;
   if (!dumpPath) {
     throw new Error("Pass a dump path, set PROPERTY_DB_RESTORE_FILE, or use --from-b2-latest.");
   }
@@ -209,6 +250,7 @@ function parseOptions(): RestoreOptions {
   }
   return {
     apply,
+    drill,
     dumpPath,
     sshHost,
     container: optionalEnv("PROPERTY_DB_RESTORE_CONTAINER", optionalEnv("PROPERTY_DB_CONTAINER", "entitlement-os-postgres")),
@@ -219,21 +261,29 @@ function parseOptions(): RestoreOptions {
   };
 }
 
-function verifyManifest(dumpPath: string): void {
+function readManifest(dumpPath: string): BackupManifest | null {
   const manifestPath = dumpPath.replace(/\.dump$/, ".manifest.json");
   if (!existsSync(manifestPath)) {
-    console.log(`[property-db-restore] no manifest found for ${dumpPath}; sha256 check skipped`);
-    return;
+    return null;
   }
-  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as BackupManifest;
+  return JSON.parse(readFileSync(manifestPath, "utf8")) as BackupManifest;
+}
+
+function verifyManifest(dumpPath: string): BackupManifest | null {
+  const manifest = readManifest(dumpPath);
+  if (!manifest) {
+    console.log(`[property-db-restore] no manifest found for ${dumpPath}; sha256 check skipped`);
+    return null;
+  }
   const expectedHash = manifest.files?.sha256;
   if (!expectedHash) {
-    throw new Error(`Manifest missing files.sha256: ${manifestPath}`);
+    throw new Error(`Manifest missing files.sha256 for ${dumpPath}`);
   }
   const actualHash = sha256(dumpPath);
   if (actualHash !== expectedHash) {
     throw new Error(`Backup hash mismatch. expected=${expectedHash} actual=${actualHash}`);
   }
+  return manifest;
 }
 
 function printPlan(options: RestoreOptions): void {
@@ -268,7 +318,50 @@ function copyInputs(options: RestoreOptions): { containerDumpPath: string; conta
   return { containerDumpPath, containerSqlPath };
 }
 
-function applyRestore(options: RestoreOptions, containerDumpPath: string, containerSqlPath: string): void {
+function drillExcludedRelations(): string[] {
+  const raw = process.env.PROPERTY_DB_RESTORE_DRILL_EXCLUDE_RELATIONS ?? DEFAULT_DRILL_EXCLUDED_RELATIONS;
+  return raw
+    .split(",")
+    .map((relation) => relation.trim())
+    .filter((relation) => relation.length > 0);
+}
+
+function shQuote(value: string): string {
+  return `'${value.replace(/'/g, "'\"'\"'")}'`;
+}
+
+function escapeExtendedRegex(value: string): string {
+  return value.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
+}
+
+function buildFilteredRestoreList(
+  options: RestoreOptions,
+  containerDumpPath: string,
+  excludedRelations: string[],
+): string | null {
+  if (excludedRelations.length === 0) {
+    return null;
+  }
+  const containerListPath = `${containerDumpPath}.restore-list`;
+  const exclusionTerms = excludedRelations.flatMap((relation) => {
+    const bareRelation = relation.split(".").pop();
+    return bareRelation ? [relation, bareRelation] : [relation];
+  });
+  const exclusionPattern = exclusionTerms.map(escapeExtendedRegex).join("|");
+  run(
+    "ssh",
+    [options.sshHost, "docker", "exec", "-i", options.container, "sh"],
+    `pg_restore -l ${shQuote(containerDumpPath)} | grep -v -E ${shQuote(exclusionPattern)} > ${shQuote(containerListPath)}\n`,
+  );
+  return containerListPath;
+}
+
+function applyRestore(
+  options: RestoreOptions,
+  containerDumpPath: string,
+  containerSqlPath: string,
+  containerRestoreListPath?: string | null,
+): void {
   runSsh(options.sshHost, [
     "docker",
     "exec",
@@ -282,6 +375,7 @@ function applyRestore(options: RestoreOptions, containerDumpPath: string, contai
     "--if-exists",
     "--no-owner",
     "--no-acl",
+    ...(containerRestoreListPath ? ["-L", containerRestoreListPath] : []),
     containerDumpPath,
   ]);
   runSsh(options.sshHost, [
@@ -312,8 +406,190 @@ function cleanup(options: RestoreOptions, containerDumpPath: string, containerSq
   ]);
 }
 
+function restoreDrillImage(options: RestoreOptions): string {
+  const explicit = process.env.PROPERTY_DB_RESTORE_DRILL_IMAGE;
+  if (explicit && explicit.trim().length > 0) {
+    return explicit;
+  }
+  return runSsh(options.sshHost, [
+    "docker",
+    "inspect",
+    optionalEnv("PROPERTY_DB_CONTAINER", "entitlement-os-postgres"),
+    "--format",
+    "{{.Config.Image}}",
+  ]);
+}
+
+function waitForPostgres(options: RestoreOptions): void {
+  for (let attempt = 1; attempt <= 60; attempt += 1) {
+    try {
+      runSsh(options.sshHost, [
+        "docker",
+        "exec",
+        options.container,
+        "pg_isready",
+        "-U",
+        options.user,
+        "-d",
+        options.database,
+      ]);
+      return;
+    } catch {
+      runSsh(options.sshHost, ["powershell", "-NoProfile", "-Command", "Start-Sleep -Seconds 1"]);
+    }
+  }
+  throw new Error(`Restore drill Postgres did not become ready: container=${options.container}`);
+}
+
+function startRestoreDrillContainer(options: RestoreOptions, image: string): void {
+  runSsh(options.sshHost, [
+    "docker",
+    "run",
+    "-d",
+    "--rm",
+    "--name",
+    options.container,
+    "-e",
+    `POSTGRES_DB=${options.database}`,
+    "-e",
+    `POSTGRES_USER=${options.user}`,
+    "-e",
+    "POSTGRES_PASSWORD=postgres",
+    image,
+  ]);
+  waitForPostgres(options);
+}
+
+function stopRestoreDrillContainer(options: RestoreOptions): void {
+  runSsh(options.sshHost, ["docker", "rm", "-f", options.container]);
+}
+
+function tryStopRestoreDrillContainer(options: RestoreOptions): void {
+  try {
+    stopRestoreDrillContainer(options);
+  } catch (error: unknown) {
+    console.error(
+      `[property-db-restore-drill] failed to remove disposable container ${options.container}: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+}
+
+function queryDrillStatus(options: RestoreOptions): DrillStatus {
+  const query = String.raw`
+SELECT json_build_object(
+  'contractVersion', (SELECT version FROM property.contract_versions WHERE contract_key = 'property.parcels'),
+  'eastBatonRougeRows', (SELECT count(*) FROM property.parcels WHERE parish = 'East Baton Rouge'),
+  'totalRows', (SELECT count(*) FROM property.parcels)
+)::text;
+`;
+  const output = run(
+    "ssh",
+    [
+      options.sshHost,
+      "docker",
+      "exec",
+      "-i",
+      options.container,
+      "psql",
+      "-U",
+      options.user,
+      "-d",
+      options.database,
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-t",
+      "-A",
+    ],
+    query,
+  );
+  const parsed = JSON.parse(output) as DrillStatus;
+  if (parsed.contractVersion !== "property-db-contract-v1") {
+    throw new Error(`Restore drill contract mismatch: ${parsed.contractVersion ?? "missing"}`);
+  }
+  if (parsed.eastBatonRougeRows < 150_000) {
+    throw new Error(`Restore drill East Baton Rouge rows too low: ${parsed.eastBatonRougeRows}`);
+  }
+  return parsed;
+}
+
+function writeDrillReport(report: RestoreDrillReport): string {
+  const reportDir = path.resolve(DEFAULT_OUTPUT_DIR, "restore-drill");
+  mkdirSync(reportDir, { recursive: true });
+  const reportPath = path.join(reportDir, `restore-drill-${report.generatedAt.replace(/[:.]/g, "-")}.json`);
+  writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+  return reportPath;
+}
+
+function runRestoreDrill(options: RestoreOptions, manifest: BackupManifest | null): void {
+  const startedAt = Date.now();
+  const image = restoreDrillImage(options);
+  const excludedRelations = drillExcludedRelations();
+  if (excludedRelations.length > 0) {
+    console.log(`[property-db-restore-drill] excluding non-contract relations: ${excludedRelations.join(",")}`);
+  }
+  let inputs: { containerDumpPath: string; containerSqlPath: string } | null = null;
+  let containerStarted = false;
+  try {
+    startRestoreDrillContainer(options, image);
+    containerStarted = true;
+    inputs = copyInputs(options);
+    const restoreListPath = buildFilteredRestoreList(options, inputs.containerDumpPath, excludedRelations);
+    applyRestore(options, inputs.containerDumpPath, inputs.containerSqlPath, restoreListPath);
+    const checks = queryDrillStatus(options);
+    const report: RestoreDrillReport = {
+      ok: true,
+      generatedAt: new Date().toISOString(),
+      durationSeconds: Number(((Date.now() - startedAt) / 1000).toFixed(3)),
+      source: {
+        dumpPath: options.dumpPath,
+        manifestGeneratedAt: manifest?.generatedAt ?? null,
+        b2DumpKey: manifest?.offsite?.dumpKey ?? null,
+        b2ManifestKey: manifest?.offsite?.manifestKey ?? null,
+        sha256: manifest?.files?.sha256 ?? sha256(options.dumpPath),
+        bytes: manifest?.files?.bytes ?? readFileSync(options.dumpPath).byteLength,
+      },
+      target: {
+        sshHost: options.sshHost,
+        container: options.container,
+        image,
+        database: options.database,
+        user: options.user,
+        excludedRelations,
+      },
+      checks,
+    };
+    const reportPath = writeDrillReport(report);
+    console.log(
+      `[property-db-restore-drill] ok report=${reportPath} durationSeconds=${report.durationSeconds} ebrRows=${checks.eastBatonRougeRows} totalRows=${checks.totalRows}`,
+    );
+  } finally {
+    if (inputs) {
+      cleanup(options, inputs.containerDumpPath, inputs.containerSqlPath);
+    }
+    if (containerStarted && process.env.PROPERTY_DB_RESTORE_DRILL_KEEP_CONTAINER !== "true") {
+      tryStopRestoreDrillContainer(options);
+    }
+  }
+}
+
 function main(): void {
   const options = parseOptions();
+  if (options.drill) {
+    const drillContainer = `${optionalEnv("PROPERTY_DB_RESTORE_DRILL_CONTAINER", "property-db-restore-drill")}-${Date.now()}`;
+    const drillOptions: RestoreOptions = {
+      ...options,
+      apply: true,
+      container: drillContainer,
+      database: optionalEnv("PROPERTY_DB_RESTORE_DRILL_DATABASE", "property_restore_drill"),
+      user: optionalEnv("PROPERTY_DB_RESTORE_DRILL_USER", "postgres"),
+    };
+    const manifest = verifyManifest(drillOptions.dumpPath);
+    runRestoreDrill(drillOptions, manifest);
+    return;
+  }
+
   printPlan(options);
   verifyManifest(options.dumpPath);
   if (!options.apply) {
