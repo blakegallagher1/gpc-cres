@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  capturePropertyObservations,
-  searchParcelsForRoute,
-} from "@gpc/server";
+import { searchParcelsForRoute } from "@gpc/server/search/parcel-search.service";
+import { capturePropertyObservations } from "@gpc/server/services/property-observation.service";
 import {
   authorizeApiRoute,
 } from "@/lib/auth/authorizeApiRoute";

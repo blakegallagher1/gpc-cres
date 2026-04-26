@@ -14,7 +14,7 @@ const {
   mockRecordDataAgentAutoFeed: vi.fn(),
 }));
 
-vi.mock("@gpc/server", () => ({
+vi.mock("@gpc/server/services/data-agent-auto-feed.service", () => ({
   autoFeedRun: autoFeedRunInPackageMock,
 }));
 

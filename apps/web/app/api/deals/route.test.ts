@@ -38,7 +38,7 @@ vi.mock("@/lib/automation/events", () => ({
   dispatchEvent: vi.fn(),
 }));
 
-vi.mock("@gpc/server", () => ({
+vi.mock("@gpc/server/deals/deal.service", () => ({
   listDeals: listDealsMock,
   createDeal: createDealMock,
   bulkUpdateDeals: bulkUpdateDealsMock,

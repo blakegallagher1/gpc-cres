@@ -614,6 +614,7 @@ export function CopilotPanel() {
   const isMapPage = pathname?.startsWith("/map");
 
   if (isMapPage) return null;
+  if (!copilotOpen) return null;
 
   return (
     <>
@@ -626,8 +627,8 @@ export function CopilotPanel() {
     )}
     <aside
       className={cn(
-        "fixed right-0 top-16 z-50 h-[calc(100vh-4rem)] border-l bg-background shadow-xl transition-transform duration-300",
-        isMobile ? "w-full" : "w-[360px]",
+        "fixed right-0 top-[var(--app-header-height)] z-50 h-[calc(100svh-var(--app-header-height))] max-w-[calc(100vw-0.75rem)] border-l bg-background shadow-xl transition-transform duration-300",
+        isMobile ? "w-full" : "w-[min(360px,calc(100vw-var(--app-sidebar-expanded)-1rem))]",
         copilotOpen ? "translate-x-0" : "translate-x-full"
       )}
     >

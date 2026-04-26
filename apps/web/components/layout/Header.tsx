@@ -19,6 +19,37 @@ import {
 } from "./workspaceRoutes";
 
 const HEADER_TRANSITION = { duration: 0.28, ease: [0.22, 1, 0.36, 1] as const };
+const LOCAL_AUTH_BYPASS = process.env.NEXT_PUBLIC_DISABLE_AUTH === "true";
+
+function SignOutButton() {
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const clerk = useClerk();
+
+  const handleSignOut = async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+
+    try {
+      await clerk.signOut({ redirectUrl: "/login" });
+      toast.success("Signed out");
+    } catch {
+      toast.error("Sign out failed. Please try again.");
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
+
+  return (
+    <Button
+      variant="ghost"
+      onClick={handleSignOut}
+      disabled={isSigningOut}
+      className="rounded-2xl px-3 text-muted-foreground"
+    >
+      {isSigningOut ? "Signing out..." : "Sign Out"}
+    </Button>
+  );
+}
 
 /**
  * Fixed application header with route context, command search, and global actions.
@@ -31,9 +62,7 @@ export function Header() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  const [isSigningOut, setIsSigningOut] = useState(false);
   const [commandKeyLabel, setCommandKeyLabel] = useState("Ctrl");
-  const clerk = useClerk();
   const router = useRouter();
   const pathname = usePathname();
   const isChatPage = pathname === "/chat" || pathname?.startsWith("/chat/");
@@ -53,27 +82,13 @@ export function Header() {
     openCommandPalette();
   };
 
-  const handleSignOut = async () => {
-    if (isSigningOut) return;
-    setIsSigningOut(true);
-
-    try {
-      await clerk.signOut({ redirectUrl: "/login" });
-      toast.success("Signed out");
-    } catch {
-      toast.error("Sign out failed. Please try again.");
-    } finally {
-      setIsSigningOut(false);
-    }
-  };
-
   return (
     <header
       className={cn(
         "fixed right-0 top-0 z-30 border-b border-border bg-background transition-[left] duration-300",
         "h-[var(--app-header-height)]",
         isMobile
-          ? "left-0 px-3"
+          ? "left-0 px-3 pl-14"
           : cn(
               "px-4 md:px-6",
               sidebarCollapsed
@@ -236,15 +251,8 @@ export function Header() {
               </div>
             ) : null}
 
-            {!isMobile && !isChatPage && (
-              <Button
-                variant="ghost"
-                onClick={handleSignOut}
-                disabled={isSigningOut}
-                className="rounded-2xl px-3 text-muted-foreground"
-              >
-                {isSigningOut ? "Signing out..." : "Sign Out"}
-              </Button>
+            {!LOCAL_AUTH_BYPASS && !isMobile && !isChatPage && (
+              <SignOutButton />
             )}
           </div>
 

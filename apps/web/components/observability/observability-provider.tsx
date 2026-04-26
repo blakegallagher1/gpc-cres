@@ -12,6 +12,8 @@ import {
 } from "./client-telemetry";
 import { DevClientErrorPanel } from "./dev-client-error-panel";
 
+const LOCAL_AUTH_BYPASS = process.env.NEXT_PUBLIC_DISABLE_AUTH === "true";
+
 function buildRoute(
   pathname: string | null,
   searchParams: URLSearchParams | ReadonlyURLSearchParams | null,
@@ -24,9 +26,66 @@ function buildRoute(
 function ObservabilityLifecycle() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  if (LOCAL_AUTH_BYPASS) {
+    return (
+      <TelemetryLifecycle
+        pathname={pathname}
+        searchParams={searchParams}
+        userId={null}
+        userEmail={null}
+        orgId={null}
+        fallbackOrgTag="local-dev"
+      />
+    );
+  }
+
+  return (
+    <ClerkObservabilityLifecycle
+      pathname={pathname}
+      searchParams={searchParams}
+    />
+  );
+}
+
+function ClerkObservabilityLifecycle({
+  pathname,
+  searchParams,
+}: {
+  pathname: string | null;
+  searchParams: ReadonlyURLSearchParams | null;
+}) {
   const { userId, orgId } = useAuth();
   const { user } = useUser();
   const userEmail = user?.primaryEmailAddress?.emailAddress ?? null;
+
+  return (
+    <TelemetryLifecycle
+      pathname={pathname}
+      searchParams={searchParams}
+      userId={userId ?? null}
+      userEmail={userEmail}
+      orgId={orgId ?? null}
+      fallbackOrgTag="anonymous"
+    />
+  );
+}
+
+function TelemetryLifecycle({
+  pathname,
+  searchParams,
+  userId,
+  userEmail,
+  orgId,
+  fallbackOrgTag,
+}: {
+  pathname: string | null;
+  searchParams: ReadonlyURLSearchParams | null;
+  userId: string | null;
+  userEmail: string | null;
+  orgId: string | null;
+  fallbackOrgTag: "anonymous" | "local-dev";
+}) {
   const route = useMemo(
     () => buildRoute(pathname, searchParams),
     [pathname, searchParams],
@@ -46,9 +105,9 @@ function ObservabilityLifecycle() {
   const currentContextRef = useRef<ClientTelemetryContext>({
     route,
     viewId: activeViewId,
-    userId: userId ?? null,
+    userId,
     userEmail,
-    orgId: orgId ?? null,
+    orgId,
   });
 
   useEffect(() => {
@@ -69,9 +128,9 @@ function ObservabilityLifecycle() {
     currentContextRef.current = {
       route,
       viewId: viewIdRef.current ?? activeViewId,
-      userId: userId ?? null,
+      userId,
       userEmail,
-      orgId: orgId ?? null,
+      orgId,
     };
   }, [route, userEmail, userId, orgId, activeViewId]);
 
@@ -85,9 +144,9 @@ function ObservabilityLifecycle() {
       Sentry.setUser(null);
     }
 
-    Sentry.setTag("orgId", orgId ?? "anonymous");
+    Sentry.setTag("orgId", orgId ?? fallbackOrgTag);
     Sentry.setTag("route", route);
-  }, [route, userEmail, userId, orgId]);
+  }, [route, userEmail, userId, orgId, fallbackOrgTag]);
 
   useEffect(() => {
     if (!orgId) {

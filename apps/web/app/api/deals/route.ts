@@ -11,7 +11,7 @@ import {
   bulkUpdateDeals,
   createDeal,
   listDeals,
-} from "@gpc/server";
+} from "@gpc/server/deals/deal.service";
 import { resolveAuth } from "@/lib/auth/resolveAuth";
 import { getCloudflareAccessHeadersFromEnv } from "@/lib/server/propertyDbEnv";
 import { isSchemaDriftError } from "@/lib/api/prismaSchemaFallback";

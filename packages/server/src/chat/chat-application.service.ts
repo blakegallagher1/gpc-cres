@@ -13,7 +13,7 @@ import { runAgentWorkflow, isDatabaseConnectivityError } from "./run-agent-workf
 import type { ResearchLaneSelection } from "@entitlement-os/shared/research-routing";
 import type { ExecuteAgentWorkflow } from "./agent-runtime-adapter";
 import { extractAndMergeConversationPreferences } from "../services/preference-extraction.service";
-import { dispatchEvent } from "../automation/events";
+import { dispatchChatAutomationEvent } from "../automation/chat-events";
 import {
   getPropertyDbScopeHeaders,
   type PropertyDbGatewayScope,
@@ -347,7 +347,7 @@ export async function runChatApplication(
 
   const result = workflow.result;
   if (result && result.status === "succeeded") {
-    void dispatchEvent({
+    void dispatchChatAutomationEvent({
       type: "chat.analysis.completed",
       runId: result.runId,
       orgId: params.orgId,

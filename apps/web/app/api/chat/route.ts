@@ -9,7 +9,6 @@ import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";
 import { sanitizeChatErrorMessage } from "./_lib/errorHandling";
 import { createSseWriter, sseEvent } from "./sseWriter";
 import * as Sentry from "@sentry/nextjs";
-import "@/lib/automation/handlers"; // ensures learning promotion handler is registered
 
 function toClientErrorPayload(message: string, correlationId: string): Record<string, unknown> {
   return {

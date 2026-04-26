@@ -5,8 +5,10 @@ export type LocalDevAuthResult = {
   orgId: string;
 };
 
-const DEFAULT_LOCAL_DEV_AUTH_ORG_ID = "00000000-0000-0000-0000-000000000001";
-const DEFAULT_LOCAL_DEV_AUTH_USER_ID = "00000000-0000-0000-0000-000000000003";
+export const DEFAULT_LOCAL_DEV_AUTH_ORG_ID =
+  "00000000-0000-0000-0000-000000000001";
+export const DEFAULT_LOCAL_DEV_AUTH_USER_ID =
+  "00000000-0000-0000-0000-000000000003";
 
 export function getLocalDevAuthResult(): LocalDevAuthResult {
   const userId =

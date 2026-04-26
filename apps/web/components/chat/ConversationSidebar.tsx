@@ -516,10 +516,22 @@ export function ConversationSidebar({
           ) : null}
           <div
             className={cn(
-              'fixed inset-y-0 left-0 z-40 flex w-[min(22rem,calc(100vw-1.25rem))] max-w-full flex-col transition-transform duration-200 lg:hidden',
+              'fixed inset-y-0 left-0 z-40 flex w-[min(20rem,calc(100vw-3.5rem))] max-w-full flex-col transition-transform duration-200 lg:hidden',
               open ? 'translate-x-0' : '-translate-x-full',
             )}
           >
+            {open ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={onToggle}
+                className="absolute right-3 top-3 z-10 h-8 w-8 rounded bg-paper-panel text-ink-fade shadow-sm hover:text-ink"
+                aria-label="Close history"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            ) : null}
             {railContent}
           </div>
         </>

@@ -220,7 +220,7 @@ export function ChatInput({
   return (
     <form
       data-testid="chat-composer"
-      className="relative shrink-0 px-6 pb-5 pt-3 sm:px-9"
+      className="relative shrink-0 px-3 pb-4 pt-3 sm:px-6 lg:px-9"
       onSubmit={handleFormSubmit}
     >
       {/* Pending files */}
@@ -338,7 +338,7 @@ export function ChatInput({
         />
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-rule-soft bg-paper-soft px-3 py-2">
+        <div className="flex flex-col gap-2 border-t border-rule-soft bg-paper-soft px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-1.5">
             {canAttachFiles && (
               <>
@@ -363,8 +363,8 @@ export function ChatInput({
                 />
               </>
             )}
-            <span className="mx-1 h-4 w-px bg-rule" />
-            <div className="flex items-center gap-1.5">
+            <span className="mx-1 hidden h-4 w-px bg-rule sm:block" />
+            <div className="hidden items-center gap-1.5 sm:flex">
               <Kbd>⌘↵</Kbd>
               <span className="text-[11px] text-ink-fade">dispatch</span>
               <Dot />
@@ -377,7 +377,7 @@ export function ChatInput({
             <Button
               size="sm"
               variant="destructive"
-              className="h-7 rounded px-3 text-[12px]"
+              className="h-8 w-full rounded px-3 text-[12px] sm:h-7 sm:w-auto"
               onClick={onStop}
             >
               <Square className="mr-1 h-3 w-3" />
@@ -388,7 +388,7 @@ export function ChatInput({
               type="submit"
               data-testid="chat-composer-submit"
               disabled={!hasQueuedContent}
-              className="h-7 rounded bg-ink px-3.5 text-[12.5px] font-semibold text-paper-panel hover:bg-ink/90 disabled:opacity-40"
+              className="h-8 w-full rounded bg-ink px-3.5 text-[12.5px] font-semibold text-paper-panel hover:bg-ink/90 disabled:opacity-40 sm:h-7 sm:w-auto"
               aria-disabled={!hasQueuedContent}
             >
               {submitLabel}

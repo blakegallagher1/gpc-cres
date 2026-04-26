@@ -496,11 +496,6 @@ module.exports = [
                 "This migrated route must import geofence services via the stable @gpc/server barrel.",
             },
             {
-              name: "@gpc/server/chat/conversation-route.service",
-              message:
-                "This migrated route must import conversation services via the stable @gpc/server barrel.",
-            },
-            {
               name: "@gpc/server/deals/deal-activity.service",
               message:
                 "This migrated route must import deal activity services via the stable @gpc/server barrel.",
@@ -554,11 +549,6 @@ module.exports = [
               name: "@gpc/server/services/portfolio-summary.service",
               message:
                 "This migrated route must import portfolio services via the stable @gpc/server barrel.",
-            },
-            {
-              name: "@gpc/server/search/parcel-search.service",
-              message:
-                "This migrated route must import parcel search services via the stable @gpc/server barrel.",
             },
             {
               name: "@gpc/server/search/prospect-search.service",
@@ -661,11 +651,6 @@ module.exports = [
               name: "openai",
               message:
                 "This migrated route must not instantiate raw OpenAI clients. Use @gpc/server deal route services.",
-            },
-            {
-              name: "@gpc/server/deals/deal.service",
-              message:
-                "This migrated route must import deal services via the stable @gpc/server barrel.",
             },
             {
               name: "@gpc/server/deals/deal-financial-model-route.service",

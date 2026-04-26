@@ -11,8 +11,11 @@ vi.mock("@/lib/auth/authorizeApiRoute", () => ({
   authorizeApiRoute: authorizeApiRouteMock,
 }));
 
-vi.mock("@gpc/server", () => ({
+vi.mock("@gpc/server/search/parcel-search.service", () => ({
   searchParcelsForRoute: searchParcelsForRouteMock,
+}));
+
+vi.mock("@gpc/server/services/property-observation.service", () => ({
   capturePropertyObservations: capturePropertyObservationsMock,
 }));
 

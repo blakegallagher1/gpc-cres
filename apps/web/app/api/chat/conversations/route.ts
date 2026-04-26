@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listConversationsForOrg } from "@gpc/server";
+import { listConversationsForOrg } from "@gpc/server/chat/conversation-route.service";
 import { authorizeApiRoute } from "@/lib/auth/authorizeApiRoute";
 import { isChatPersistenceUnavailable } from "@/app/api/chat/_lib/errorHandling";
 import { shouldUseAppDatabaseDevFallback } from "@/lib/server/appDbEnv";

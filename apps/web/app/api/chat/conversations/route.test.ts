@@ -15,7 +15,7 @@ vi.mock("@/lib/auth/authorizeApiRoute", () => ({
   authorizeApiRoute: authorizeApiRouteMock,
 }));
 
-vi.mock("@gpc/server", () => ({
+vi.mock("@gpc/server/chat/conversation-route.service", () => ({
   listConversationsForOrg: listConversationsForOrgMock,
 }));
 

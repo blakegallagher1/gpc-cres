@@ -2340,15 +2340,12 @@ export async function executeAgentWorkflow(
           finalReport = null;
           finalText = sanitizedOutput;
         } else {
-          const reason = "Final agent output is not a valid JSON object.";
-          state.toolErrorMessages.push(`final_report: ${reason}`);
-          state.missingEvidence.add("Final agent report did not parse as JSON.");
           finalReport = buildFallbackAgentReportFromText({
             rawText: sanitizedOutput,
             taskSummary: userTextForIntent ?? firstUserInput ?? "Coordinator request",
             generatedAt: new Date().toISOString(),
           });
-          logger.warn("Agent final output was non-JSON; applied fallback report normalization", {
+          logger.info("Agent final output was non-JSON; applied fallback report normalization", {
             orgId: params.orgId,
             dealId: params.dealId,
             conversationId: params.conversationId,

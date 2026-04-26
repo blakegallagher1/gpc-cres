@@ -78,7 +78,25 @@ function handleApiCors(req: NextRequest, requestId: string): NextResponse {
   return res;
 }
 
-export const proxy = clerkMiddleware(async (clerkAuth, request: NextRequest) => {
+function isLocalAuthBypassEnabled(): boolean {
+  return (
+    (process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_E2E === "true") &&
+    process.env.NEXT_PUBLIC_DISABLE_AUTH === "true"
+  );
+}
+
+function handleLocalBypassProxy(request: NextRequest): NextResponse {
+  const { pathname } = request.nextUrl;
+  const requestId = getOrCreateRequestId(request);
+
+  if (pathname.startsWith("/api/")) {
+    return handleApiCors(request, requestId);
+  }
+
+  return nextResponseWithRequestId(request, requestId);
+}
+
+const authenticatedProxy = clerkMiddleware(async (clerkAuth, request: NextRequest) => {
   const { pathname } = request.nextUrl;
   const requestId = getOrCreateRequestId(request);
   const isHomepage = pathname === "/";
@@ -144,6 +162,10 @@ export const proxy = clerkMiddleware(async (clerkAuth, request: NextRequest) => 
     return finalizeResponse(NextResponse.redirect(loginUrl), requestId);
   }
 });
+
+export const proxy = isLocalAuthBypassEnabled()
+  ? handleLocalBypassProxy
+  : authenticatedProxy;
 
 export const config = {
   matcher: ["/api/:path*", "/((?!_next/static|_next/image|favicon.ico).*)"],

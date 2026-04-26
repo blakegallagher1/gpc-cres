@@ -8,7 +8,7 @@ import {
 import type { AgentTrustEnvelope } from "@/types";
 import { autoFeedRun } from "@/lib/agent/dataAgentAutoFeed.service";
 import { AUTOMATION_CONFIG } from "@/lib/automation/config";
-import { dispatchEvent } from "@/lib/automation/events";
+import { dispatchChatAutomationEvent } from "@gpc/server/automation/chat-events";
 import { logger } from "./loggerAdapter";
 
 /**
@@ -41,7 +41,7 @@ export async function runAgentPostRunEffects(params: {
     },
     {
       agentLearningEnabled: AUTOMATION_CONFIG.agentLearning.enabled,
-      dispatchAgentRunCompleted: dispatchEvent,
+      dispatchAgentRunCompleted: dispatchChatAutomationEvent,
       autoFeedRun,
       warn: (message, fields) => {
         logger.warn(message, fields);

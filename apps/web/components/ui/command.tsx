@@ -4,7 +4,12 @@ import * as React from "react";
 import { Command as CommandPrimitive } from "cmdk";
 
 import { cn } from "@/lib/utils";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const Command = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive>,
@@ -27,6 +32,10 @@ const CommandDialog = ({
 }: React.ComponentPropsWithoutRef<typeof Dialog>) => (
   <Dialog {...props}>
     <DialogContent className="overflow-hidden p-0 shadow-lg">
+      <DialogTitle className="sr-only">Command search</DialogTitle>
+      <DialogDescription className="sr-only">
+        Search deals, parcels, runs, knowledge, conversations, and commands.
+      </DialogDescription>
       <Command className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground">
         {children}
       </Command>

@@ -1,9 +1,7 @@
-export * from "./chat/run-agent-workflow.service";
 export * from "./chat/agent-post-run-effects.service";
 export * from "./chat/run-state";
 export * from "./errors";
 export * from "./request-context";
-export * from "./workflows/temporal-client";
 export * from "./workflows/workflow-orchestrator.service";
 export * from "./deals/deal-activity.service";
 export * from "./deals/deal-artifact-route.service";
@@ -44,8 +42,6 @@ export * from "./observability/query";
 export * from "./observability/reward-signal.service";
 export * from "./observability/agent-learning-stats.service";
 export * from "./observability/run-dashboard.service";
-export * from "./chat/chat-application.service";
-export * from "./chat/agent-api.service";
 export * from "./chat/chat-session.service";
 export * from "./services/approval.service";
 export * from "./services/agent-graders.service";
@@ -63,18 +59,12 @@ export * from "./services/calibration-eviction.service";
 export * from "./services/causal-dag.service";
 export * from "./services/causal-propagation.service";
 export * from "./services/comp-to-market.service";
-export * from "./services/document-processing.service";
 export * from "./services/counterfactual-learning.service";
 export * from "./services/dynamic-threshold.service";
 export * from "./services/entity-collision-detector.service";
 export * from "./services/entity-management.service";
 export * from "./services/entity-lookup.service";
 export * from "./services/geofence-management.service";
-export {
-  backfillEntitlementOutcomePrecedents,
-  type BackfillEntitlementPrecedentsInput,
-  type BackfillEntitlementPrecedentsResult,
-} from "./services/entitlement-precedent-backfill.service";
 export * from "./services/entity-resolution.service";
 export * from "./services/episodic-memory.service";
 export * from "./services/evidence-source.service";
@@ -164,7 +154,6 @@ export {
   type StrategyRecommendationCandidate,
 } from "./monitoring/entitlement-strategy-autopilot.service";
 export * from "./notifications/notification.service";
-export * from "./deals/task-agent-run.service";
 export * from "./deals/triage.service";
 export * from "./jobs/deadline-monitor.job";
 export * from "./jobs/deadline-monitor-cron.service";

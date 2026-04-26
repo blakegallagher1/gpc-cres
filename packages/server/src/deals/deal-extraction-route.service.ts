@@ -5,7 +5,6 @@ import {
   validateExtractionPayload,
 } from "@entitlement-os/shared/extraction-schemas";
 
-import { getDocumentProcessingService } from "../services/document-processing.service";
 import { DealAccessError } from "./deal-workspace.service";
 import { DealUploadNotFoundError } from "./deal-upload.service";
 
@@ -70,10 +69,15 @@ async function ensureDealAccess({ dealId, orgId }: DealScope): Promise<void> {
   }
 }
 
+async function getDocumentService() {
+  const { getDocumentProcessingService } = await import("../services/document-processing.service");
+  return getDocumentProcessingService();
+}
+
 export async function getExtractionsSummaryForDeal(scope: DealScope) {
   await ensureDealAccess(scope);
 
-  const service = getDocumentProcessingService();
+  const service = await getDocumentService();
   const extractions = await service.getExtractionsByDeal(scope.dealId, scope.orgId);
   const unreviewedCount = await service.getUnreviewedCount(scope.dealId, scope.orgId);
   const totalCount = extractions.length;
@@ -104,7 +108,7 @@ export async function triggerExtractionForDeal(
     throw new DealUploadNotFoundError();
   }
 
-  const service = getDocumentProcessingService();
+  const service = await getDocumentService();
   const result = await service.processUpload(
     params.uploadId,
     params.dealId,
@@ -124,7 +128,7 @@ export async function triggerExtractionForDeal(
 export async function getExtractionForDeal(scope: ExtractionScope) {
   await ensureDealAccess(scope);
 
-  const service = getDocumentProcessingService();
+  const service = await getDocumentService();
   const extraction = await service.getExtraction(scope.extractionId, scope.orgId);
 
   if (!extraction || extraction.dealId !== scope.dealId) {
@@ -139,7 +143,7 @@ export async function reviewExtractionForDeal(
 ) {
   await ensureDealAccess(params);
 
-  const service = getDocumentProcessingService();
+  const service = await getDocumentService();
   return service.reviewExtraction(
     params.extractionId,
     params.orgId,
@@ -210,7 +214,7 @@ export async function updateExtractionForDeal(
     throw new DealExtractionNotFoundError();
   }
 
-  const service = getDocumentProcessingService();
+  const service = await getDocumentService();
   const updated = await service.getExtraction(params.extractionId, params.orgId);
 
   if (!updated || updated.dealId !== params.dealId) {

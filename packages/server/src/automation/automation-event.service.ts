@@ -60,7 +60,7 @@ export async function startEvent(
   if (idempotencyKey) {
     const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
       `INSERT INTO automation_events (id, org_id, handler_name, event_type, deal_id, status, idempotency_key, input_data, started_at, created_at, updated_at)
-       VALUES (gen_random_uuid(), $1, $2, $3, $4, 'running', $5, $6, NOW(), NOW(), NOW())
+       VALUES (gen_random_uuid(), $1::uuid, $2, $3, $4::uuid, 'running', $5, $6::jsonb, NOW(), NOW(), NOW())
        ON CONFLICT (idempotency_key) DO NOTHING
        RETURNING id`,
       orgId,

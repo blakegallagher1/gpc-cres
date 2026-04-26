@@ -18,14 +18,41 @@ import {
 } from "./workspaceRoutes";
 
 const SIDEBAR_TRANSITION = { duration: 0.24, ease: [0.22, 1, 0.36, 1] as const };
+const LOCAL_AUTH_BYPASS = process.env.NEXT_PUBLIC_DISABLE_AUTH === "true";
 
 /**
  * Primary authenticated navigation rail for the operating system.
  */
 export function Sidebar() {
+  if (LOCAL_AUTH_BYPASS) {
+    return (
+      <SidebarShell
+        userName="Gallagher team"
+        userLabel="Local dev access"
+      />
+    );
+  }
+
+  return <ClerkSidebar />;
+}
+
+function ClerkSidebar() {
+  const { user } = useUser();
+  const userName = user?.fullName?.trim() || "Gallagher team";
+  const userLabel = user?.primaryEmailAddress?.emailAddress?.trim() || "Operator access";
+
+  return <SidebarShell userName={userName} userLabel={userLabel} />;
+}
+
+function SidebarShell({
+  userName,
+  userLabel,
+}: {
+  userName: string;
+  userLabel: string;
+}) {
   const pathname = usePathname();
   const reduceMotion = useReducedMotion();
-  const { user } = useUser();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
   const isMobile = useIsMobile();
   const { route: activeRoute, group: activeGroup } = getWorkspaceRouteContext(pathname);
@@ -64,8 +91,6 @@ export function Sidebar() {
       }).format(new Date()),
     [],
   );
-  const userName = user?.fullName?.trim() || "Gallagher team";
-  const userLabel = user?.primaryEmailAddress?.emailAddress?.trim() || "Operator access";
 
   // On mobile: sidebar is hidden by default, shown as overlay when not collapsed
   const mobileHidden = isMobile && sidebarCollapsed;

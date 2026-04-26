@@ -1,7 +1,6 @@
 import { prisma, type Prisma } from "@entitlement-os/db";
 import * as Sentry from "@sentry/nextjs";
 import { randomUUID } from "node:crypto";
-import { getTemporalClient } from "../workflows/temporal-client";
 import { hashJsonSha256 } from "@entitlement-os/shared/crypto";
 import {
   sleepMs,
@@ -35,13 +34,17 @@ import {
 import { parseToolResultMapFeatures } from "@entitlement-os/shared/tool-result-wrapper";
 import type { MapFeature } from "@entitlement-os/shared/map-action-types";
 import { logger } from "./logger-adapter";
-import { dispatchEvent } from "../automation/events";
+import { dispatchChatAutomationEvent } from "../automation/chat-events";
 import {
   hydrateDealContext,
   renderDealContextBlock,
 } from "../deals/deal-context-hydrator.service";
 import type { ResearchLaneSelection } from "@entitlement-os/shared/research-routing";
 import type { ExecuteAgentWorkflow } from "./agent-runtime-adapter";
+
+type TemporalClient = Awaited<
+  ReturnType<typeof import("../workflows/temporal-client").getTemporalClient>
+>;
 
 /**
  * Fire-and-forget dispatch of agent.run.completed for learning promotion (DA-007).
@@ -58,7 +61,7 @@ export function dispatchRunCompleted(opts: {
   runType?: string | null;
   inputPreview?: string | null;
 }): void {
-  dispatchEvent({
+  dispatchChatAutomationEvent({
     type: "agent.run.completed",
     runId: opts.runId,
     orgId: opts.orgId,
@@ -467,7 +470,7 @@ export function buildRequestFingerprint(payload: {
 }
 
 export async function resolveTemporalHandleOrExisting(
-  client: Awaited<ReturnType<typeof getTemporalClient>>,
+  client: TemporalClient,
   workflowId: string,
 ) {
   const handle = client.workflow.getHandle(workflowId);
@@ -477,6 +480,11 @@ export async function resolveTemporalHandleOrExisting(
   } catch {
     return null;
   }
+}
+
+async function getTemporalWorkflowClient(): Promise<TemporalClient> {
+  const { getTemporalClient } = await import("../workflows/temporal-client");
+  return getTemporalClient();
 }
 
 export function shouldUseTemporalAgentFlow(): boolean {
@@ -1037,7 +1045,7 @@ export async function runAgentWorkflow(params: AgentRunInput) {
   }
 
   if (shouldUseTemporalAgentFlow()) {
-    const client = await getTemporalClient();
+    const client = await getTemporalWorkflowClient();
     const requestFingerprint = buildRequestFingerprint({
       orgId,
       userId,

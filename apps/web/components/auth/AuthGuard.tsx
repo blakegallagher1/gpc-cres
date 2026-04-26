@@ -11,19 +11,22 @@ interface AuthGuardProps {
 const DISABLE_AUTH = process.env.NEXT_PUBLIC_DISABLE_AUTH === "true";
 
 export function AuthGuard({ children }: AuthGuardProps) {
+  if (DISABLE_AUTH) {
+    return <>{children}</>;
+  }
+
+  return <ClerkAuthGuard>{children}</ClerkAuthGuard>;
+}
+
+function ClerkAuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
 
   useEffect(() => {
-    if (DISABLE_AUTH) return;
     if (isLoaded && !isSignedIn) {
       router.replace("/login");
     }
   }, [isLoaded, isSignedIn, router]);
-
-  if (DISABLE_AUTH) {
-    return <>{children}</>;
-  }
 
   if (!isLoaded) {
     return (

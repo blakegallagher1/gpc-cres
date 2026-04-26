@@ -30,8 +30,8 @@ vi.mock("@entitlement-os/openai", () => ({
   runCriticEvaluation: runCriticEvaluationMock,
 }));
 
-vi.mock("@/lib/automation/events", () => ({
-  dispatchEvent: dispatchEventMock,
+vi.mock("@gpc/server/automation/chat-events", () => ({
+  dispatchChatAutomationEvent: dispatchEventMock,
 }));
 
 vi.mock("@/lib/agent/dataAgentAutoFeed.service", () => ({

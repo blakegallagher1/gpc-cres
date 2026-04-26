@@ -2,6 +2,8 @@ import "server-only";
 import { auth as clerkAuth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@entitlement-os/db";
 import {
+  DEFAULT_LOCAL_DEV_AUTH_ORG_ID,
+  DEFAULT_LOCAL_DEV_AUTH_USER_ID,
   getLocalDevAuthResult,
   isAppRouteLocalBypassEnabled,
 } from "@/lib/auth/localDevBypass";
@@ -84,6 +86,47 @@ function buildAuthorizedState(auth: AuthResult): RouteAuthState {
   };
 }
 
+async function resolveLocalDevAuthState(): Promise<RouteAuthState> {
+  const configured = getLocalDevAuthResult();
+  const hasOverride = Boolean(
+    process.env.LOCAL_DEV_AUTH_USER_ID?.trim() ||
+      process.env.LOCAL_DEV_AUTH_ORG_ID?.trim(),
+  );
+  if (!hasOverride) {
+    return buildAuthorizedState(configured);
+  }
+
+  try {
+    const configuredMembership = await prisma.orgMembership.findFirst({
+      where: { userId: configured.userId, orgId: configured.orgId },
+      select: { userId: true, orgId: true },
+    });
+    if (configuredMembership) {
+      return buildAuthorizedState(configured);
+    }
+
+    const fallbackMembership =
+      (await prisma.orgMembership.findFirst({
+        where: {
+          userId: DEFAULT_LOCAL_DEV_AUTH_USER_ID,
+          orgId: DEFAULT_LOCAL_DEV_AUTH_ORG_ID,
+        },
+        select: { userId: true, orgId: true },
+      })) ??
+      (await prisma.orgMembership.findFirst({
+        orderBy: { createdAt: "asc" },
+        select: { userId: true, orgId: true },
+      }));
+    if (fallbackMembership) {
+      return buildAuthorizedState(fallbackMembership);
+    }
+  } catch {
+    return buildAuthorizedState(configured);
+  }
+
+  return buildAuthorizedState(configured);
+}
+
 async function resolveCoordinatorToolAuth(request: Request): Promise<AuthResult | null> {
   const agentToolAuthMode = request.headers.get("x-agent-tool-auth");
   const agentOrgId = request.headers.get("x-agent-org-id");
@@ -135,7 +178,7 @@ async function resolveCoordinatorToolAuth(request: Request): Promise<AuthResult 
 
 async function resolveAppRouteAuthState(request?: Request): Promise<RouteAuthState> {
   if (isAppRouteLocalBypassEnabled()) {
-    return buildAuthorizedState(getLocalDevAuthResult());
+    return resolveLocalDevAuthState();
   }
 
   if (!request) {

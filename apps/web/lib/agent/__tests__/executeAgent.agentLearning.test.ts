@@ -77,8 +77,8 @@ vi.mock("@entitlement-os/openai", () => ({
   WEB_ADDITIONAL_TOOL_ALLOWLIST: [],
 }));
 
-vi.mock("@/lib/automation/events", () => ({
-  dispatchEvent: dispatchEventMock,
+vi.mock("@gpc/server/automation/chat-events", () => ({
+  dispatchChatAutomationEvent: dispatchEventMock,
 }));
 
 vi.mock("@/lib/agent/dataAgentAutoFeed.service", () => ({

@@ -74,6 +74,29 @@ describe("resolveRouteAuth", () => {
     });
   });
 
+  it("falls back to the seeded local user when local bypass env ids are stale", async () => {
+    process.env.NEXT_PUBLIC_DISABLE_AUTH = "true";
+    process.env.LOCAL_DEV_AUTH_USER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    process.env.LOCAL_DEV_AUTH_ORG_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    prismaMock.orgMembership.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        userId: "00000000-0000-0000-0000-000000000003",
+        orgId: "00000000-0000-0000-0000-000000000001",
+      });
+    ({ resolveRouteAuth } = await import("./routeAuth"));
+
+    const result = await resolveRouteAuth({ kind: "app" });
+
+    expect(result).toEqual({
+      status: "authorized",
+      auth: {
+        userId: "00000000-0000-0000-0000-000000000003",
+        orgId: "00000000-0000-0000-0000-000000000001",
+      },
+    });
+  });
+
   it("returns authorized state for Clerk-backed app routes", async () => {
     clerkAuthMock.mockResolvedValue({ userId: "clerk_user_123" });
     const mockGetUser = vi.fn().mockResolvedValue({

@@ -16,13 +16,15 @@ import { captureAutomationDispatchError } from "../automation/sentry";
 import { logger } from "../logger";
 import { uploadArtifactToGateway } from "../services/gateway-storage.service";
 import { resolveCurrentStageKey } from "@entitlement-os/db";
-import { getTemporalClient } from "../workflows/temporal-client";
 
 const TEMPORAL_TASK_QUEUE = process.env.TEMPORAL_TASK_QUEUE || "entitlement-os";
 const TRIAGE_RESULT_TIMEOUT_MS = Number(process.env.TRIAGE_RESULT_TIMEOUT_MS ?? "15000");
 const TRIAGE_RISK_SOURCE = "triage";
 
 type TriageWorkflowError = Error & { code?: string };
+type TemporalClient = Awaited<
+  ReturnType<typeof import("../workflows/temporal-client").getTemporalClient>
+>;
 
 type TriagedRiskCandidate = {
   category: string;
@@ -96,6 +98,11 @@ function withWorkflowTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise
       setTimeout(() => reject(createTimeoutError()), timeoutMs);
     }),
   ]);
+}
+
+async function getTemporalWorkflowClient(): Promise<TemporalClient> {
+  const { getTemporalClient } = await import("../workflows/temporal-client");
+  return getTemporalClient();
 }
 
 function clampRiskScore(value: number): number {
@@ -399,7 +406,7 @@ export async function runDealTriage(params: {
     throw new Error("Deal must have at least one parcel to run triage");
   }
 
-  const client = await getTemporalClient();
+  const client = await getTemporalWorkflowClient();
   const workflowId = `triage-${deal.id}-${Date.now()}`;
   const handle = await client.workflow.start("triageWorkflow", {
     taskQueue: TEMPORAL_TASK_QUEUE,

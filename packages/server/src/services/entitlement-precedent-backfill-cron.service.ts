@@ -2,7 +2,6 @@ import { prisma, type Prisma } from "@entitlement-os/db";
 import * as Sentry from "@sentry/nextjs";
 import { runEntitlementKpiDriftMonitor } from "../monitoring/entitlement-kpi-monitor.service";
 import { runEntitlementStrategyAutopilotSweep } from "../monitoring/entitlement-strategy-autopilot.service";
-import { backfillEntitlementOutcomePrecedents } from "./entitlement-precedent-backfill.service";
 
 export type EntitlementPrecedentBackfillCronInput = {
   jurisdictionId: string | null;
@@ -13,6 +12,17 @@ export type EntitlementPrecedentBackfillCronInput = {
 
 function toInputJsonValue(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
+
+async function backfillEntitlementPrecedents(
+  input: Parameters<
+    typeof import("./entitlement-precedent-backfill.service").backfillEntitlementOutcomePrecedents
+  >[0],
+) {
+  const { backfillEntitlementOutcomePrecedents } = await import(
+    "./entitlement-precedent-backfill.service"
+  );
+  return backfillEntitlementOutcomePrecedents(input);
 }
 
 export async function runEntitlementPrecedentBackfillCron(
@@ -40,7 +50,7 @@ export async function runEntitlementPrecedentBackfillCron(
     });
 
     try {
-      const summary = await backfillEntitlementOutcomePrecedents({
+      const summary = await backfillEntitlementPrecedents({
         orgId: org.id,
         runId: run.id,
         jurisdictionId: input.jurisdictionId ?? undefined,
