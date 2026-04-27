@@ -40,6 +40,7 @@ const GLOBAL_PROTECTED_EXACT = new Set([
   "market/building-permits/route.ts",
   "places/autocomplete/route.ts",
   "admin/codex/route.ts",
+  "actions/catalog/route.ts",
   "map/ownership-clusters/route.ts",
   "map/ownership-clusters/portfolio/route.ts",
   "workflows/templates/route.ts",

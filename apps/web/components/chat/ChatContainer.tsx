@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Bot } from 'lucide-react';
+import { AlertTriangle, Bot, CheckCircle2, Loader2, PlayCircle, Route } from 'lucide-react';
 import { AgentTrustEnvelope } from '@/types';
 import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
@@ -68,8 +68,84 @@ type RawConversationResponse = {
   };
 };
 
+type ChatActionId = 'SCREEN_PARCEL' | 'RUN_ACQUISITION_PATH';
+
+type ChatActionStatus = 'running' | 'completed' | 'failed';
+
+interface ChatActionCatalogItem {
+  id: ChatActionId;
+  label: string;
+  description: string;
+  templateKey: 'QUICK_SCREEN' | 'ACQUISITION_PATH';
+  nextSteps: string[];
+  workflow: {
+    key: string;
+    label: string;
+    stepLabels: string[];
+  } | null;
+}
+
+interface ChatActionCard {
+  id: string;
+  actionId: ChatActionId;
+  label: string;
+  dealId: string | null;
+  status: ChatActionStatus;
+  summary: string;
+  stepLabels: string[];
+  executionId?: string;
+  error?: string;
+  startedAt: string;
+  completedAt?: string;
+}
+
+interface ActionExecutionResponse {
+  action?: {
+    id?: unknown;
+    templateKey?: unknown;
+  };
+  execution?: {
+    id?: unknown;
+    status?: unknown;
+    stepResults?: unknown;
+  };
+  summary?: unknown;
+  error?: unknown;
+}
+
 const CHAT_RECENTS_KEY = 'chat.recentConversationIds';
 const MAX_RECENTS = 5;
+const DEFAULT_CHAT_ACTIONS: ChatActionCatalogItem[] = [
+  {
+    id: 'SCREEN_PARCEL',
+    label: 'Screen Parcel',
+    description: 'Run a quick screen on the selected matter.',
+    templateKey: 'QUICK_SCREEN',
+    nextSteps: ['Open deal', 'Run acquisition path'],
+    workflow: {
+      key: 'QUICK_SCREEN',
+      label: 'Quick screen',
+      stepLabels: ['Hydrate deal context', 'Compute investment fit score', 'Summarize screen'],
+    },
+  },
+  {
+    id: 'RUN_ACQUISITION_PATH',
+    label: 'Run Acquisition Path',
+    description: 'Build the acquisition decision packet.',
+    templateKey: 'ACQUISITION_PATH',
+    nextSteps: ['Open deal', 'Review outputs'],
+    workflow: {
+      key: 'ACQUISITION_PATH',
+      label: 'Acquisition path',
+      stepLabels: [
+        'Hydrate deal context',
+        'Compute investment fit score',
+        'Evaluate underwriting gate',
+        'Acquisition decision packet',
+      ],
+    },
+  },
+];
 const AUI_MESSAGE_ENHANCEMENTS = process.env.NEXT_PUBLIC_AUI_MESSAGE_ENHANCEMENTS !== 'false';
 // Force REST mode — CF Worker WebSocket path has stale tool schemas that include
 // query_property_db. The REST /api/chat path uses the fixed Vercel coordinator.
@@ -118,6 +194,176 @@ function createRecentState(ids: string[]): string[] {
 
 function safeToString(value: unknown, fallback = ''): string {
   return isString(value) ? value : fallback;
+}
+
+function isChatActionId(value: unknown): value is ChatActionId {
+  return value === 'SCREEN_PARCEL' || value === 'RUN_ACQUISITION_PATH';
+}
+
+function normalizeActionCatalog(value: unknown): ChatActionCatalogItem[] {
+  if (!value || typeof value !== 'object' || !('actions' in value)) return DEFAULT_CHAT_ACTIONS;
+  const actions = (value as { actions?: unknown }).actions;
+  if (!Array.isArray(actions)) return DEFAULT_CHAT_ACTIONS;
+
+  const normalized = actions.flatMap((action): ChatActionCatalogItem[] => {
+    if (!action || typeof action !== 'object') return [];
+    const item = action as Record<string, unknown>;
+    if (!isChatActionId(item.id)) return [];
+    const fallback = DEFAULT_CHAT_ACTIONS.find((entry) => entry.id === item.id);
+    if (!fallback) return [];
+    const workflow = item.workflow && typeof item.workflow === 'object'
+      ? item.workflow as Record<string, unknown>
+      : null;
+    return [{
+      ...fallback,
+      label: safeToString(item.label, fallback.label),
+      description: safeToString(item.description, fallback.description),
+      workflow: workflow
+        ? {
+            key: safeToString(workflow.key, fallback.workflow?.key ?? fallback.templateKey),
+            label: safeToString(workflow.label, fallback.workflow?.label ?? fallback.label),
+            stepLabels: Array.isArray(workflow.stepLabels)
+              ? workflow.stepLabels.filter(isString)
+              : fallback.workflow?.stepLabels ?? [],
+          }
+        : fallback.workflow,
+    }];
+  });
+
+  return normalized.length > 0 ? normalized : DEFAULT_CHAT_ACTIONS;
+}
+
+function getActionIcon(actionId: ChatActionId) {
+  return actionId === 'SCREEN_PARCEL' ? PlayCircle : Route;
+}
+
+function getActionSteps(action: ChatActionCatalogItem): string[] {
+  return action.workflow?.stepLabels ?? [];
+}
+
+async function readActionExecutionResponse(response: Response): Promise<ActionExecutionResponse> {
+  return response.json().catch(() => ({ error: 'Action request failed' })) as Promise<ActionExecutionResponse>;
+}
+
+function ChatActionToolbar({
+  actions,
+  disabled,
+  runningActionId,
+  onExecute,
+}: {
+  actions: ChatActionCatalogItem[];
+  disabled: boolean;
+  runningActionId: ChatActionId | null;
+  onExecute: (action: ChatActionCatalogItem) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-ink-fade">
+        Actions
+      </span>
+      {actions.map((action) => {
+        const Icon = getActionIcon(action.id);
+        const isRunning = runningActionId === action.id;
+        return (
+          <Button
+            key={action.id}
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={isRunning}
+            onClick={() => onExecute(action)}
+            className="h-8 gap-1.5 rounded-[4px] border-rule bg-paper-panel px-3 font-mono text-[11px] text-ink-soft hover:bg-paper-inset hover:text-ink"
+            title={disabled ? 'Select a matter before running this action.' : action.description}
+          >
+            {isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Icon className="h-3.5 w-3.5" />}
+            {action.label}
+          </Button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ChatActionCards({
+  cards,
+  onOpenDeal,
+  onRunAcquisitionPath,
+}: {
+  cards: ChatActionCard[];
+  onOpenDeal: (dealId: string) => void;
+  onRunAcquisitionPath: () => void;
+}) {
+  if (cards.length === 0) return null;
+
+  return (
+    <div className="grid gap-3">
+      {cards.map((card) => {
+        const isRunning = card.status === 'running';
+        const isFailed = card.status === 'failed';
+        const StatusIcon = isRunning ? Loader2 : isFailed ? AlertTriangle : CheckCircle2;
+        return (
+          <div key={card.id} className="rounded-[4px] border border-rule bg-paper-panel p-4 ed-shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <StatusIcon
+                    className={cn(
+                      'h-4 w-4',
+                      isRunning ? 'animate-spin text-ink-fade' : isFailed ? 'text-red-600' : 'text-emerald-600',
+                    )}
+                  />
+                  <h3 className="font-display text-[15px] font-semibold text-ink">{card.label}</h3>
+                </div>
+                <p className="mt-2 text-[13px] leading-5 text-ink-soft">{card.summary}</p>
+              </div>
+              <span className="rounded-[4px] border border-rule bg-paper-soft px-2 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-ink-fade">
+                {card.status}
+              </span>
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {card.stepLabels.map((step) => (
+                <span
+                  key={step}
+                  className="rounded-[4px] border border-rule bg-paper-soft px-2 py-1 font-mono text-[10px] text-ink-fade"
+                >
+                  {step}
+                </span>
+              ))}
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              {card.dealId ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="h-8 rounded-[4px] px-3 font-mono text-[11px]"
+                  onClick={() => onOpenDeal(card.dealId as string)}
+                >
+                  Open deal
+                </Button>
+              ) : null}
+              {card.actionId === 'SCREEN_PARCEL' && card.status === 'completed' ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 rounded-[4px] px-3 font-mono text-[11px]"
+                  onClick={onRunAcquisitionPath}
+                >
+                  Run acquisition path
+                </Button>
+              ) : null}
+              {card.executionId ? (
+                <span className="font-mono text-[10px] text-ink-fade">Run {card.executionId.slice(0, 8)}</span>
+              ) : null}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function parseMetadata(value: unknown): Record<string, unknown> | undefined {
@@ -299,6 +545,9 @@ export function ChatContainer() {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [chatActions, setChatActions] = useState<ChatActionCatalogItem[]>(DEFAULT_CHAT_ACTIONS);
+  const [actionCards, setActionCards] = useState<ChatActionCard[]>([]);
+  const [runningActionId, setRunningActionId] = useState<ChatActionId | null>(null);
 
   const [authToken, setAuthToken] = useState<string | null>(null);
 
@@ -358,6 +607,24 @@ export function ChatContainer() {
       }
     };
     fetchToken();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchActions() {
+      try {
+        const response = await fetch('/api/actions/catalog', { credentials: 'include' });
+        if (!response.ok) return;
+        const body = await response.json();
+        if (!cancelled) {
+          setChatActions(normalizeActionCatalog(body));
+        }
+      } catch {
+        // Keep the local action fallback if catalog loading is unavailable.
+      }
+    }
+    void fetchActions();
     return () => { cancelled = true; };
   }, []);
 
@@ -896,6 +1163,103 @@ export function ChatContainer() {
   const handleQuickActionSelect = useCallback((prompt: string) => {
     void handleSend(prompt);
   }, [handleSend]);
+  const handleOpenActionDeal = useCallback((dealId: string) => {
+    window.location.href = `/deals/${encodeURIComponent(dealId)}`;
+  }, []);
+  const executeChatAction = useCallback(async (action: ChatActionCatalogItem) => {
+    const cardId = crypto.randomUUID();
+    const startedAt = new Date().toISOString();
+    const stepLabels = getActionSteps(action);
+
+    if (!selectedDealId) {
+      setActionCards((current) => [
+        {
+          id: cardId,
+          actionId: action.id,
+          label: action.label,
+          dealId: null,
+          status: 'failed',
+          summary: 'Select a matter before running this workflow action.',
+          stepLabels,
+          startedAt,
+          completedAt: startedAt,
+          error: 'Missing deal scope',
+        },
+        ...current,
+      ]);
+      return;
+    }
+
+    const pendingCard: ChatActionCard = {
+      id: cardId,
+      actionId: action.id,
+      label: action.label,
+      dealId: selectedDealId,
+      status: 'running',
+      summary: 'Running workflow through the Action Plane.',
+      stepLabels,
+      startedAt,
+    };
+    setRunningActionId(action.id);
+    setActionCards((current) => [pendingCard, ...current]);
+
+    try {
+      const response = await fetch('/api/actions/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          actionId: action.id,
+          dealId: selectedDealId,
+          inputData: { source: 'chat-toolbar' },
+        }),
+      });
+      const body = await readActionExecutionResponse(response);
+      if (!response.ok) {
+        throw new Error(safeToString(body.error, `Action failed with HTTP ${response.status}`));
+      }
+
+      setActionCards((current) =>
+        current.map((card) =>
+          card.id === cardId
+            ? {
+                ...card,
+                status: body.execution?.status === 'completed' ? 'completed' : 'failed',
+                summary: safeToString(body.summary, 'Workflow completed.'),
+                executionId: safeToString(body.execution?.id, undefined),
+                completedAt: new Date().toISOString(),
+              }
+            : card,
+        ),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Action failed.';
+      setActionCards((current) =>
+        current.map((card) =>
+          card.id === cardId
+            ? {
+                ...card,
+                status: 'failed',
+                summary: message,
+                error: message,
+                completedAt: new Date().toISOString(),
+              }
+            : card,
+        ),
+      );
+    } finally {
+      setRunningActionId(null);
+    }
+  }, [authToken, selectedDealId]);
+  const runAcquisitionAction = useCallback(() => {
+    const action = chatActions.find((entry) => entry.id === 'RUN_ACQUISITION_PATH');
+    if (action) {
+      void executeChatAction(action);
+    }
+  }, [chatActions, executeChatAction]);
   const statCards = [
     { label: 'Active deals', value: selectedDealId ? '1' : '0' },
     { label: 'Tracked parcels', value: selectedDealId ? '1' : '0' },
@@ -995,6 +1359,21 @@ export function ChatContainer() {
                           />
                         </div>
                       </div>
+                      <div className="mx-auto mb-5 max-w-[980px]">
+                        <ChatActionToolbar
+                          actions={chatActions}
+                          disabled={!selectedDealId}
+                          runningActionId={runningActionId}
+                          onExecute={(action) => { void executeChatAction(action); }}
+                        />
+                      </div>
+                      <div className="mx-auto mb-6 max-w-[980px]">
+                        <ChatActionCards
+                          cards={actionCards}
+                          onOpenDeal={handleOpenActionDeal}
+                          onRunAcquisitionPath={runAcquisitionAction}
+                        />
+                      </div>
 
                       <div className="mx-auto flex max-w-[980px] min-h-[400px] flex-col items-center justify-center text-center">
                         <p className="font-mono text-[9.5px] tracking-[0.18em] uppercase text-ink-fade mb-6">Run workspace</p>
@@ -1056,6 +1435,14 @@ export function ChatContainer() {
                           />
                         </div>
                       </div>
+                      <div className="mt-4">
+                        <ChatActionToolbar
+                          actions={chatActions}
+                          disabled={!selectedDealId}
+                          runningActionId={runningActionId}
+                          onExecute={(action) => { void executeChatAction(action); }}
+                        />
+                      </div>
                     </div>
 
                     {currentAgent ? (
@@ -1067,6 +1454,16 @@ export function ChatContainer() {
                     <div className="border-b border-rule bg-paper px-4 py-4 sm:px-5">
                       <MissionControlPanel state={missionControlState} />
                     </div>
+
+                    {actionCards.length > 0 ? (
+                      <div className="border-b border-rule bg-paper px-4 py-4 sm:px-5">
+                        <ChatActionCards
+                          cards={actionCards}
+                          onOpenDeal={handleOpenActionDeal}
+                          onRunAcquisitionPath={runAcquisitionAction}
+                        />
+                      </div>
+                    ) : null}
 
                     <div className="h-[520px] min-h-[360px] max-h-[60svh] overflow-hidden">
                       <MessageList
