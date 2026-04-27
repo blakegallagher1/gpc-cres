@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   computeNextSelection,
   getDrawControlState,
+  getAtlasOverlayRenderState,
   getGeometryStatusLabel,
   getGeoJsonSourceSafe,
   getParcelClusterRadius,
@@ -295,6 +296,38 @@ describe("measurement helpers", () => {
 });
 
 describe("reference layer presets", () => {
+  it("routes atlas market toggles into concrete renderable overlays", () => {
+    expect(
+      getAtlasOverlayRenderState({
+        atlasControlled: true,
+        showFlu: true,
+        showComps: false,
+        showRecentSales: true,
+        showNewPermits: true,
+        showHeatmap: true,
+      }),
+    ).toEqual({
+      showFutureLandUseFallback: true,
+      showComparableSales: true,
+      showNewPermitHeatmap: true,
+      showOwnerPortfolioHeatmap: true,
+    });
+
+    expect(
+      getAtlasOverlayRenderState({
+        atlasControlled: false,
+        showFlu: false,
+        showComps: true,
+        showRecentSales: false,
+        showNewPermits: false,
+        showHeatmap: true,
+      }),
+    ).toMatchObject({
+      showComparableSales: true,
+      showOwnerPortfolioHeatmap: false,
+    });
+  });
+
   it("builds the flood-risk preset with wetland context enabled", () => {
     expect(getReferenceOverlayStateForPreset("flood-risk")).toEqual({
       parcelBoundaries: true,

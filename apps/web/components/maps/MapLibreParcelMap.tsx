@@ -116,6 +116,22 @@ type HeatPointProperties = {
   address?: string;
 };
 
+export function getAtlasOverlayRenderState(state: {
+  atlasControlled: boolean;
+  showFlu: boolean;
+  showComps: boolean;
+  showRecentSales: boolean;
+  showNewPermits: boolean;
+  showHeatmap: boolean;
+}) {
+  return {
+    showFutureLandUseFallback: state.showFlu,
+    showComparableSales: state.showComps || state.showRecentSales,
+    showNewPermitHeatmap: state.showNewPermits,
+    showOwnerPortfolioHeatmap: state.atlasControlled && state.showHeatmap,
+  };
+}
+
 type IsochroneResult = {
   polygon: [number, number][];
   center: [number, number];
@@ -1194,6 +1210,18 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
   const selectedParcelsForCompare = useMemo(
     () => parcels.filter((parcel) => effectiveSelectedIds.has(parcel.id)),
     [parcels, effectiveSelectedIds]
+  );
+  const atlasOverlayRenderState = useMemo(
+    () =>
+      getAtlasOverlayRenderState({
+        atlasControlled: Boolean(overlayOverrides),
+        showFlu,
+        showComps,
+        showRecentSales,
+        showNewPermits,
+        showHeatmap,
+      }),
+    [overlayOverrides, showComps, showFlu, showHeatmap, showNewPermits, showRecentSales],
   );
 
   const parcelById = useMemo(() => {
@@ -2576,18 +2604,12 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
             mode={measureMode}
             setMode={setMeasureMode}
           />
-          <MapLibreCompSaleLayer
-            map={mapRef.current}
-            parcelsCount={parcels.length}
-            visible={showComps}
-            centerLat={mapCenterParcel?.lat}
-            centerLng={mapCenterParcel?.lng}
-          />
           <MapLibreHeatmapLayer
             map={mapRef.current}
             parcels={parcels}
             visible={showHeatmap}
             presetKey={activeHeatmapPreset}
+            idSuffix="workbench"
           />
           <MapLibreIsochroneControl
             map={mapRef.current}
@@ -2596,6 +2618,34 @@ export const MapLibreParcelMap = forwardRef<MapLibreParcelMapRef, MapLibreParcel
           />
         </>
       )}
+      <MapLibreCompSaleLayer
+        map={mapRef.current}
+        parcelsCount={parcels.length}
+        visible={atlasOverlayRenderState.showComparableSales}
+        centerLat={mapCenterParcel?.lat}
+        centerLng={mapCenterParcel?.lng}
+      />
+      <MapLibreHeatmapLayer
+        map={mapRef.current}
+        parcels={parcels}
+        visible={atlasOverlayRenderState.showFutureLandUseFallback}
+        presetKey="zoning_upside"
+        idSuffix="future-land-use-fallback"
+      />
+      <MapLibreHeatmapLayer
+        map={mapRef.current}
+        parcels={parcels}
+        visible={atlasOverlayRenderState.showNewPermitHeatmap}
+        presetKey="infrastructure_momentum"
+        idSuffix="new-permits"
+      />
+      <MapLibreHeatmapLayer
+        map={mapRef.current}
+        parcels={parcels}
+        visible={atlasOverlayRenderState.showOwnerPortfolioHeatmap}
+        presetKey="distressed_ownership"
+        idSuffix="owner-portfolio"
+      />
       <ParcelComparisonSheet
         open={compareOpen}
         parcels={selectedParcelsForCompare}
@@ -3368,6 +3418,7 @@ interface MapLibreHeatmapLayerProps {
   visible: boolean;
   presetKey?: HeatmapPresetKey;
   compData?: SaleComp[];
+  idSuffix?: string;
 }
 
 function MapLibreHeatmapLayer({
@@ -3376,10 +3427,11 @@ function MapLibreHeatmapLayer({
   visible,
   presetKey = "sale_activity",
   compData,
+  idSuffix = "default",
 }: MapLibreHeatmapLayerProps) {
   const mapRef = useRef(map);
-  const sourceId = "maplibre-heatmap-source";
-  const layerId = "maplibre-heatmap-layer";
+  const sourceId = `maplibre-heatmap-source-${idSuffix}`;
+  const layerId = `maplibre-heatmap-layer-${idSuffix}`;
   const preset = HEATMAP_PRESET_MAP[presetKey];
 
   useEffect(() => {
@@ -3435,7 +3487,7 @@ function MapLibreHeatmapLayer({
     return () => {
       mapInstance.off("style.load", setupHeat);
     };
-  }, [visible, heatSource, preset]);
+  }, [visible, heatSource, preset, sourceId, layerId]);
 
   useEffect(() => {
     const mapInstance = mapRef.current;
