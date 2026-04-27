@@ -51,14 +51,17 @@ type GuardedDeployReport = {
     rollback: boolean;
     sentinelDryRun: boolean;
     skipPreflightSentinel: boolean;
+    skipAgentEvals: boolean;
   };
   previousProduction: Deployment | null;
   preflightSentinel: SentinelRun | null;
+  preflightAgentEvals: CommandRun | null;
   typecheck: CommandRun | null;
   build: CommandRun | null;
   deploy: CommandRun | null;
   deploymentUrl: string | null;
   inspect: CommandRun | null;
+  postDeployAgentEvals: CommandRun | null;
   postDeploySentinel: SentinelRun | null;
   rollback: RollbackReport;
   error: string | null;
@@ -131,6 +134,7 @@ function parseOptions(): Options {
     rollback: !args.has("--no-rollback"),
     sentinelDryRun: args.has("--sentinel-dry-run"),
     skipPreflightSentinel: args.has("--skip-preflight-sentinel"),
+    skipAgentEvals: args.has("--skip-agent-evals"),
     reportDir: path.resolve(optionalEnv("GUARDED_DEPLOY_REPORT_DIR", DEFAULT_REPORT_DIR)),
   };
 }
@@ -226,6 +230,26 @@ function runSentinel(options: Options): SentinelRun {
   const commandRun = runCommand("pnpm", ["ops:sentinel"], { env });
   const report = readSentinelReport();
   return { ...commandRun, reportPath: report.path, reportOk: report.ok };
+}
+
+function hasAgentEvalAuth(): boolean {
+  return Boolean(
+    process.env.AGENT_EVAL_AUTH_BEARER ??
+      process.env.OPS_SENTINEL_AUTH_BEARER ??
+      process.env.AUTH_BEARER ??
+      process.env.AGENT_EVAL_SESSION_COOKIE ??
+      process.env.OPS_SENTINEL_SESSION_COOKIE ??
+      process.env.SESSION_COOKIE,
+  );
+}
+
+function runAgentEvals(baseUrl: string | null): CommandRun {
+  const env = {
+    ...process.env,
+    ...(baseUrl ? { AGENT_EVAL_BASE_URL: normalizeUrl(baseUrl) } : {}),
+    AGENT_EVAL_MODE: process.env.AGENT_EVAL_MODE ?? (hasAgentEvalAuth() ? "live" : "fixture"),
+  };
+  return runCommand("pnpm", ["agent:evals"], { env, maxOutputChars: 20_000 });
 }
 
 function runTypecheck(options: Options): CommandRun | null {
@@ -324,14 +348,17 @@ function initialReport(options: Options, branch: string, commitSha: string, star
       rollback: options.rollback,
       sentinelDryRun: options.sentinelDryRun,
       skipPreflightSentinel: options.skipPreflightSentinel,
+      skipAgentEvals: options.skipAgentEvals,
     },
     previousProduction: null,
     preflightSentinel: null,
+    preflightAgentEvals: null,
     typecheck: null,
     build: null,
     deploy: null,
     deploymentUrl: null,
     inspect: null,
+    postDeployAgentEvals: null,
     postDeploySentinel: null,
     rollback: { attempted: false, targetUrl: null, commandRun: null, sentinelAfterRollback: null },
     error: null,
@@ -360,6 +387,12 @@ function main(): void {
     report.build = runBuild(options);
     assertRunOk(report.build, "build");
 
+    if (!options.skipAgentEvals) {
+      console.log("[guarded-deploy] preflight agent evals");
+      report.preflightAgentEvals = runAgentEvals(null);
+      assertRunOk(report.preflightAgentEvals, "preflight agent evals");
+    }
+
     if (!options.skipPreflightSentinel) {
       console.log("[guarded-deploy] preflight sentinel");
       report.preflightSentinel = runSentinel(options);
@@ -383,6 +416,12 @@ function main(): void {
 
     report.inspect = inspectDeployment(report.deploymentUrl);
     assertRunOk(report.inspect, "inspect");
+
+    if (!options.skipAgentEvals) {
+      console.log("[guarded-deploy] post-deploy agent evals");
+      report.postDeployAgentEvals = runAgentEvals(report.deploymentUrl);
+      assertRunOk(report.postDeployAgentEvals, "post-deploy agent evals");
+    }
 
     console.log("[guarded-deploy] post-deploy sentinel");
     report.postDeploySentinel = runSentinel(options);

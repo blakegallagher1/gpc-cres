@@ -117,6 +117,7 @@ docs/memory/
 chat-local-*.png
 output/playwright/
 output/playwright-*.png
+output/agent-evals*/
 output/observability/
 scripts/observability/.env.monitor-prod
 

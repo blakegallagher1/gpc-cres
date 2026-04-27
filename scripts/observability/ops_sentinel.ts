@@ -315,8 +315,24 @@ async function runChecks(config: RuntimeConfig): Promise<Pick<OpsSentinelReport,
     checks,
     checkFromCommand("production-map-chat-smoke", productionMonitor(), booleanEnv("OPS_SENTINEL_REQUIRE_PROD_MONITOR", true) ? "error" : "warning"),
   );
+  addCheck(
+    checks,
+    checkFromCommand(
+      "agent-golden-evals",
+      agentGoldenEvals(config),
+      booleanEnv("OPS_SENTINEL_REQUIRE_AGENT_EVALS", false) ? "error" : "warning",
+    ),
+  );
 
   return { checks, remediations };
+}
+
+function agentGoldenEvals(config: RuntimeConfig): CommandResult {
+  return runPnpm("agent:evals", {
+    ...process.env,
+    AGENT_EVAL_BASE_URL: process.env.AGENT_EVAL_BASE_URL ?? config.baseUrl,
+    AGENT_EVAL_MODE: process.env.AGENT_EVAL_MODE ?? (hasUserHttpAuth() ? "live" : "fixture"),
+  });
 }
 
 function productionMonitor(): CommandResult {
