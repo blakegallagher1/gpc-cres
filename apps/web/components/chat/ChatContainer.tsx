@@ -1031,81 +1031,83 @@ export function ChatContainer() {
                 </>
               ) : (
                 <>
-                  {/* ── Stat strip (active thread) ── */}
-                  <div className="border-b border-rule bg-paper-panel px-6 py-4">
-                    <div className="grid gap-px border border-rule rounded-[4px] overflow-hidden lg:grid-cols-4">
-                      {statCards.map((card) => (
-                        <div
-                          key={card.label}
-                          className="bg-paper-panel px-4 py-3"
-                        >
-                          <p className="font-mono text-[9.5px] tracking-[0.14em] uppercase text-ink-fade">{card.label}</p>
-                          <p className="mt-1.5 font-display text-[1.9rem] font-bold tracking-[-0.05em] text-ink leading-none">
-                            {card.value}
-                          </p>
+                  <div className="min-h-0 flex-1 overflow-y-auto">
+                    {/* ── Stat strip (active thread) ── */}
+                    <div className="border-b border-rule bg-paper-panel px-6 py-4">
+                      <div className="grid gap-px overflow-hidden rounded-[4px] border border-rule lg:grid-cols-4">
+                        {statCards.map((card) => (
+                          <div
+                            key={card.label}
+                            className="bg-paper-panel px-4 py-3"
+                          >
+                            <p className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-ink-fade">{card.label}</p>
+                            <p className="mt-1.5 font-display text-[1.9rem] font-bold leading-none tracking-[-0.05em] text-ink">
+                              {card.value}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-4 flex items-center gap-4">
+                        <span className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-ink-fade">Matter</span>
+                        <div className="min-w-[240px] max-w-[360px] flex-1">
+                          <DealSelector
+                            selectedDealId={selectedDealId}
+                            onSelect={setSelectedDealId}
+                          />
                         </div>
-                      ))}
-                    </div>
-                    <div className="mt-4 flex items-center gap-4">
-                      <span className="font-mono text-[9.5px] tracking-[0.14em] uppercase text-ink-fade">Matter</span>
-                      <div className="min-w-[240px] max-w-[360px] flex-1">
-                        <DealSelector
-                          selectedDealId={selectedDealId}
-                          onSelect={setSelectedDealId}
-                        />
                       </div>
                     </div>
-                  </div>
 
-                  {currentAgent ? (
-                    <div className="px-4 pb-2 sm:px-5">
-                      <AgentIndicator agentName={currentAgent} />
+                    {currentAgent ? (
+                      <div className="px-4 pb-2 sm:px-5">
+                        <AgentIndicator agentName={currentAgent} />
+                      </div>
+                    ) : null}
+
+                    <div className="border-b border-rule bg-paper px-4 py-4 sm:px-5">
+                      <MissionControlPanel state={missionControlState} />
                     </div>
-                  ) : null}
 
-                  <div className="border-b border-rule bg-paper px-4 py-4 sm:px-5">
-                    <MissionControlPanel state={missionControlState} />
-                  </div>
-
-                  <div className="min-h-0 flex-1 overflow-hidden">
-                    <MessageList
-                      messages={visibleMessages}
-                      isStreaming={isStreaming}
-                      conversationId={conversationId}
-                      onSuggestionClick={stableMessageListOptions.onSuggestionClick}
-                      onToolApprovalEvents={handleToolApprovalEvents}
-                      onRetry={handleRetry}
-                      emptyState={{
-                        eyebrow: 'Verified run workspace',
-                        title: 'Ask the matter. Keep the proof attached.',
-                        description:
-                          'Start from the client matter, source stack, or operating question, then name the memo, checklist, comparison, or next move you need back.',
-                        suggestions: [
-                          'Draft a zoning memo for this site',
-                          'Review the evidence and missing source gaps',
-                          'Build the diligence checklist for the matter',
-                          'Compare the two entitlement paths',
-                        ],
-                        detailHeading: 'What the workspace returns',
-                        detailItems: [
-                          {
-                            label: 'Draft',
-                            title: 'A usable document or table',
-                            detail: 'The response should land as a memo, checklist, table, or action path that can move directly into review.',
-                          },
-                          {
-                            label: 'Proof',
-                            title: 'Attached sources and verification',
-                            detail: 'Evidence citations, proof checks, and missing support stay visible in the inspector while the run unfolds.',
-                          },
-                          {
-                            label: 'Handoff',
-                            title: 'Specialists without context loss',
-                            detail: 'Research, diligence, and entitlement specialists can step in without breaking the thread or its evidence trail.',
-                          },
-                        ],
-                      }}
-                    />
+                    <div className="h-[520px] min-h-[360px] max-h-[60svh] overflow-hidden">
+                      <MessageList
+                        messages={visibleMessages}
+                        isStreaming={isStreaming}
+                        conversationId={conversationId}
+                        onSuggestionClick={stableMessageListOptions.onSuggestionClick}
+                        onToolApprovalEvents={handleToolApprovalEvents}
+                        onRetry={handleRetry}
+                        emptyState={{
+                          eyebrow: 'Verified run workspace',
+                          title: 'Ask the matter. Keep the proof attached.',
+                          description:
+                            'Start from the client matter, source stack, or operating question, then name the memo, checklist, comparison, or next move you need back.',
+                          suggestions: [
+                            'Draft a zoning memo for this site',
+                            'Review the evidence and missing source gaps',
+                            'Build the diligence checklist for the matter',
+                            'Compare the two entitlement paths',
+                          ],
+                          detailHeading: 'What the workspace returns',
+                          detailItems: [
+                            {
+                              label: 'Draft',
+                              title: 'A usable document or table',
+                              detail: 'The response should land as a memo, checklist, table, or action path that can move directly into review.',
+                            },
+                            {
+                              label: 'Proof',
+                              title: 'Attached sources and verification',
+                              detail: 'Evidence citations, proof checks, and missing support stay visible in the inspector while the run unfolds.',
+                            },
+                            {
+                              label: 'Handoff',
+                              title: 'Specialists without context loss',
+                              detail: 'Research, diligence, and entitlement specialists can step in without breaking the thread or its evidence trail.',
+                            },
+                          ],
+                        }}
+                      />
+                    </div>
                   </div>
 
                   <div className="border-t border-rule">{chatInput}</div>

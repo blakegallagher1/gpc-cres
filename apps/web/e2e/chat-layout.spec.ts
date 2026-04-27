@@ -216,7 +216,7 @@ test.describe("Chat layout", () => {
     await expect(page.getByText("Underwriting screen complete.")).toBeVisible({
       timeout: CHAT_READY_TIMEOUT_MS,
     });
-    await expect(page.getByText("finance", { exact: true })).toBeVisible({
+    await expect(page.getByText("Agent: finance", { exact: true })).toBeVisible({
       timeout: CHAT_READY_TIMEOUT_MS,
     });
     await expect(page.getByRole("heading", { name: "Execution inspector" })).toHaveCount(0);

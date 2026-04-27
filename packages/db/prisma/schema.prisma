@@ -347,6 +347,7 @@ model Org {
   portfolioAlerts                PortfolioAlert[]
   investmentCriteria             OrgInvestmentCriteria?
   workflowExecutions             WorkflowExecution[]
+  operatorWorkflowDefinitions    OperatorWorkflowDefinition[]
   areaSummaryCaches              AreaSummaryCache[]
   poiDensityCaches               POIDensityCache[]
   inboundEmails                  InboundEmail[]
@@ -763,6 +764,27 @@ model WorkflowExecution {
   @@index([orgId, dealId, startedAt(sort: Desc)])
   @@index([status])
   @@map("workflow_executions")
+}
+
+model OperatorWorkflowDefinition {
+  id                   String   @id @default(uuid()) @db.Uuid
+  orgId                String   @map("org_id") @db.Uuid
+  name                 String   @db.Text
+  description          String?  @db.Text
+  nodes                Json     @default("[]") @db.JsonB
+  edges                Json     @default("[]") @db.JsonB
+  runType              String   @default("TRIAGE") @map("run_type") @db.Text
+  runMessage           String   @map("run_message") @db.Text
+  executionTemplateKey String?  @map("execution_template_key") @db.Text
+  source               String   @default("custom") @db.Text
+  createdBy            String?  @map("created_by") @db.Uuid
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, updatedAt(sort: Desc)])
+  @@map("operator_workflow_definitions")
 }
 
 /// Inbound email audit log. Every email received by the email-to-deal webhook

@@ -166,3 +166,4 @@ export * from "./observability/tool-health.service";
 export * from "./search/parcel-search.service";
 export * from "./search/prospect-search.service";
 export * from "./workflows/workflow-template.service";
+export * from "./workflows/operator-workflow-definition.service";

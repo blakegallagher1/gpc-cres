@@ -43,9 +43,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { WorkflowNode, WorkflowEdge } from "@/types";
-import { useRuns } from "@/lib/hooks/useRuns";
 import { workflowTemplates } from "@/lib/workflow-io";
-import type { WorkflowRun } from "@/types";
 import { formatDuration, timeAgo } from "@/lib/utils";
 import { timeAgo as formatTimeAgo } from "@/lib/utils";
 import { UserPreferencesPanel } from "@/components/preferences/UserPreferencesPanel";
@@ -53,7 +51,11 @@ import { CreateTriggerWizard } from "@/components/proactive/CreateTriggerWizard"
 import { ProactiveActionsFeed } from "@/components/proactive/ProactiveActionsFeed";
 import { ToolHealthDashboard } from "@/components/self-healing/ToolHealthDashboard";
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+const fetcher = async (url: string) => {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+  return response.json();
+};
 
 const RUN_TYPE_OPTIONS = [
   "TRIAGE",
@@ -93,13 +95,40 @@ interface BuilderWorkflow {
   edges: WorkflowEdge[];
   runType: string;
   runMessage: string;
+  executionTemplateKey: "QUICK_SCREEN" | "ACQUISITION_PATH" | null;
+  source: "template" | "custom";
+  persisted: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface OperatorWorkflowDefinition {
+  id: string;
+  name: string;
+  description: string | null;
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+  runType: string;
+  runMessage: string;
+  executionTemplateKey: "QUICK_SCREEN" | "ACQUISITION_PATH" | null;
   source: "template" | "custom";
   createdAt: string;
   updatedAt: string;
 }
 
+interface WorkflowExecution {
+  id: string;
+  templateKey: string;
+  status: string;
+  stepsTotal: number;
+  stepsCompleted: number;
+  durationMs: number | null;
+  startedAt: string;
+  output: Record<string, unknown>;
+}
+
 interface WorkflowRuntime {
-  runs: WorkflowRun[];
+  executions: WorkflowExecution[];
   loading: boolean;
 }
 
@@ -108,8 +137,6 @@ interface WorkflowStats {
   succeeded: number;
   failed: number;
 }
-
-const STORAGE_KEY = "automation.custom-workflows";
 
 function nowIso() {
   return new Date().toISOString();
@@ -124,7 +151,9 @@ function makeTemplateWorkflow(template: (typeof workflowTemplates)[number]): Bui
     edges: [...template.edges],
     runType: template.id === "property-analysis" ? "ARTIFACT_GEN" : "TRIAGE",
     runMessage: `Run ${template.name}`,
+    executionTemplateKey: null,
     source: "template",
+    persisted: false,
     createdAt: nowIso(),
     updatedAt: nowIso(),
   };
@@ -146,27 +175,23 @@ function makeCustomWorkflow(name: string): BuilderWorkflow {
       },
     ],
     edges: [],
+    executionTemplateKey: null,
     source: "custom",
+    persisted: false,
     createdAt: nowIso(),
     updatedAt: nowIso(),
   };
-}
-
-function normalizeWorkflowIdList(workflows: BuilderWorkflow[]): BuilderWorkflow[] {
-  return workflows.filter((workflow, index, all) =>
-    all.findIndex((item) => item.id === workflow.id) === index
-  );
 }
 
 function formatRunTypeLabel(value: string) {
   return value.toLowerCase().replace(/_/g, " ");
 }
 
-function buildWorkflowStats(runs: WorkflowRun[]): WorkflowStats {
-  const succeeded = runs.filter((run) => run.status === "succeeded").length;
-  const failed = runs.filter((run) => run.status === "failed").length;
+function buildWorkflowStats(executions: WorkflowExecution[]): WorkflowStats {
+  const succeeded = executions.filter((execution) => execution.status === "completed").length;
+  const failed = executions.filter((execution) => execution.status === "failed").length;
   return {
-    total: runs.length,
+    total: executions.length,
     succeeded,
     failed,
   };
@@ -174,6 +199,7 @@ function buildWorkflowStats(runs: WorkflowRun[]): WorkflowStats {
 
 function StatusIcon({ status }: { status: string }) {
   switch (status) {
+    case "completed":
     case "succeeded":
       return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
     case "failed":
@@ -183,6 +209,36 @@ function StatusIcon({ status }: { status: string }) {
     default:
       return <Clock className="h-4 w-4 text-muted-foreground" />;
   }
+}
+
+function fromPersistedWorkflow(workflow: OperatorWorkflowDefinition): BuilderWorkflow {
+  return {
+    id: workflow.id,
+    name: workflow.name,
+    description: workflow.description ?? "",
+    nodes: workflow.nodes,
+    edges: workflow.edges,
+    runType: workflow.runType,
+    runMessage: workflow.runMessage,
+    executionTemplateKey: workflow.executionTemplateKey,
+    source: workflow.source,
+    persisted: true,
+    createdAt: workflow.createdAt,
+    updatedAt: workflow.updatedAt,
+  };
+}
+
+function toWorkflowPayload(workflow: BuilderWorkflow) {
+  return {
+    name: workflow.name,
+    description: workflow.description,
+    nodes: workflow.nodes,
+    edges: workflow.edges,
+    runType: workflow.runType,
+    runMessage: workflow.runMessage,
+    executionTemplateKey: workflow.executionTemplateKey,
+    source: workflow.source === "template" ? "custom" : workflow.source,
+  };
 }
 
 function AutomationPageContent() {
@@ -240,22 +296,28 @@ function AutomationPageContent() {
     refreshInterval: 30000,
   });
 
-  const [workflowDraft, setWorkflowDraft] = useState<BuilderWorkflow | null>(null);
-  const [customWorkflows, setCustomWorkflows] = useState<BuilderWorkflow[]>(() => {
-    if (typeof window === "undefined") {
-      return [];
-    }
+  const {
+    data: workflowData,
+    isLoading: workflowsLoading,
+    mutate: mutateSavedWorkflows,
+  } = useSWR<{ workflows: OperatorWorkflowDefinition[] }>(
+    "/api/automation/workflows",
+    fetcher,
+    { revalidateOnFocus: false },
+  );
 
-    try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (!stored) return [];
-      const parsed = JSON.parse(stored) as Array<BuilderWorkflow>;
-      if (!Array.isArray(parsed)) return [];
-      return normalizeWorkflowIdList(parsed);
-    } catch {
-      return [];
-    }
-  });
+  const {
+    data: executionData,
+    isLoading: executionsLoading,
+    mutate: mutateWorkflowExecutions,
+  } = useSWR<{ executions: WorkflowExecution[] }>(
+    "/api/automation/workflow-executions?limit=25",
+    fetcher,
+    { refreshInterval: 10000 },
+  );
+
+  const [workflowDraft, setWorkflowDraft] = useState<BuilderWorkflow | null>(null);
+  const [workflowDealId, setWorkflowDealId] = useState("");
   const [isRunning, setIsRunning] = useState(false);
 
   const templateWorkflows = useMemo(
@@ -263,9 +325,18 @@ function AutomationPageContent() {
     []
   );
 
+  const persistedWorkflows = useMemo(
+    () => (workflowData?.workflows ?? []).map(fromPersistedWorkflow),
+    [workflowData]
+  );
+
+  const unsavedDraft = workflowDraft && !workflowDraft.persisted
+    ? [workflowDraft]
+    : [];
+
   const workflows = useMemo(
-    () => [...templateWorkflows, ...customWorkflows],
-    [customWorkflows, templateWorkflows]
+    () => [...unsavedDraft, ...persistedWorkflows, ...templateWorkflows],
+    [persistedWorkflows, templateWorkflows, unsavedDraft]
   );
 
   const selectedWorkflow = useMemo(() => {
@@ -282,12 +353,6 @@ function AutomationPageContent() {
     setWorkflowDraft(selectedWorkflow);
   }, [selectedWorkflow]);
 
-  useEffect(() => {
-    if (!workflowDraft) return;
-
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(customWorkflows));
-  }, [customWorkflows, workflowDraft]);
-
   const setQueryParam = useCallback(
     (nextWorkflowId: string | null) => {
       const params = new URLSearchParams(Array.from(searchParams?.entries() ?? []));
@@ -302,60 +367,56 @@ function AutomationPageContent() {
     [pathname, router, searchParams]
   );
 
-  const selectedRunType = workflowDraft?.runType ?? "TRIAGE";
-  const { runs: runtimeRuns, mutate: mutateRuntimeRuns } = useRuns({
-    runType: selectedRunType,
-    limit: 20,
-  });
-
   const workflowRuntime = useMemo<WorkflowRuntime>(
-    () => ({ runs: runtimeRuns ?? [], loading: false }),
-    [runtimeRuns]
+    () => ({ executions: executionData?.executions ?? [], loading: executionsLoading }),
+    [executionData, executionsLoading]
   );
 
   const { total: runtimeTotal, succeeded: runtimeSucceeded, failed: runtimeFailed } =
-    useMemo(() => buildWorkflowStats(runtimeRuns), [runtimeRuns]);
+    useMemo(() => buildWorkflowStats(workflowRuntime.executions), [workflowRuntime.executions]);
 
-  const saveWorkflow = useCallback(() => {
+  const persistWorkflowDraft = useCallback(
+    async (workflow: BuilderWorkflow): Promise<BuilderWorkflow> => {
+      const endpoint = workflow.persisted
+        ? `/api/automation/workflows/${workflow.id}`
+        : "/api/automation/workflows";
+      const response = await fetch(endpoint, {
+        method: workflow.persisted ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(toWorkflowPayload(workflow)),
+      });
+      const body = await response.json().catch(() => null) as {
+        workflow?: OperatorWorkflowDefinition;
+        error?: unknown;
+      } | null;
+      if (!response.ok || !body?.workflow) {
+        throw new Error(typeof body?.error === "string" ? body.error : "Failed to save workflow");
+      }
+      const saved = fromPersistedWorkflow(body.workflow);
+      setWorkflowDraft(saved);
+      setQueryParam(saved.id);
+      await mutateSavedWorkflows();
+      return saved;
+    },
+    [mutateSavedWorkflows, setQueryParam]
+  );
+
+  const saveWorkflow = useCallback(async () => {
     if (!workflowDraft) return;
 
-    if (workflowDraft.source === "template") {
-      const asCustom: BuilderWorkflow = {
-        ...workflowDraft,
-        id: `custom-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
-        source: "custom",
-        updatedAt: nowIso(),
-        createdAt: nowIso(),
-      };
-      setCustomWorkflows((previous) => {
-        const next = [...previous, asCustom];
-        return normalizeWorkflowIdList(next);
-      });
-      setQueryParam(asCustom.id);
-      setWorkflowDraft(asCustom);
-      toast.success("Template copied as custom workflow.");
-      return;
+    try {
+      await persistWorkflowDraft(workflowDraft);
+      toast.success("Workflow saved.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save workflow");
     }
-
-    setCustomWorkflows((previous) => {
-      const next = previous.some((workflow) => workflow.id === workflowDraft.id)
-        ? previous.map((workflow) =>
-            workflow.id === workflowDraft.id
-              ? { ...workflowDraft, updatedAt: nowIso() }
-              : workflow,
-          )
-        : [...previous, workflowDraft];
-      return normalizeWorkflowIdList(next);
-    });
-    toast.success("Workflow saved.");
-  }, [setQueryParam, workflowDraft]);
+  }, [persistWorkflowDraft, workflowDraft]);
 
   const createBlankWorkflow = useCallback(() => {
-    const draft = makeCustomWorkflow("New workflow");
-    setCustomWorkflows((previous) => {
-      const next = [...previous, draft];
-      return normalizeWorkflowIdList(next);
-    });
+    const draft = {
+      ...makeCustomWorkflow("New workflow"),
+      id: `draft-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    };
     setQueryParam(draft.id);
     setWorkflowDraft(draft);
   }, [setQueryParam]);
@@ -364,18 +425,15 @@ function AutomationPageContent() {
     (template: BuilderWorkflow) => {
       const draft = {
         ...template,
-        id: `custom-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+        id: `draft-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
         source: "custom" as const,
+        persisted: false,
         updatedAt: nowIso(),
         createdAt: nowIso(),
       };
-      setCustomWorkflows((previous) => {
-        const next = [...previous, draft];
-        return normalizeWorkflowIdList(next);
-      });
       setQueryParam(draft.id);
       setWorkflowDraft(draft);
-      toast.success("Template cloned.");
+      toast.success("Template ready to save.");
     },
     [setQueryParam]
   );
@@ -385,28 +443,33 @@ function AutomationPageContent() {
 
     setIsRunning(true);
     try {
-      const response = await fetch("/api/agent", {
+      const persistedWorkflow = workflowDraft.persisted
+        ? workflowDraft
+        : await persistWorkflowDraft(workflowDraft);
+      const response = await fetch(`/api/automation/workflows/${persistedWorkflow.id}/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: workflowDraft.runMessage || `Run ${workflowDraft.name}`,
-          runType: workflowDraft.runType,
-          persistConversation: false,
+          dealId: workflowDealId.trim().length > 0 ? workflowDealId.trim() : null,
         }),
       });
+      const body = await response.json().catch(() => null) as {
+        execution?: WorkflowExecution;
+        error?: unknown;
+      } | null;
       if (!response.ok) {
-        const body = await response.json().catch(() => null);
-        throw new Error(body?.error ?? "Failed to start workflow run");
+        throw new Error(typeof body?.error === "string" ? body.error : "Failed to start workflow run");
       }
 
-      toast.success(`Run started: ${workflowDraft.name}`);
-      await mutateRuntimeRuns();
+      toast.success(`Workflow execution recorded: ${persistedWorkflow.name}`);
+      await mutateWorkflowExecutions();
+      await mutateSavedWorkflows();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to start workflow run");
     } finally {
       setIsRunning(false);
     }
-  }, [isRunning, mutateRuntimeRuns, workflowDraft]);
+  }, [isRunning, mutateSavedWorkflows, mutateWorkflowExecutions, persistWorkflowDraft, workflowDealId, workflowDraft]);
 
   const handleTabChange = useCallback<(value: string) => void>(
     (value) => {
@@ -592,6 +655,12 @@ function AutomationPageContent() {
                       </p>
                     </button>
                   ))}
+                  {workflowsLoading && (
+                    <div className="flex items-center gap-2 rounded-lg border p-3 text-xs text-muted-foreground">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Loading saved workflows...
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -657,6 +726,42 @@ function AutomationPageContent() {
                       </Select>
                     </div>
                     <div className="space-y-1.5">
+                      <label className="text-xs">Execution template</label>
+                      <Select
+                        value={workflowDraft.executionTemplateKey ?? "GENERIC"}
+                        onValueChange={(value) =>
+                          setWorkflowDraft((previous) =>
+                            previous
+                              ? {
+                                  ...previous,
+                                  executionTemplateKey:
+                                    value === "GENERIC"
+                                      ? null
+                                      : value as "QUICK_SCREEN" | "ACQUISITION_PATH",
+                                }
+                              : previous
+                          )
+                        }
+                      >
+                        <SelectTrigger className="h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="GENERIC">Generic operator workflow</SelectItem>
+                          <SelectItem value="QUICK_SCREEN">Quick screen</SelectItem>
+                          <SelectItem value="ACQUISITION_PATH">Acquisition path</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs">Deal ID for deal workflow runs</label>
+                      <Input
+                        value={workflowDealId}
+                        placeholder="Optional UUID"
+                        onChange={(event) => setWorkflowDealId(event.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
                       <label className="text-xs">Run message</label>
                       <Textarea
                         value={workflowDraft.runMessage}
@@ -686,7 +791,7 @@ function AutomationPageContent() {
                       </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      This run sends the message and selected run type to the agent runtime.
+                      Runs are persisted to workflow execution history. Deal templates execute the server workflow when a deal ID is provided.
                     </p>
                   </>
                 )}
@@ -731,7 +836,7 @@ function AutomationPageContent() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Run activity</CardTitle>
                 <CardDescription className="text-xs">
-                  Latest runs filtered by selected workflow type
+                  Latest persisted workflow executions
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -745,37 +850,37 @@ function AutomationPageContent() {
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Loading runs...
                   </div>
-                ) : workflowRuntime.runs.length === 0 ? (
+                ) : workflowRuntime.executions.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    No runs yet for the selected run type.
+                    No workflow executions recorded yet.
                   </p>
                 ) : (
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Run</TableHead>
+                        <TableHead>Execution</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Duration</TableHead>
-                        <TableHead>Type</TableHead>
+                        <TableHead>Template</TableHead>
                         <TableHead>Started</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {workflowRuntime.runs.map((run) => (
-                        <TableRow key={run.id}>
-                          <TableCell className="font-mono text-xs">{run.id}</TableCell>
+                      {workflowRuntime.executions.map((execution) => (
+                        <TableRow key={execution.id}>
+                          <TableCell className="font-mono text-xs">{execution.id}</TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1.5">
-                              <StatusIcon status={run.status} />
-                              {run.status}
+                              <StatusIcon status={execution.status} />
+                              {execution.status}
                             </div>
                           </TableCell>
                           <TableCell className="text-xs">
-                            {run.durationMs ? formatDuration(run.durationMs) : "—"}
+                            {execution.durationMs ? formatDuration(execution.durationMs) : "—"}
                           </TableCell>
-                          <TableCell className="text-xs">{run.runType}</TableCell>
+                          <TableCell className="text-xs">{execution.templateKey}</TableCell>
                           <TableCell className="text-xs text-muted-foreground">
-                            {formatTimeAgo(run.startedAt)}
+                            {formatTimeAgo(execution.startedAt)}
                           </TableCell>
                         </TableRow>
                       ))}

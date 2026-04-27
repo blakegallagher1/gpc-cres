@@ -10,6 +10,7 @@ type CaseStatus = "pass" | "fail" | "skip";
 export type AgentEvalCase = {
   id: string;
   title: string;
+  kind?: "chat" | "operator_workflow";
   prompt: string;
   requiredSignals: string[];
   requiredTools: string[];
@@ -106,6 +107,17 @@ export const GOLDEN_OPERATOR_EVAL_CASES: AgentEvalCase[] = [
     requiredTools: ["get_entity_memory"],
     requiredEventTypes: ["tool_start", "done"],
     maxLatencyMs: 120_000,
+  },
+  {
+    id: "operator-workflow-execution",
+    title: "Persisted operator workflow records an execution",
+    kind: "operator_workflow",
+    prompt:
+      "Create and run a persisted operator workflow definition, then verify a completed workflow execution is returned.",
+    requiredSignals: ["workflow", "execution", "completed"],
+    requiredTools: [],
+    requiredEventTypes: ["workflow_created", "workflow_completed"],
+    maxLatencyMs: 30_000,
   },
 ];
 
@@ -256,19 +268,26 @@ function stringField(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
+function authHeaders(config: RuntimeConfig): Record<string, string> {
+  return {
+    "content-type": "application/json",
+    ...(config.authBearer ? { authorization: `Bearer ${config.authBearer}` } : {}),
+    ...(config.sessionCookie ? { cookie: config.sessionCookie } : {}),
+    ...(config.websocketTransport ? { "x-agent-eval-transport": "responses-websocket" } : {}),
+  };
+}
+
 async function runLiveCase(config: RuntimeConfig, testCase: AgentEvalCase): Promise<AgentEvalTranscript> {
   if (!config.baseUrl) {
     throw new Error("AGENT_EVAL_BASE_URL is required for live mode.");
   }
+  if (testCase.kind === "operator_workflow") {
+    return runLiveOperatorWorkflowCase(config, testCase);
+  }
   const startedAt = Date.now();
   const response = await fetch(`${config.baseUrl}/api/chat`, {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      ...(config.authBearer ? { authorization: `Bearer ${config.authBearer}` } : {}),
-      ...(config.sessionCookie ? { cookie: config.sessionCookie } : {}),
-      ...(config.websocketTransport ? { "x-agent-eval-transport": "responses-websocket" } : {}),
-    },
+    headers: authHeaders(config),
     body: JSON.stringify({
       message: testCase.prompt,
       messages: [{ role: "user", content: testCase.prompt }],
@@ -288,7 +307,79 @@ async function runLiveCase(config: RuntimeConfig, testCase: AgentEvalCase): Prom
   };
 }
 
+async function runLiveOperatorWorkflowCase(
+  config: RuntimeConfig,
+  testCase: AgentEvalCase,
+): Promise<AgentEvalTranscript> {
+  const startedAt = Date.now();
+  const createResponse = await fetch(`${config.baseUrl}/api/automation/workflows`, {
+    method: "POST",
+    headers: authHeaders(config),
+    body: JSON.stringify({
+      name: `Agent eval ${Date.now()}`,
+      description: testCase.title,
+      nodes: [{ id: "start", type: "start", data: { label: "Start" } }],
+      edges: [],
+      runType: "TRIAGE",
+      runMessage: testCase.prompt,
+      source: "custom",
+    }),
+  });
+  const createRaw = await createResponse.text();
+  const workflowId = extractWorkflowId(createRaw);
+  if (!createResponse.ok || !workflowId) {
+    return {
+      text: createRaw,
+      events: [{ type: "workflow_create_failed" }],
+      durationMs: Date.now() - startedAt,
+      httpStatus: createResponse.status,
+      error: createRaw.slice(0, 1_000),
+    };
+  }
+
+  const runResponse = await fetch(`${config.baseUrl}/api/automation/workflows/${workflowId}/run`, {
+    method: "POST",
+    headers: authHeaders(config),
+    body: JSON.stringify({ dealId: null }),
+  });
+  const runRaw = await runResponse.text();
+  const combined = `${createRaw}\n${runRaw}`;
+  return {
+    text: combined,
+    events: [
+      { type: "workflow_created" },
+      { type: runRaw.includes('"completed"') ? "workflow_completed" : "workflow_failed" },
+    ],
+    durationMs: Date.now() - startedAt,
+    httpStatus: runResponse.status,
+    error: runResponse.ok ? null : runRaw.slice(0, 1_000),
+  };
+}
+
+function extractWorkflowId(raw: string): string | null {
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const workflow = parsed.workflow;
+    if (typeof workflow === "object" && workflow !== null) {
+      const id = (workflow as Record<string, unknown>).id;
+      return typeof id === "string" ? id : null;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 function runFixtureCase(testCase: AgentEvalCase): AgentEvalTranscript {
+  if (testCase.kind === "operator_workflow") {
+    return {
+      text: "Persisted workflow execution completed through workflow execution history.",
+      events: [{ type: "workflow_created" }, { type: "workflow_completed" }],
+      durationMs: 25,
+      httpStatus: null,
+      error: null,
+    };
+  }
   return {
     text: [
       `Fixture evaluation for ${testCase.title}.`,

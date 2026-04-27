@@ -39,7 +39,7 @@ export interface WorkflowExecutionRecord {
   id: string;
   orgId: string;
   dealId: string | null;
-  templateKey: WorkflowTemplateKey;
+  templateKey: string;
   status: WorkflowExecutionStatus;
   currentStepKey: string | null;
   stepsTotal: number;
@@ -506,6 +506,18 @@ export async function listDealWorkflowExecutions(
 ): Promise<WorkflowExecutionRecord[]> {
   const rows = await prisma.workflowExecution.findMany({
     where: { orgId, dealId },
+    orderBy: { startedAt: "desc" },
+    take: limit,
+  });
+  return rows.map(normalize);
+}
+
+export async function listWorkflowExecutions(
+  orgId: string,
+  limit = 50,
+): Promise<WorkflowExecutionRecord[]> {
+  const rows = await prisma.workflowExecution.findMany({
+    where: { orgId },
     orderBy: { startedAt: "desc" },
     take: limit,
   });

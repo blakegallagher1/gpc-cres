@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generated_at": "2026-04-26T02:19:38.684Z",
+    "generated_at": "2026-04-27T04:07:47.052Z",
     "generated_by": "scripts/testing/generate-test-matrix.mjs",
     "repository_root": "/Users/gallagherpropertycompany/Documents/gallagher-cres",
     "intent": "Starter matrix for complete component-level testing coverage.",
@@ -43,10 +43,10 @@
     "counts": {
       "agents": 5,
       "tools": 144,
-      "api_routes": 187,
+      "api_routes": 191,
       "automation_modules": 27,
       "features": 10,
-      "total_components": 373
+      "total_components": 377
     },
     "baseline_targets": {
       "agents": 13,
@@ -423,6 +423,70 @@
       "type": "api_route",
       "name": "automation/events",
       "path": "apps/web/app/api/automation/events/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:automation/workflow-executions",
+      "type": "api_route",
+      "name": "automation/workflow-executions",
+      "path": "apps/web/app/api/automation/workflow-executions/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:automation/workflows",
+      "type": "api_route",
+      "name": "automation/workflows",
+      "path": "apps/web/app/api/automation/workflows/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:automation/workflows/[id]",
+      "type": "api_route",
+      "name": "automation/workflows/[id]",
+      "path": "apps/web/app/api/automation/workflows/[id]/route.ts",
+      "risk_tier": "P0",
+      "owner": "TBD",
+      "status": "todo",
+      "required_tests": [
+        "contract",
+        "security",
+        "integration",
+        "resilience"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_route:automation/workflows/[id]/run",
+      "type": "api_route",
+      "name": "automation/workflows/[id]/run",
+      "path": "apps/web/app/api/automation/workflows/[id]/run/route.ts",
       "risk_tier": "P0",
       "owner": "TBD",
       "status": "todo",

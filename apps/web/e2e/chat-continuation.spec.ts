@@ -13,12 +13,21 @@ async function openChat(page: Page, path = "/chat") {
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await ensureCopilotClosed(page);
   await page.getByText("Loading...").waitFor({ state: "hidden", timeout: 15_000 }).catch(() => undefined);
-  await page.getByPlaceholder("Ask something complex...").waitFor({ state: "visible", timeout: 15_000 });
+  await getComposer(page).waitFor({ state: "visible", timeout: 15_000 });
+}
+
+function getComposer(page: Page) {
+  return page.getByRole("textbox", { name: "Run brief input" }).first();
 }
 
 const LIVE_DB_E2E_ENABLED = process.env.PLAYWRIGHT_LIVE_DB_E2E === "true";
 
 async function openConversationSidebar(page: Page) {
+  const sidebar = page.getByRole("complementary").filter({ hasText: "Runs" }).first();
+  if (await sidebar.isVisible().catch(() => false)) {
+    return;
+  }
+
   const openByClass = page
     .locator("button")
     .filter({ has: page.locator("svg.lucide-panel-left-open") })
@@ -27,11 +36,11 @@ async function openConversationSidebar(page: Page) {
 
   if (await openByClass.isVisible().catch(() => false)) {
     await openByClass.click();
-  } else {
+  } else if (await openByAbsoluteButton.isVisible().catch(() => false)) {
     await openByAbsoluteButton.click();
   }
 
-  await expect(page.getByText("Conversations")).toBeVisible();
+  await expect(sidebar).toBeVisible();
 }
 
 async function mockConversationHistory(page: Page, config: MockConversationConfig) {
@@ -124,7 +133,8 @@ test.describe("Chat continuation", () => {
 
     await expect(page).toHaveURL(new RegExp(`conversationId=${conversationId}`));
     await expect(page.getByText("Loaded parcel context.")).toBeVisible();
-    await expect(page.getByText("Tool approval required: update_deal_status")).toBeVisible();
+    await expect(page.getByText("Tool Approval Required")).toBeVisible();
+    await expect(page.getByText("update_deal_status").first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Approve" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Reject" })).toBeVisible();
   });
@@ -205,7 +215,8 @@ test.describe("Chat continuation", () => {
     });
 
     await openChat(page, `/chat?conversationId=${conversationId}`);
-    await expect(page.getByText("Tool approval required: update_deal_status")).toBeVisible();
+    await expect(page.getByText("Tool Approval Required")).toBeVisible();
+    await expect(page.getByText("update_deal_status").first()).toBeVisible();
 
     await page.getByRole("button", { name: "Approve" }).click();
 
@@ -235,7 +246,7 @@ test.describe("Chat continuation", () => {
 
     await openChat(page);
 
-    const composer = page.getByPlaceholder("Ask something complex...");
+    const composer = getComposer(page);
     await composer.click();
     await composer.fill(
       `Store this property fact for future recall: ${address} sold for $${salePrice.toLocaleString()} ` +
@@ -279,7 +290,7 @@ test.describe("Chat continuation", () => {
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await ensureCopilotClosed(page);
-    await page.getByPlaceholder("Ask something complex...").waitFor({ state: "visible", timeout: 15_000 });
+    await getComposer(page).waitFor({ state: "visible", timeout: 15_000 });
     await expect(
       page.locator("p.whitespace-pre-wrap").filter({ hasText: address }).first(),
     ).toBeVisible({ timeout: 20_000 });
@@ -289,7 +300,7 @@ test.describe("Chat continuation", () => {
 
     const initialPriceMentions = await page.getByText(salePricePattern).count();
 
-    const reloadComposer = page.getByPlaceholder("Ask something complex...");
+    const reloadComposer = getComposer(page);
     await reloadComposer.click();
     await reloadComposer.fill(`What was the sale price for ${address}? Reply with the number only.`);
     await ensureCopilotClosed(page);

@@ -175,24 +175,17 @@ test.describe("Map route", () => {
     await page.goto("/map?lat=30.45&lng=-91.18&z=17", { waitUntil: "domcontentloaded" });
     await ensureCopilotClosed(page);
 
-    await expect(page.getByRole("heading", { name: "Map", exact: true })).toBeVisible({
+    await expect(page.locator('[data-route-id="map"]')).toHaveAttribute("data-route-path", "/map");
+    await expect(page.getByRole("textbox", { name: /Address, parcel id, owner/i })).toBeVisible({
       timeout: MAP_READY_TIMEOUT_MS,
     });
-    await expect(page.getByRole("button", { name: "Open console" })).toBeVisible({
-      timeout: MAP_READY_TIMEOUT_MS,
-    });
-    await expect(page.getByRole("button", { name: "Open copilot" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Open prospecting" })).toBeVisible();
-    await expect(
-      page.getByRole("heading", {
-        name: "Run the geography workflow from one panel.",
-      }),
-    ).toBeVisible();
-    await expect(page.getByRole("link", { name: "Prospecting" })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: /Ask the map/i })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Map" })).toBeVisible();
+    await expect(page.getByLabel("Map tool rail")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Industrial parcels > 10ac/i }).first()).toBeVisible();
 
     const canvas = page.locator(".maplibregl-canvas");
     await expect(canvas).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
-    await expect(page.getByRole("button", { name: "Map Guide" })).toBeVisible();
   });
 
   test("keeps primary action rail available after the map moves", async ({ page }) => {
@@ -208,9 +201,11 @@ test.describe("Map route", () => {
     await page.goto("/map?lat=30.45&lng=-91.18&z=17", { waitUntil: "domcontentloaded" });
     await ensureCopilotClosed(page);
 
-    await expect(page.getByRole("button", { name: "Open console" })).toBeVisible({
+    await expect(page.getByLabel("Map tool rail")).toBeVisible({
       timeout: MAP_READY_TIMEOUT_MS,
     });
+    await expect(page.getByRole("textbox", { name: /Address, parcel id, owner/i })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: /Ask the map/i })).toBeVisible();
 
     const canvas = page.locator(".maplibregl-canvas");
     await expect(canvas).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
@@ -227,9 +222,9 @@ test.describe("Map route", () => {
     await page.mouse.move(centerX + 140, centerY, { steps: 12 });
     await page.mouse.up();
 
-    await expect(page.getByRole("button", { name: "Open console" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Open copilot" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Share", exact: true })).toBeVisible();
+    await expect(page.getByLabel("Map tool rail")).toBeVisible();
+    await expect(page.getByRole("textbox", { name: /Address, parcel id, owner/i })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: /Ask the map/i })).toBeVisible();
   });
 
   test("keeps parcel lookup separate from map copilot analysis", async ({
@@ -241,20 +236,14 @@ test.describe("Map route", () => {
     await ensureCopilotClosed(page);
 
     await expect(page.locator('[data-route-id="map"]')).toHaveAttribute("data-route-path", "/map");
-    const geocoderInput = page.getByRole("textbox", { name: "Parcel or address search" });
+    const geocoderInput = page.getByRole("textbox", { name: /Address, parcel id, owner/i });
     await expect(geocoderInput).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
-    const mapCopilotButton = page.getByRole("button", { name: "Open copilot" });
-    await expect(mapCopilotButton).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
-    await expect(page.getByRole("button", { name: "Open prospecting" })).toBeVisible();
+    const analysisInput = page.getByRole("textbox", { name: /Ask the map/i });
+    await expect(analysisInput).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
 
     await geocoderInput.fill("2774 Highland Rd");
     await expect(geocoderInput).toHaveValue("2774 Highland Rd");
 
-    await mapCopilotButton.click();
-    const analysisInput = page.getByPlaceholder(
-      "Ask for screening, comparison, or a next move...",
-    );
-    await expect(analysisInput).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
     await analysisInput.fill("Summarize flood exposure around the selected parcel");
     await expect(analysisInput).toHaveValue(
       "Summarize flood exposure around the selected parcel",
@@ -268,24 +257,17 @@ test.describe("Map route", () => {
     await page.goto("/map?lat=30.45&lng=-91.18&z=17", { waitUntil: "domcontentloaded" });
     await ensureCopilotClosed(page);
 
-    const parcelLookup = page.getByLabel("Parcel or address search");
+    const parcelLookup = page.getByRole("textbox", { name: /Address, parcel id, owner/i });
     await expect(parcelLookup).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
     await parcelLookup.fill("2774 Highland Rd");
-
-    await expect(page.getByRole("option", { name: /2774 HIGHLAND RD, Baton Rouge, LA/i }).first()).toBeVisible();
-    await parcelLookup.press("ArrowDown");
     await parcelLookup.press("Enter");
 
-    await expect(page).toHaveURL(new RegExp(`parcel=${SEARCH_PARCEL.id}`));
+    await expect(page).toHaveURL(new RegExp(`parcel=${SEARCH_PARCEL.id}`), {
+      timeout: MAP_READY_TIMEOUT_MS,
+    });
 
-    const openConsoleButton = page.getByRole("button", { name: "Open console" });
-    if (await openConsoleButton.isVisible().catch(() => false)) {
-      await openConsoleButton.click();
-    }
-
-    const clearSelection = page.getByRole("button", { name: "Clear selection" });
-    await expect(clearSelection).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
-    await clearSelection.click();
+    await parcelLookup.evaluate((element) => element.blur());
+    await page.keyboard.press("Escape");
 
     await expect(page).not.toHaveURL(/parcel=/);
   });

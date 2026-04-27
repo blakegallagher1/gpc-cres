@@ -306,7 +306,7 @@ export function MessageList({
   return (
     <div className="relative h-full">
       <ScrollArea ref={scrollAreaRef} className="h-full bg-paper">
-        <div className="mx-auto flex w-full max-w-[940px] flex-col gap-3.5 px-6 py-5 sm:px-9">
+        <div className="mx-auto flex w-full max-w-[940px] flex-col gap-3.5 px-6 pb-32 pt-5 sm:px-9">
           <RunDocumentHead
             runTitle={runTitle}
             startedAt={startedAt}
