@@ -93,9 +93,9 @@ VALUES
     (198, 'parcel intelligence view', 'view centroid', 'public', 'mv_parcel_intelligence', 'centroid', 'Existing materialized view centroid.'),
 
     (200, 'site address', 'site address', 'public', 'ebr_parcels', 'address', 'Physical/site address from parcel source.'),
-    (210, 'site address', 'city', 'property', 'parcel_assessor_enrichment', 'city', 'Physical/site city when source splits address fields.'),
-    (220, 'site address', 'state', 'property', 'parcel_assessor_enrichment', 'state', 'Physical/site state when source splits address fields.'),
-    (230, 'site address', 'zip code', 'public', 'ebr_parcels', 'zip', 'Physical/site ZIP when source splits address fields.'),
+    (210, 'site address', 'city', 'property', 'parcel_assessor_enrichment', 'city', 'City parsed from assessor mailing city/state/ZIP when source splits address fields.'),
+    (220, 'site address', 'state', 'property', 'parcel_assessor_enrichment', 'state', 'State parsed from assessor mailing city/state/ZIP when source splits address fields.'),
+    (230, 'site address', 'zip code', 'property', 'parcel_assessor_enrichment', 'zip', 'ZIP parsed from assessor mailing city/state/ZIP when source splits address fields.'),
 
     (300, 'owner', 'raw owner name', 'public', 'ebr_parcels', 'owner', 'Raw owner string from parcel source.'),
     (310, 'owner', 'owner normalized name', 'property', 'parcel_owner_analysis', 'owner_name_normalized', 'Owner name normalized by zoning owner-analysis surface.'),
@@ -107,7 +107,7 @@ VALUES
     (370, 'owner', 'owner mailing address', 'property', 'parcel_assessor_enrichment', 'owner_mailing_address', 'Mailing address from source when available.'),
 
     (400, 'legal and assessment', 'legal description', 'property', 'parcel_assessor_enrichment', 'legal_description', 'Legal description from assessor/source.'),
-    (410, 'legal and assessment', 'assessed value', 'public', 'ebr_parcels', 'assessed_value', 'Assessed value used by opportunity scoring.'),
+    (410, 'legal and assessment', 'assessed value', 'property', 'parcel_assessor_enrichment', 'assessed_value', 'Assessed value from assessor enrichment used by opportunity scoring.'),
     (420, 'legal and assessment', 'land value', 'property', 'parcel_assessor_enrichment', 'land_value', 'Land-only assessed or market value when available.'),
     (430, 'legal and assessment', 'improvement value', 'property', 'parcel_assessor_enrichment', 'improvement_value', 'Building/improvement value when available.'),
     (440, 'legal and assessment', 'market value', 'property', 'parcel_assessor_enrichment', 'market_value', 'Total market value when available.'),
@@ -146,7 +146,7 @@ VALUES
     (770, 'zoning use permissions', 'highest value plausible use', 'property', 'parcel_zoning_screening', 'highest_value_plausible_use', 'Future use-ranking output.'),
     (780, 'zoning use permissions', 'approval required for target use', 'property', 'parcel_zoning_screening', 'approval_required_for_target_use', 'Future entitlement-path output.'),
 
-    (790, 'environmental', 'raw flood zone', 'public', 'ebr_parcels', 'flood_zone', 'Flood zone from parcel/source import.'),
+    (790, 'environmental', 'raw flood zone', 'property', 'parcel_assessor_enrichment', 'flood_zone', 'Flood zone from parcel/source import.'),
     (800, 'environmental', 'fema flood zone', 'property', 'parcel_environmental_screening', 'fema_flood_zone', 'FEMA flood zone from environmental screening.'),
     (810, 'environmental', 'floodplain flag', 'property', 'parcel_environmental_screening', 'floodplain_flag', 'Parcel centroid intersects floodplain zone.'),
     (820, 'environmental', 'floodway flag', 'property', 'parcel_environmental_screening', 'floodway_flag', 'Parcel centroid intersects floodway zone.'),

@@ -37,6 +37,7 @@ run_sql_inline() {
 
 step_schema() {
     run_sql_file "$SQL_DIR/001-schema-and-tables.sql" "Step 1: Create schema and tables"
+    run_sql_file "$SQL_DIR/007-assessor-enrichment-surface.sql" "Step 1b: Create assessor enrichment surface"
 }
 
 step_rules() {

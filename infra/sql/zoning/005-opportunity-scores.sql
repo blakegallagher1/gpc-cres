@@ -19,13 +19,27 @@ BEGIN
     IF has_future_land_use THEN
         EXECUTE $sql$
             CREATE TEMP TABLE tmp_opportunity_inputs ON COMMIT DROP AS
-            SELECT id, area_sqft, assessed_value, NULLIF(TRIM(future_land_use), '') AS future_land_use
-            FROM public.ebr_parcels
+            SELECT
+                p.id,
+                p.area_sqft,
+                COALESCE(ae.assessed_value, p.assessed_value) AS assessed_value,
+                NULLIF(TRIM(p.future_land_use), '') AS future_land_use
+            FROM public.ebr_parcels p
+            LEFT JOIN property.parcel_assessor_enrichment ae
+                ON ae.parish = 'East Baton Rouge'
+                AND ae.parcel_id = COALESCE(p.parcel_id::TEXT, p.id::TEXT)
         $sql$;
     ELSE
         CREATE TEMP TABLE tmp_opportunity_inputs ON COMMIT DROP AS
-        SELECT id, area_sqft, assessed_value, NULL::TEXT AS future_land_use
-        FROM public.ebr_parcels;
+        SELECT
+            p.id,
+            p.area_sqft,
+            COALESCE(ae.assessed_value, p.assessed_value) AS assessed_value,
+            NULL::TEXT AS future_land_use
+        FROM public.ebr_parcels p
+        LEFT JOIN property.parcel_assessor_enrichment ae
+            ON ae.parish = 'East Baton Rouge'
+            AND ae.parcel_id = COALESCE(p.parcel_id::TEXT, p.id::TEXT);
     END IF;
 END $$;
 
@@ -34,7 +48,7 @@ TRUNCATE property.parcel_opportunity_scores;
 INSERT INTO property.parcel_opportunity_scores (
     parcel_id,
     lot_split_score, lot_split_theoretical_lots, lot_split_possible_by_area, minor_subdivision_flag,
-    upzoning_score, density_delta,
+    upzoning_score, density_delta, futurebr_support_score,
     adaptive_reuse_score, residential_conversion_flag,
     industrial_score, industrial_zoning_flag,
     overall_opportunity_score, top_opportunity_type,
@@ -99,6 +113,19 @@ SELECT
     CASE WHEN zs.max_density_du_ac IS NOT NULL THEN
         GREATEST(0, 20 - zs.max_density_du_ac) -- assuming ~20 du/ac is plausible upzone target
     ELSE NULL END AS density_delta,
+
+    CASE
+        WHEN p.future_land_use IS NULL THEN 'unknown'
+        WHEN LOWER(p.future_land_use) IN ('industrial', 'employment center')
+            AND (zs.industrial_allowed_flag OR zs.warehouse_allowed_flag OR zs.zoning_group = 'industrial') THEN 'strong'
+        WHEN LOWER(p.future_land_use) IN ('commercial', 'mixed use', 'regional center', 'downtown core')
+            AND (zs.commercial_allowed_flag OR zs.mixed_use_possible_flag) THEN 'strong'
+        WHEN LOWER(p.future_land_use) IN ('residential neighborhood', 'compact neighborhood', 'urban neighborhood')
+            AND (zs.residential_allowed_flag OR zs.multifamily_allowed_flag) THEN 'strong'
+        WHEN LOWER(p.future_land_use) IN ('industrial', 'employment center', 'commercial', 'mixed use', 'regional center', 'downtown core')
+            THEN 'moderate'
+        ELSE 'weak'
+    END AS futurebr_support_score,
 
     -- ADAPTIVE REUSE SCORE (0-100)
     -- Components: existing improvement, parking advantage, residential conversion

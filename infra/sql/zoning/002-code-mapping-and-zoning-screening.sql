@@ -3,6 +3,39 @@
 
 BEGIN;
 
+-- Supplemental municipal and inactive zoning districts observed in parcel
+-- backfills. These are intentionally jurisdiction-aware placeholders so the
+-- parcel screening stays mapped even when the source code is from Central,
+-- Zachary, or an inactive EBR district rather than the current EBR UDC matrix.
+INSERT INTO property.zoning_districts (district_code, label, category, zoning_group, notes, source_json)
+VALUES
+    ('b', 'Off-Street Parking', 'special', 'special', 'Inactive EBR district: Off-Street Parking.', '{"jurisdiction":"East Baton Rouge","status":"inactive"}'::jsonb),
+    ('b2', 'Neighborhood Business District B-2', 'commercial', 'commercial', 'City of Central municipal zoning district.', '{"jurisdiction":"Central"}'::jsonb),
+    ('b3', 'General Commercial/Business District B-3', 'commercial', 'commercial', 'City of Central municipal zoning district.', '{"jurisdiction":"Central"}'::jsonb),
+    ('b4', 'General Commercial/Business District B-4', 'commercial', 'commercial', 'City of Central municipal zoning district.', '{"jurisdiction":"Central"}'::jsonb),
+    ('b5', 'Large Scale Commercial/Business District B-5', 'commercial', 'commercial', 'City of Central municipal zoning district.', '{"jurisdiction":"Central"}'::jsonb),
+    ('bdd', 'Bluebonnet Design District', 'design', 'special', 'EBR Bluebonnet Design District.', '{"jurisdiction":"East Baton Rouge"}'::jsonb),
+    ('bp', 'Business Park', 'business', 'industrial', 'City of Zachary business park district.', '{"jurisdiction":"Zachary"}'::jsonb),
+    ('cn', 'Neighborhood Commercial', 'commercial', 'commercial', 'City of Zachary Neighborhood Commercial district.', '{"jurisdiction":"Zachary"}'::jsonb),
+    ('cw2', 'Commercial Warehousing Two', 'warehousing', 'industrial', 'Inactive EBR district: Commercial Warehousing Two.', '{"jurisdiction":"East Baton Rouge","status":"inactive"}'::jsonb),
+    ('i', 'Industry', 'industrial', 'industrial', 'City of Zachary Industry district.', '{"jurisdiction":"Zachary"}'::jsonb),
+    ('jdd', 'Jefferson Highway Design District', 'design', 'special', 'Inactive EBR Jefferson Highway Design District.', '{"jurisdiction":"East Baton Rouge","status":"inactive"}'::jsonb),
+    ('ord', 'Office, Research and Development District', 'office', 'commercial', 'City of Central Office, Research and Development district.', '{"jurisdiction":"Central"}'::jsonb),
+    ('r1', 'Single-Family Residence District R-1', 'residential', 'residential', 'City of Central municipal residential district.', '{"jurisdiction":"Central"}'::jsonb),
+    ('r2', 'Single-Family Residence District R-2', 'residential', 'residential', 'City of Central municipal residential district.', '{"jurisdiction":"Central"}'::jsonb),
+    ('r3', 'Single-Family Attached/Multi-Family Residence District R-3', 'residential', 'residential', 'City of Central municipal residential district.', '{"jurisdiction":"Central"}'::jsonb),
+    ('ra', 'Rural/Agricultural District', 'rural', 'residential', 'City of Central Rural/Agricultural district.', '{"jurisdiction":"Central"}'::jsonb),
+    ('re', 'Residential Estate', 'residential', 'residential', 'City of Zachary Residential Estate district.', '{"jurisdiction":"Zachary"}'::jsonb),
+    ('rs', 'Residential Suburban', 'residential', 'residential', 'City of Zachary Residential Suburban district.', '{"jurisdiction":"Zachary"}'::jsonb),
+    ('ru', 'Residential Urban', 'residential', 'residential', 'City of Zachary Residential Urban district.', '{"jurisdiction":"Zachary"}'::jsonb),
+    ('uc', 'Urban Center', 'mixed_use', 'mixed_use', 'City of Zachary Urban Center district.', '{"jurisdiction":"Zachary"}'::jsonb)
+ON CONFLICT (district_code) DO UPDATE SET
+    label = EXCLUDED.label,
+    category = EXCLUDED.category,
+    zoning_group = EXCLUDED.zoning_group,
+    notes = EXCLUDED.notes,
+    source_json = EXCLUDED.source_json;
+
 -- The current property DB may or may not already have zoning columns on
 -- public.ebr_parcels. Build a stable temp input table so this script can run
 -- before or after zoning backfill/import work.
@@ -53,6 +86,12 @@ LEFT JOIN property.zoning_districts zd
 ON CONFLICT (raw_code, normalized_code) DO UPDATE SET
     district_code = EXCLUDED.district_code,
     mapped = EXCLUDED.mapped;
+
+UPDATE property.zoning_code_mapping
+SET district_code = LOWER(REPLACE(REPLACE(REPLACE(raw_code, '-', '_'), '/', '_'), '.', '_')),
+    mapped = true,
+    notes = 'Mapped by supplemental municipal/inactive zoning dictionary.'
+WHERE raw_code IN ('B', 'B2', 'B3', 'B4', 'B5', 'BDD', 'BP', 'CN', 'CW2', 'I', 'JDD', 'ORD', 'R1', 'R2', 'R3', 'RA', 'RE', 'RS', 'RU', 'UC');
 
 -- Handle special mappings that don't normalize cleanly
 -- A2.5 -> a2_5 (dots become underscores)

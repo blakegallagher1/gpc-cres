@@ -83,6 +83,15 @@ function optionalEnv(name: string, fallback: string): string {
 }
 
 function runRemotePsql(input: string): string {
+  const localPsqlCommand = process.env.PROPERTY_DB_PSQL_CMD;
+  if (localPsqlCommand && localPsqlCommand.trim().length > 0) {
+    return execFileSync("sh", ["-c", localPsqlCommand], {
+      encoding: "utf8",
+      input,
+      stdio: ["pipe", "pipe", "pipe"],
+    }).trim();
+  }
+
   const host = optionalEnv("PROPERTY_DB_SSH_HOST", "bg");
   const container = optionalEnv("PROPERTY_DB_CONTAINER", "entitlement-os-postgres");
   const database = optionalEnv("PROPERTY_DB_NAME", "entitlement_os");
@@ -153,6 +162,18 @@ function parseOwnerMailZip(value: string | null): string | null {
   return match ? match[0] : null;
 }
 
+function parseOwnerMailCity(value: string | null): string | null {
+  if (!value) return null;
+  const match = value.match(/^\s*(.+?)\s+([A-Z]{2})\s+\d{5}(?:-\d{4})?\s*$/);
+  return match ? match[1].trim() : null;
+}
+
+function parseOwnerMailState(value: string | null): string | null {
+  if (!value) return null;
+  const match = value.match(/\b([A-Z]{2})\s+\d{5}(?:-\d{4})?\b/);
+  return match ? match[1] : null;
+}
+
 function toRow(feature: ArcgisFeature): EnrichmentRow | null {
   const attributes = feature.attributes ?? {};
   const parcelId = valueText(attributes, "PRONO") ?? valueText(attributes, "ASSESSMENT_NUM");
@@ -164,8 +185,8 @@ function toRow(feature: ArcgisFeature): EnrichmentRow | null {
     ownerMailingAddress: valueText(attributes, "OWNER_ADDRESS"),
     ownerCityStateZip,
     siteAddress: valueText(attributes, "PHYSICAL_ADDRESS"),
-    city: null,
-    state: ownerCityStateZip?.includes(" LA ") || ownerCityStateZip?.endsWith(" LA") ? "LA" : null,
+    city: parseOwnerMailCity(ownerCityStateZip),
+    state: parseOwnerMailState(ownerCityStateZip),
     zip: parseOwnerMailZip(ownerCityStateZip),
     legalDescription: valueText(attributes, "LEGAL_DESCRIPTION"),
     landValue: valueNumber(attributes, "SUM_LAND_VALUE"),

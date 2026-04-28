@@ -8,7 +8,7 @@ TRUNCATE property.parcel_owner_analysis;
 INSERT INTO property.parcel_owner_analysis (
     parcel_id, owner_name_normalized, owner_type,
     multi_parcel_owner_flag, parcel_count_same_owner,
-    public_owner_flag, computed_at
+    public_owner_flag, absentee_owner_flag, computed_at
 )
 WITH owner_counts AS (
     SELECT UPPER(TRIM(owner)) AS owner_norm, COUNT(*) AS cnt
@@ -35,8 +35,16 @@ SELECT
     COALESCE(oc.cnt > 1, false) AS multi_parcel_owner_flag,
     COALESCE(oc.cnt, 0) AS parcel_count_same_owner,
     UPPER(p.owner) ~* '(STATE OF|CITY OF|PARISH OF|UNITED STATES|USA|U\.S\.|DEPT OF|DEPARTMENT|BREC|BOARD OF|SCHOOL BOARD|LSU|LOUISIANA STATE|HOUSING AUTHORITY|REDEVELOPMENT|PUBLIC|MUNICIPAL|FEDERAL|COUNTY|METRO COUNCIL|SEWERAGE|WATER DISTRICT|DRAINAGE|FIRE DISTRICT|SHERIFF|POLICE|HIGHWAY|DOT[D]?)' AS public_owner_flag,
+    CASE
+        WHEN ae.owner_mailing_address IS NULL OR ae.site_address IS NULL THEN NULL
+        ELSE UPPER(REGEXP_REPLACE(ae.owner_mailing_address, '\s+', ' ', 'g'))
+            IS DISTINCT FROM UPPER(REGEXP_REPLACE(ae.site_address, '\s+', ' ', 'g'))
+    END AS absentee_owner_flag,
     now() AS computed_at
 FROM public.ebr_parcels p
-LEFT JOIN owner_counts oc ON UPPER(TRIM(p.owner)) = oc.owner_norm;
+LEFT JOIN owner_counts oc ON UPPER(TRIM(p.owner)) = oc.owner_norm
+LEFT JOIN property.parcel_assessor_enrichment ae
+    ON ae.parish = 'East Baton Rouge'
+    AND ae.parcel_id = COALESCE(p.parcel_id::TEXT, p.id::TEXT);
 
 COMMIT;
