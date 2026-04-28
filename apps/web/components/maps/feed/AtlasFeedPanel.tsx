@@ -36,6 +36,7 @@ export type QueryResult = {
   stats?: Array<{ k: string; v: string }>;
   rows?: Array<{ owner: string; parcels: number; acres: number }>;
   narrative?: string;
+  parcelIds?: string[];
 };
 
 // ---------------------------------------------------------------------------
@@ -54,7 +55,7 @@ export function AtlasFeedPanel(props: {
   selectedParcel: SelectedParcelData | null;
   results: QueryResult[];
   suggestions: string[];
-  onPlotOnMap?: (resultId: string) => void;
+  onPlotOnMap?: (resultId: string) => void | Promise<void>;
   onSuggestionClick?: (prompt: string) => void;
   onDispatchScreening?: () => void;
 }): React.JSX.Element {

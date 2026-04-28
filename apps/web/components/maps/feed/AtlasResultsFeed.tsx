@@ -7,7 +7,7 @@ import type { QueryResult } from './AtlasFeedPanel';
 interface AtlasResultsFeedProps {
   results: QueryResult[];
   suggestions: string[];
-  onPlotOnMap?: (resultId: string) => void;
+  onPlotOnMap?: (resultId: string) => void | Promise<void>;
   onSuggestionClick?: (prompt: string) => void;
 }
 
@@ -54,7 +54,7 @@ function ResultCard({
   onPlotOnMap,
 }: {
   result: QueryResult;
-  onPlotOnMap?: (id: string) => void;
+  onPlotOnMap?: (id: string) => void | Promise<void>;
 }) {
   return (
     <div className="mb-3 rounded-[3px] border border-rule bg-paper-panel px-[14px] py-3">
@@ -138,8 +138,9 @@ function ResultCard({
       <div className="flex gap-[5px] flex-wrap">
         <button
           type="button"
-          onClick={() => onPlotOnMap?.(result.id)}
-          className="rounded-sm bg-ink px-[9px] py-[5px] text-[11px] font-semibold text-paper-panel hover:opacity-90 transition-opacity"
+          disabled={!onPlotOnMap}
+          onClick={() => void onPlotOnMap?.(result.id)}
+          className="rounded-sm bg-ink px-[9px] py-[5px] text-[11px] font-semibold text-paper-panel transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 enabled:cursor-pointer"
         >
           Plot on map
         </button>

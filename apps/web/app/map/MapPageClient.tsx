@@ -248,6 +248,12 @@ function uniqueParcelIds(parcelIds: string[]): string[] {
   return Array.from(ids);
 }
 
+const PARCEL_ID_TEXT_PATTERN = /\b\d{3}-\d{4}-\d\b/g;
+
+function collectParcelIdsFromText(text: string): string[] {
+  return uniqueParcelIds(Array.from(text.matchAll(PARCEL_ID_TEXT_PATTERN), (match) => match[0]));
+}
+
 function collectParcelIdsFromRows(rows: Array<Record<string, unknown>>): string[] {
   const ids: string[] = [];
   for (const row of rows) {
@@ -712,6 +718,35 @@ export function MapPageClient() {
         const toolParcelIds: string[] = [];
         let rowCount: number | null = null;
 
+        const consumeSseLine = (line: string) => {
+          if (!line.startsWith("data: ")) return;
+          const jsonStr = line.slice(6).trim();
+          if (!jsonStr || jsonStr === "[DONE]") return;
+          try {
+            const event = JSON.parse(jsonStr);
+            if (event.type === "map_action" && event.payload) {
+              toolParcelIds.push(...collectParcelIdsFromMapActionPayload(event.payload));
+              mapDispatch({ type: "MAP_ACTION_RECEIVED", payload: event.payload });
+            }
+            const textDelta = extractNlQueryTextDelta(event);
+            if (textDelta) fullText += textDelta;
+            const finalText = extractNlQueryFinalText(event);
+            if (finalText) fullText = finalText;
+            const parsedRows = extractNlQueryRows(event);
+            if (parsedRows) {
+              toolRows.push(...parsedRows.rows);
+              toolParcelIds.push(...collectParcelIdsFromRows(parsedRows.rows));
+              if (typeof parsedRows.rowCount === "number")
+                rowCount = parsedRows.rowCount;
+            }
+            if (event.type === "done" && event.conversationId) {
+              lastNlConversationIdRef.current = event.conversationId as string;
+            }
+          } catch {
+            // skip malformed
+          }
+        };
+
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -720,34 +755,11 @@ export function MapPageClient() {
           buffer = lines.pop() ?? "";
 
           for (const line of lines) {
-            if (!line.startsWith("data: ")) continue;
-            const jsonStr = line.slice(6).trim();
-            if (!jsonStr || jsonStr === "[DONE]") continue;
-            try {
-              const event = JSON.parse(jsonStr);
-              if (event.type === "map_action" && event.payload) {
-                toolParcelIds.push(...collectParcelIdsFromMapActionPayload(event.payload));
-                mapDispatch({ type: "MAP_ACTION_RECEIVED", payload: event.payload });
-              }
-              const textDelta = extractNlQueryTextDelta(event);
-              if (textDelta) fullText += textDelta;
-              const finalText = extractNlQueryFinalText(event);
-              if (finalText) fullText = finalText;
-              const parsedRows = extractNlQueryRows(event);
-              if (parsedRows) {
-                toolRows.push(...parsedRows.rows);
-                toolParcelIds.push(...collectParcelIdsFromRows(parsedRows.rows));
-                if (typeof parsedRows.rowCount === "number")
-                  rowCount = parsedRows.rowCount;
-              }
-              if (event.type === "done" && event.conversationId) {
-                lastNlConversationIdRef.current = event.conversationId as string;
-              }
-            } catch {
-              // skip malformed
-            }
+            consumeSseLine(line);
           }
         }
+        buffer += decoder.decode();
+        if (buffer.trim().length > 0) consumeSseLine(buffer);
 
         if (fullText.trim() || toolRows.length > 0) {
           const cardId = `nl-${Date.now()}`;
@@ -794,7 +806,10 @@ export function MapPageClient() {
             stats,
             rows: ownerRows,
             narrative: fullText.trim().slice(0, 1000) || undefined,
-            parcelIds: uniqueParcelIds(toolParcelIds),
+            parcelIds: uniqueParcelIds([
+              ...toolParcelIds,
+              ...collectParcelIdsFromText(fullText),
+            ]),
           };
 
           setFeedResults((prev) => [...prev, result]);

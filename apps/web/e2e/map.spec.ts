@@ -30,11 +30,8 @@ const PROSPECT_RESPONSE = {
 };
 const MAP_READY_TIMEOUT_MS = 20_000;
 const NL_QUERY_STREAM = [
-  'data: {"type":"tool_result","result":{"rowCount":1,"rows":[{"parcel_id":"739049","address":"2774 HIGHLAND RD","owner":"Test Owner","acres":12.5,"zoning_type":"M1"}]}}',
   'data: {"type":"response_text_done","text":"I found 1 industrial-zoned parcel over 10 acres."}',
-  'data: {"type":"done","conversationId":"map-plot-test"}',
-  "data: [DONE]",
-  "",
+  'data: {"type":"tool_result","result":{"rowCount":1,"rows":[{"parcel_id":"739049","address":"2774 HIGHLAND RD","owner":"Test Owner","acres":12.5,"zoning_type":"M1"}]}}',
 ].join("\n");
 
 function geometryResponse() {
@@ -285,7 +282,9 @@ test.describe("Map route", () => {
     await expect(page.getByText("I found 1 industrial-zoned parcel over 10 acres.").first()).toBeVisible({
       timeout: MAP_READY_TIMEOUT_MS,
     });
-    await page.getByRole("button", { name: "Plot on map" }).last().click();
+    const plotButton = page.getByRole("button", { name: "Plot on map" }).last();
+    await expect(plotButton).toBeEnabled();
+    await plotButton.click();
 
     await expect.poll(() => resultGeometryRequests).toBeGreaterThan(0);
   });
