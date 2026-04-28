@@ -7,7 +7,11 @@ TRUNCATE property.parcel_environmental_screening;
 
 -- Build temporary centroid table for faster joins
 CREATE TEMP TABLE tmp_parcel_centroids AS
-SELECT id AS parcel_id, ST_PointOnSurface(geom) AS pt, area_sqft, geom
+SELECT
+    id AS parcel_id,
+    ST_PointOnSurface(ST_MakeValid(geom)) AS pt,
+    area_sqft,
+    ST_CollectionExtract(ST_MakeValid(geom), 3) AS geom
 FROM public.ebr_parcels
 WHERE geom IS NOT NULL;
 
@@ -23,7 +27,10 @@ SELECT DISTINCT ON (pc.parcel_id)
     (ff.zone IN ('AE', 'A', 'AO', 'AH', 'VE', 'V')) AS floodplain_flag,
     (ff.zone = 'FLOODWAY' OR ff.zone ILIKE '%floodway%') AS floodway_flag
 FROM tmp_parcel_centroids pc
-JOIN public.fema_flood ff ON ST_Intersects(pc.pt, ff.geom)
+JOIN public.fema_flood ff
+    ON ff.parish ILIKE 'East Baton Rouge'
+    AND ff.geom && pc.pt
+    AND ST_Intersects(pc.pt, ff.geom)
 ORDER BY pc.parcel_id,
     CASE ff.zone
         WHEN 'FLOODWAY' THEN 1
@@ -43,25 +50,28 @@ SELECT DISTINCT ON (pc.parcel_id)
     s.drainage_class AS soil_type,
     (COALESCE(s.hydric_rating, '') ILIKE '%yes%' OR COALESCE(s.hydric_rating, '') ILIKE '%all hydric%') AS soil_hydric_flag
 FROM tmp_parcel_centroids pc
-JOIN public.soils s ON ST_Intersects(pc.pt, s.geom)
+JOIN public.soils s
+    ON s.parish ILIKE 'East Baton Rouge'
+    AND s.geom && pc.pt
+    AND ST_Intersects(pc.pt, s.geom)
 ORDER BY pc.parcel_id, s.id;
 
--- Wetlands: flag + area percentage
+-- Wetlands: centroid flag. Exact parcel/wetland intersection percentages are
+-- materially slower and should run as a separate batch when needed.
 CREATE TEMP TABLE tmp_wetlands AS
-SELECT
+SELECT DISTINCT ON (pc.parcel_id)
     pc.parcel_id,
     true AS wetlands_flag,
-    LEAST(
-        ROUND(
-            (SUM(ST_Area(ST_Intersection(pc.geom, w.geom)::geography)) /
-             NULLIF(MAX(ST_Area(pc.geom::geography)), 0) * 100)::NUMERIC,
-        2),
-    100) AS wetlands_area_pct
+    NULL::NUMERIC AS wetlands_area_pct
 FROM tmp_parcel_centroids pc
-JOIN public.wetlands w ON ST_Intersects(pc.geom, w.geom)
-GROUP BY pc.parcel_id;
+JOIN public.wetlands w
+    ON w.parish ILIKE 'East Baton Rouge'
+    AND w.geom && pc.pt
+    AND ST_Intersects(pc.pt, w.geom)
+ORDER BY pc.parcel_id, w.id;
 
--- EPA facilities within ~500m of centroid (using ~0.005 degree bbox for speed)
+-- EPA facilities within 500m of centroid. Use bbox prefilter for the GiST index
+-- and geography distance for the actual meter-based measurement.
 CREATE TEMP TABLE tmp_epa AS
 SELECT
     pc.parcel_id,
@@ -69,7 +79,9 @@ SELECT
     SUM(CASE WHEN e.violations_last_3yr > 0 THEN 1 ELSE 0 END) > 0 AS epa_violation_nearby_flag
 FROM tmp_parcel_centroids pc
 JOIN public.epa_facilities e ON e.geom IS NOT NULL
-    AND ST_DWithin(pc.pt, e.geom, 0.005)
+    AND e.parish ILIKE 'East Baton Rouge'
+    AND e.geom && ST_Expand(pc.pt, 0.006)
+    AND ST_DWithin(pc.pt::geography, e.geom::geography, 500)
 GROUP BY pc.parcel_id;
 
 -- Combine into final screening table
@@ -113,10 +125,10 @@ LEFT JOIN tmp_soils ts ON ts.parcel_id = pc.parcel_id
 LEFT JOIN tmp_wetlands tw ON tw.parcel_id = pc.parcel_id
 LEFT JOIN tmp_epa te ON te.parcel_id = pc.parcel_id;
 
-DROP TABLE tmp_parcel_centroids;
-DROP TABLE tmp_flood;
-DROP TABLE tmp_soils;
-DROP TABLE tmp_wetlands;
-DROP TABLE tmp_epa;
+DROP TABLE IF EXISTS tmp_parcel_centroids;
+DROP TABLE IF EXISTS tmp_flood;
+DROP TABLE IF EXISTS tmp_soils;
+DROP TABLE IF EXISTS tmp_wetlands;
+DROP TABLE IF EXISTS tmp_epa;
 
 COMMIT;

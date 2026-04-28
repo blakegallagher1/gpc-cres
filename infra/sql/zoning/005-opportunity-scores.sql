@@ -3,6 +3,32 @@
 
 BEGIN;
 
+-- Keep scoring runnable before FutureBR/future land use has been imported.
+DO $$
+DECLARE
+    has_future_land_use BOOLEAN;
+BEGIN
+    SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'ebr_parcels'
+          AND column_name = 'future_land_use'
+    ) INTO has_future_land_use;
+
+    IF has_future_land_use THEN
+        EXECUTE $sql$
+            CREATE TEMP TABLE tmp_opportunity_inputs ON COMMIT DROP AS
+            SELECT id, area_sqft, assessed_value, NULLIF(TRIM(future_land_use), '') AS future_land_use
+            FROM public.ebr_parcels
+        $sql$;
+    ELSE
+        CREATE TEMP TABLE tmp_opportunity_inputs ON COMMIT DROP AS
+        SELECT id, area_sqft, assessed_value, NULL::TEXT AS future_land_use
+        FROM public.ebr_parcels;
+    END IF;
+END $$;
+
 TRUNCATE property.parcel_opportunity_scores;
 
 INSERT INTO property.parcel_opportunity_scores (
@@ -183,7 +209,7 @@ SELECT
     END AS top_opportunity_type,
 
     now() AS computed_at
-FROM public.ebr_parcels p
+FROM tmp_opportunity_inputs p
 LEFT JOIN property.parcel_zoning_screening zs ON zs.parcel_id = p.id
 LEFT JOIN property.parcel_environmental_screening es ON es.parcel_id = p.id;
 

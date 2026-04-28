@@ -32,8 +32,8 @@ SELECT
         WHEN p.owner IS NOT NULL AND TRIM(p.owner) != '' THEN 'individual'
         ELSE 'unknown'
     END AS owner_type,
-    (oc.cnt > 1) AS multi_parcel_owner_flag,
-    oc.cnt AS parcel_count_same_owner,
+    COALESCE(oc.cnt > 1, false) AS multi_parcel_owner_flag,
+    COALESCE(oc.cnt, 0) AS parcel_count_same_owner,
     UPPER(p.owner) ~* '(STATE OF|CITY OF|PARISH OF|UNITED STATES|USA|U\.S\.|DEPT OF|DEPARTMENT|BREC|BOARD OF|SCHOOL BOARD|LSU|LOUISIANA STATE|HOUSING AUTHORITY|REDEVELOPMENT|PUBLIC|MUNICIPAL|FEDERAL|COUNTY|METRO COUNCIL|SEWERAGE|WATER DISTRICT|DRAINAGE|FIRE DISTRICT|SHERIFF|POLICE|HIGHWAY|DOT[D]?)' AS public_owner_flag,
     now() AS computed_at
 FROM public.ebr_parcels p

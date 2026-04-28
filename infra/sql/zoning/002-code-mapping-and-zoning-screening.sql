@@ -3,13 +3,41 @@
 
 BEGIN;
 
+-- The current property DB may or may not already have zoning columns on
+-- public.ebr_parcels. Build a stable temp input table so this script can run
+-- before or after zoning backfill/import work.
+DO $$
+DECLARE
+    has_zoning_type BOOLEAN;
+BEGIN
+    SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'ebr_parcels'
+          AND column_name = 'zoning_type'
+    ) INTO has_zoning_type;
+
+    IF has_zoning_type THEN
+        EXECUTE $sql$
+            CREATE TEMP TABLE tmp_parcel_zoning_inputs ON COMMIT DROP AS
+            SELECT id, area_sqft, NULLIF(TRIM(zoning_type), '') AS zoning_type
+            FROM public.ebr_parcels
+        $sql$;
+    ELSE
+        CREATE TEMP TABLE tmp_parcel_zoning_inputs ON COMMIT DROP AS
+        SELECT id, area_sqft, NULL::TEXT AS zoning_type
+        FROM public.ebr_parcels;
+    END IF;
+END $$;
+
 -- Step 1: Build the code mapping from parcel zoning_type to normalized district codes
 TRUNCATE property.zoning_code_mapping;
 
 -- Extract all distinct individual zoning codes from comma-separated zoning_type
 WITH raw_codes AS (
     SELECT DISTINCT TRIM(unnest(string_to_array(zoning_type, ','))) AS raw_code
-    FROM public.ebr_parcels
+    FROM tmp_parcel_zoning_inputs
     WHERE zoning_type IS NOT NULL AND zoning_type != ''
 )
 INSERT INTO property.zoning_code_mapping (raw_code, normalized_code, district_code, mapped)
@@ -41,11 +69,7 @@ BEGIN
     RAISE NOTICE 'Unmapped zoning codes: %', unmapped_count;
 END $$;
 
-COMMIT;
-
 -- Step 3: Materialize parcel zoning screening
-BEGIN;
-
 TRUNCATE property.parcel_zoning_screening;
 
 -- Parse each parcel's zoning_type, map to district, join dimensional standards and use permissions
@@ -64,20 +88,20 @@ INSERT INTO property.parcel_zoning_screening (
     computed_at
 )
 WITH parsed AS (
-    -- For each parcel, extract the primary (first) zoning code
+    -- For each parcel, extract the primary (first) zoning code. Keep parcels
+    -- without zoning so downstream tables remain one row per parcel.
     SELECT
         p.id AS parcel_id,
         p.zoning_type,
         p.area_sqft,
-        TRIM(SPLIT_PART(p.zoning_type, ',', 1)) AS primary_raw_code,
+        NULLIF(TRIM(SPLIT_PART(COALESCE(p.zoning_type, ''), ',', 1)), '') AS primary_raw_code,
         ARRAY(
             SELECT TRIM(x)
             FROM unnest(string_to_array(p.zoning_type, ',')) AS x
             WHERE TRIM(x) != ''
         ) AS all_codes,
         (POSITION(',' IN COALESCE(p.zoning_type, '')) > 0) AS is_split
-    FROM public.ebr_parcels p
-    WHERE p.zoning_type IS NOT NULL AND p.zoning_type != ''
+    FROM tmp_parcel_zoning_inputs p
 ),
 mapped AS (
     SELECT
@@ -85,7 +109,7 @@ mapped AS (
         zcm.district_code
     FROM parsed pa
     LEFT JOIN property.zoning_code_mapping zcm
-        ON TRIM(pa.primary_raw_code) = zcm.raw_code
+    ON TRIM(pa.primary_raw_code) = zcm.raw_code
         AND zcm.mapped = true
 )
 SELECT
@@ -95,7 +119,7 @@ SELECT
     zd.category AS zoning_category,
     zd.zoning_group,
     m.is_split AS zoning_split_flag,
-    m.all_codes AS zoning_codes_all,
+    COALESCE(m.all_codes, ARRAY[]::TEXT[]) AS zoning_codes_all,
     -- Dimensional standards (prefer 'general' type, fall back to first available)
     ds.min_lot_area_sf,
     ds.min_lot_width_ft,

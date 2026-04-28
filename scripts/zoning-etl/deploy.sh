@@ -7,15 +7,23 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SQL_DIR="$PROJECT_ROOT/infra/sql/zoning"
-SSH_CMD="ssh bg"
-PSQL_CMD="docker exec -i local-postgis psql -U postgres -d cres_db"
+SSH_HOST="${ZONING_ETL_SSH_HOST:-}"
+PSQL_CMD="${ZONING_ETL_PSQL_CMD:-docker exec -i local-postgis psql -U postgres -d cres_db}"
+
+run_psql() {
+    if [[ -n "$SSH_HOST" ]]; then
+        ssh "$SSH_HOST" "$PSQL_CMD"
+    else
+        eval "$PSQL_CMD"
+    fi
+}
 
 run_sql_file() {
     local file="$1"
     local label="$2"
     echo "=== $label ==="
     echo "  Running: $file"
-    cat "$file" | $SSH_CMD "$PSQL_CMD" 2>&1 | grep -v "WARNING\|vulnerable\|upgraded\|pq.html" | tail -5
+    run_psql < "$file"
     echo ""
 }
 
@@ -23,7 +31,7 @@ run_sql_inline() {
     local label="$1"
     local sql="$2"
     echo "=== $label ==="
-    echo "$sql" | $SSH_CMD "$PSQL_CMD" 2>&1 | grep -v "WARNING\|vulnerable\|upgraded\|pq.html"
+    echo "$sql" | run_psql
     echo ""
 }
 
@@ -33,7 +41,7 @@ step_schema() {
 
 step_rules() {
     echo "=== Step 2: Load zoning rules from JSON ==="
-    python3 "$SCRIPT_DIR/load_zoning_rules.py" | $SSH_CMD "$PSQL_CMD" 2>&1 | grep -v "WARNING\|vulnerable\|upgraded\|pq.html" | tail -10
+    python3 "$SCRIPT_DIR/load_zoning_rules.py" | run_psql
     echo ""
 }
 
