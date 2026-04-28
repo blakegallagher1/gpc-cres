@@ -66,7 +66,9 @@ const sharedEnv: Record<string, string> = {
   NEXT_DIST_DIR: playwrightDistDir,
   NEXT_TSCONFIG_PATH: playwrightTsconfigPath,
   NEXT_PUBLIC_E2E: "true",
+  NEXT_PUBLIC_LIVE_DB_E2E: process.env.PLAYWRIGHT_LIVE_DB_E2E ?? "false",
   NEXT_PUBLIC_DISABLE_AUTH: "true",
+  PRISMA_DISABLE_GATEWAY: "true",
   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
     process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ??
     "pk_test_ZW5qb3llZC1jYXRmaXNoLTMwLmNsZXJrLmFjY291bnRzLmRldiQ",

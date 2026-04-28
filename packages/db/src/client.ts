@@ -73,6 +73,10 @@ function dedupeGatewayTargets(targets: GatewayTarget[]): GatewayTarget[] {
 }
 
 function getGatewayTargets(): GatewayTarget[] {
+  if (process.env.PRISMA_DISABLE_GATEWAY === "true") {
+    return [];
+  }
+
   const runtimeDatabaseUrl = normalizeDbUrl(process.env.DATABASE_URL);
   const proxyUrl = normalizeDbUrl(process.env.GATEWAY_PROXY_URL);
   const directGatewayKey = getFirstConfiguredGatewayKey();

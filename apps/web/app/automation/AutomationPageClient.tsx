@@ -296,12 +296,16 @@ function AutomationPageContent() {
     refreshInterval: 30000,
   });
 
+  const shouldFetchPersistedWorkflows =
+    process.env.NEXT_PUBLIC_E2E !== "true" ||
+    process.env.NEXT_PUBLIC_LIVE_DB_E2E === "true";
+
   const {
     data: workflowData,
     isLoading: workflowsLoading,
     mutate: mutateSavedWorkflows,
   } = useSWR<{ workflows: OperatorWorkflowDefinition[] }>(
-    "/api/automation/workflows",
+    shouldFetchPersistedWorkflows ? "/api/automation/workflows" : null,
     fetcher,
     { revalidateOnFocus: false },
   );

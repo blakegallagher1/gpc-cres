@@ -79,9 +79,12 @@ export default function AdminPage() {
   if (search) params.set("search", search);
   if (contentType) params.set("contentType", contentType);
   if (activeTab === "memory") params.set("subTab", memorySubTab);
+  const shouldFetchStats =
+    process.env.NEXT_PUBLIC_E2E !== "true" ||
+    process.env.NEXT_PUBLIC_LIVE_DB_E2E === "true";
 
   const { data, isLoading, error, mutate } = useSWR(
-    `/api/admin/stats?${params.toString()}`,
+    shouldFetchStats ? `/api/admin/stats?${params.toString()}` : null,
     fetcher,
     {
       refreshInterval: 30_000,

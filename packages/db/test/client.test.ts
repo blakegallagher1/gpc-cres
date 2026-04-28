@@ -63,6 +63,7 @@ describe("packages/db client gateway config", () => {
     delete process.env.ENABLE_READ_REPLICA;
     delete process.env.PRISMA_CONNECTION_LIMIT;
     delete process.env.PRISMA_POOL_TIMEOUT_SECONDS;
+    delete process.env.PRISMA_DISABLE_GATEWAY;
     delete process.env.VERCEL;
     delete process.env.VERCEL_ENV;
     delete globalThis.__ENTITLEMENT_OS_PRISMA__;
@@ -168,6 +169,29 @@ describe("packages/db client gateway config", () => {
       datasources: {
         db: {
           url: "postgresql://postgres:postgres@localhost:5432/entitlement_os",
+        },
+      },
+      log: ["error", "warn"],
+    });
+  });
+
+  it("allows production-style local harnesses to disable the gateway adapter", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.PRISMA_DISABLE_GATEWAY = "true";
+    process.env.DATABASE_URL = "postgresql://postgres:postgres@localhost:54323/entitlement_os";
+    process.env.GATEWAY_PROXY_URL = "https://gateway.gallagherpropco.com";
+    process.env.GATEWAY_PROXY_TOKEN = "proxy-token";
+    process.env.LOCAL_API_URL = "https://api.gallagherpropco.com";
+    process.env.LOCAL_API_KEY = "local-api-key";
+
+    await import("../src/client.js");
+
+    expect(mockCreateGatewayAdapterFactory).not.toHaveBeenCalled();
+    expect(constructorArgs).toHaveLength(2);
+    expect(constructorArgs[0]).toEqual({
+      datasources: {
+        db: {
+          url: "postgresql://postgres:postgres@localhost:54323/entitlement_os",
         },
       },
       log: ["error", "warn"],
