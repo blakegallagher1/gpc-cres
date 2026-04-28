@@ -32,6 +32,8 @@
     "test": "pnpm -r test && pnpm exec vitest run scripts/agent-evals/golden_operator_workflows.test.ts tests/episode.test.ts tests/retrieval.test.ts tests/reward.test.ts tests/smoke_endpoints.test.ts tests/parcel_smoke_prod.test.ts && pnpm exec vitest run --environment node tests/reflection.test.ts",
     "test:coverage": "pnpm --filter gpc-agent-dashboard exec vitest run --coverage --configLoader runner && pnpm --filter @entitlement-os/openai exec vitest run --coverage && pnpm --filter @entitlement-os/shared exec vitest run --coverage",
     "test:boundaries": "node scripts/testing/verify-boundary-locks.mjs",
+    "test:e2e:ui": "node scripts/testing/run-playwright-ui.mjs",
+    "test:e2e:ui:background": "node scripts/testing/run-playwright-ui.mjs --background",
     "test:server-contracts": "pnpm exec vitest run tests/server-contracts.test.ts apps/worker/src/workflows/worker-contract.test.ts",
     "test:docs": "node scripts/testing/validate-docs.mjs",
     "test:web:observability": "pnpm -C apps/web run test:observability",

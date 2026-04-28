@@ -36,6 +36,10 @@ const playwrightDistDir =
   process.env.PLAYWRIGHT_DIST_DIR ?? `.next-playwright-${playwrightPort}`;
 const playwrightTsconfigPath =
   process.env.PLAYWRIGHT_TSCONFIG_PATH ?? `tsconfig.playwright.${playwrightPort}.json`;
+const defaultGlobalTimeoutMs = 2 * 60 * 60 * 1000;
+const playwrightGlobalTimeoutMs = Number(
+  process.env.PLAYWRIGHT_GLOBAL_TIMEOUT_MS ?? String(defaultGlobalTimeoutMs),
+);
 
 function appendNodeOption(existing: string | undefined, option: string): string {
   if (!existing || existing.trim().length === 0) {
@@ -85,6 +89,10 @@ const webServerEnv = Object.fromEntries(
 export default defineConfig({
   testDir: "./e2e",
   timeout: 120_000,
+  globalTimeout:
+    Number.isFinite(playwrightGlobalTimeoutMs) && playwrightGlobalTimeoutMs > 0
+      ? Math.floor(playwrightGlobalTimeoutMs)
+      : defaultGlobalTimeoutMs,
   retries: 1,
   workers: 1,
   // Fail fast in CI — don't let a hung spec block the whole suite
