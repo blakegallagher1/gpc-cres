@@ -2,6 +2,9 @@ import { tool } from "@openai/agents";
 import { z } from "zod";
 import { runWithConcurrency } from "./concurrency.js";
 
+const PROPERTY_DB_INTERNAL_SCOPE_HEADER = "x-gpc-internal-scope";
+const PROPERTY_DB_INTERNAL_SCOPE_VALUE = "parcels.read";
+
 /**
  * Property Database — Gateway API tools.
  *
@@ -369,6 +372,7 @@ export async function gatewayPost(path: string, body: Record<string, unknown>): 
           Authorization: `Bearer ${PROPERTY_DB_KEY}`,
           apikey: PROPERTY_DB_KEY,
           "Content-Type": "application/json",
+          [PROPERTY_DB_INTERNAL_SCOPE_HEADER]: PROPERTY_DB_INTERNAL_SCOPE_VALUE,
           ...getCloudflareAccessHeadersFromEnv(),
         },
         body: JSON.stringify(body),

@@ -52,6 +52,7 @@ describe("tool-router gateway Access header propagation", () => {
 
     expect(headers["CF-Access-Client-Id"]).toBe("client-id.access");
     expect(headers["CF-Access-Client-Secret"]).toBe("client-secret");
+    expect(headers["x-gpc-internal-scope"]).toBe("parcels.read");
   });
 
   it("omits Access headers for gateway tools when env values are absent", async () => {
@@ -74,5 +75,6 @@ describe("tool-router gateway Access header propagation", () => {
 
     expect(headers["CF-Access-Client-Id"]).toBeUndefined();
     expect(headers["CF-Access-Client-Secret"]).toBeUndefined();
+    expect(headers["x-gpc-internal-scope"]).toBe("parcels.read");
   });
 });

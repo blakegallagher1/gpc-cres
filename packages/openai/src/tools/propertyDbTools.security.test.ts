@@ -71,6 +71,7 @@ describe("propertyDbTools rpc key enforcement", () => {
         Authorization: "Bearer local-api-key",
         apikey: "local-api-key",
         "Content-Type": "application/json",
+        "x-gpc-internal-scope": "parcels.read",
       },
     });
     const bboxBody = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body));
@@ -146,6 +147,11 @@ describe("propertyDbTools rpc key enforcement", () => {
     expect(parsed.fallback).toBe("parcel_search_count");
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe("https://api.example.com/tools/parcel.search");
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      headers: {
+        "x-gpc-internal-scope": "parcels.read",
+      },
+    });
   });
 
   it("uses indexed parish filters without downstream geometry tiering", async () => {

@@ -5,6 +5,8 @@
 import type { Env } from "./types";
 
 const TOOL_TIMEOUT_MS = 30_000;
+const PROPERTY_DB_INTERNAL_SCOPE_HEADER = "x-gpc-internal-scope";
+const PROPERTY_DB_INTERNAL_SCOPE_VALUE = "parcels.read";
 
 /** Gateway tool name → endpoint path */
 const GATEWAY_TOOLS: Record<string, string> = {
@@ -92,6 +94,7 @@ async function callGateway(
           headers: {
             Authorization: `Bearer ${env.LOCAL_API_KEY}`,
             "Content-Type": "application/json",
+            [PROPERTY_DB_INTERNAL_SCOPE_HEADER]: PROPERTY_DB_INTERNAL_SCOPE_VALUE,
             ...accessHeaders,
           },
           body: JSON.stringify(body),
