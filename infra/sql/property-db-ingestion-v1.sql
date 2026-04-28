@@ -210,10 +210,7 @@ BEGIN
   FOR UPDATE;
 
   DELETE FROM public.ebr_parcels existing
-  USING staging.parcels_import_rows staged
-  WHERE staged.import_run_id = p_import_run_id
-    AND existing.parish = staged.parish
-    AND existing.parcel_id = staged.parcel_id;
+  WHERE existing.parish = run_record.parish;
   GET DIAGNOSTICS deleted_count = ROW_COUNT;
 
   INSERT INTO public.ebr_parcels (
@@ -238,7 +235,19 @@ BEGIN
     gen_random_uuid(),
     parcel_id,
     address,
-    COALESCE(area_sqft, CASE WHEN acreage IS NULL THEN NULL ELSE round(acreage * 43560)::integer END),
+    COALESCE(
+      area_sqft,
+      CASE
+        WHEN acreage IS NULL THEN NULL
+        WHEN round(acreage * 43560) BETWEEN 0 AND 2147483647 THEN round(acreage * 43560)::integer
+        ELSE NULL
+      END,
+      CASE
+        WHEN round(ST_Area(geom::geography) * 10.7639104167) BETWEEN 0 AND 2147483647
+          THEN round(ST_Area(geom::geography) * 10.7639104167)::integer
+        ELSE NULL
+      END
+    ),
     owner,
     assessed_value,
     geom,
@@ -247,7 +256,11 @@ BEGIN
     existing_land_use,
     future_land_use,
     parish,
-    COALESCE(acreage, CASE WHEN area_sqft IS NULL THEN NULL ELSE area_sqft::numeric / 43560 END),
+    COALESCE(
+      acreage,
+      CASE WHEN area_sqft IS NULL THEN NULL ELSE area_sqft::numeric / 43560 END,
+      ST_Area(geom::geography)::numeric * 0.000247105381
+    ),
     flood_zone,
     COALESCE(centroid, ST_PointOnSurface(geom)::geometry(Point, 4326)),
     zip

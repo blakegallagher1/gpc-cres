@@ -43,6 +43,7 @@
     "parcel:check:propertydb": "pnpm exec tsx scripts/parcels/check_property_db_runtime.ts",
     "parcel:backfill:dry": "pnpm exec tsx scripts/parcels/backfill_property_db_from_csv.ts",
     "parcel:backfill:apply": "pnpm exec tsx scripts/parcels/backfill_property_db_from_csv.ts --apply",
+    "parcel:harvest:la": "pnpm exec tsx scripts/parcels/harvest_louisiana_parish.ts",
     "parcel:address-backfill:dry": "pnpm exec tsx scripts/parcels/backfill_org_parcel_addresses.ts",
     "parcel:address-backfill:apply": "pnpm exec tsx scripts/parcels/backfill_org_parcel_addresses.ts --apply",
     "parcel:smoke:prod": "pnpm exec tsx scripts/parcels/smoke_map_parcel_prod.ts",
