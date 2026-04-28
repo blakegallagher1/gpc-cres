@@ -190,7 +190,14 @@ function toRow(feature: ArcgisFeature): EnrichmentRow | null {
     zip: parseOwnerMailZip(ownerCityStateZip),
     legalDescription: valueText(attributes, "LEGAL_DESCRIPTION"),
     landValue: valueNumber(attributes, "SUM_LAND_VALUE"),
-    improvementValue: valueNumber(attributes, "SUM_IMPROVEMENT_VALUE"),
+    improvementValue:
+      valueNumber(attributes, "SUM_IMPROVEMENT_VALUE") ??
+      (() => {
+        const marketValue = valueNumber(attributes, "SUM_FAIR_MARKET_VALUE");
+        const landValue = valueNumber(attributes, "SUM_LAND_VALUE");
+        if (marketValue === null || landValue === null || marketValue < landValue) return null;
+        return marketValue - landValue;
+      })(),
     marketValue: valueNumber(attributes, "SUM_FAIR_MARKET_VALUE"),
     assessedValue: valueNumber(attributes, "SUM_ASSESSED_VALUE"),
     saleYear,

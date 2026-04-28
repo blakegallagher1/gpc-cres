@@ -123,6 +123,7 @@ INSERT INTO property.parcel_zoning_screening (
     residential_allowed_flag, multifamily_allowed_flag,
     commercial_allowed_flag, industrial_allowed_flag,
     warehouse_allowed_flag, mixed_use_possible_flag,
+    best_by_right_use, highest_value_plausible_use, approval_required_for_target_use,
     c5_no_parking_flag,
     computed_at
 )
@@ -210,6 +211,70 @@ SELECT
                  WHERE up.district_code = m.district_code
                  AND up.use_key IN ('retail_sales', 'office', 'restaurant_with_alcohol', 'restaurant_without_alcohol')
                  AND up.permission_code IN ('P', 'L'))) AS mixed_use_possible_flag,
+    CASE
+        WHEN EXISTS (SELECT 1 FROM property.zoning_use_permissions up
+                     WHERE up.district_code = m.district_code
+                       AND up.use_key IN ('assembly_furniture_electronics', 'assembly_manufactured_parts', 'warehouse', 'office_warehouse')
+                       AND up.permission_code IN ('P', 'L')) THEN 'industrial / warehouse'
+        WHEN EXISTS (SELECT 1 FROM property.zoning_use_permissions up
+                     WHERE up.district_code = m.district_code
+                       AND up.use_key IN ('retail_sales', 'office', 'restaurant_without_alcohol', 'bank', 'personal_service')
+                       AND up.permission_code IN ('P', 'L')) THEN 'commercial'
+        WHEN EXISTS (SELECT 1 FROM property.zoning_use_permissions up
+                     WHERE up.district_code = m.district_code
+                       AND up.use_key = 'multifamily'
+                       AND up.permission_code IN ('P', 'L')) THEN 'multifamily residential'
+        WHEN EXISTS (SELECT 1 FROM property.zoning_use_permissions up
+                     WHERE up.district_code = m.district_code
+                       AND up.use_key IN ('single_family_detached', 'two_family', 'semi_detached', 'zero_lot_line', 'townhome')
+                       AND up.permission_code IN ('P', 'L')) THEN 'residential'
+        WHEN m.district_code IS NOT NULL THEN COALESCE(zd.zoning_group, zd.category, 'mapped zoning district')
+        ELSE NULL
+    END AS best_by_right_use,
+    CASE
+        WHEN EXISTS (SELECT 1 FROM property.zoning_use_permissions up
+                     WHERE up.district_code = m.district_code
+                       AND up.use_key IN ('warehouse', 'office_warehouse')
+                       AND up.permission_code IN ('P', 'L')) AND m.area_sqft >= 87120 THEN 'industrial / warehouse'
+        WHEN EXISTS (SELECT 1 FROM property.zoning_use_permissions up
+                     WHERE up.district_code = m.district_code
+                       AND up.use_key = 'multifamily'
+                       AND up.permission_code IN ('P', 'L')) AND COALESCE(ds.max_density_du_ac, 0) >= 12 THEN 'multifamily residential'
+        WHEN EXISTS (SELECT 1 FROM property.zoning_use_permissions up
+                     WHERE up.district_code = m.district_code
+                       AND up.use_key IN ('retail_sales', 'office', 'restaurant_without_alcohol', 'bank', 'personal_service')
+                       AND up.permission_code IN ('P', 'L')) THEN 'commercial'
+        WHEN EXISTS (SELECT 1 FROM property.zoning_use_permissions up
+                     WHERE up.district_code = m.district_code
+                       AND up.use_key = 'multifamily'
+                       AND up.permission_code IN ('P', 'L')) THEN 'multifamily residential'
+        WHEN EXISTS (SELECT 1 FROM property.zoning_use_permissions up
+                     WHERE up.district_code = m.district_code
+                       AND up.use_key IN ('assembly_furniture_electronics', 'assembly_manufactured_parts', 'warehouse', 'office_warehouse')
+                       AND up.permission_code IN ('P', 'L')) THEN 'industrial / warehouse'
+        WHEN EXISTS (SELECT 1 FROM property.zoning_use_permissions up
+                     WHERE up.district_code = m.district_code
+                       AND up.use_key IN ('single_family_detached', 'two_family', 'semi_detached', 'zero_lot_line', 'townhome')
+                       AND up.permission_code IN ('P', 'L')) THEN 'residential'
+        WHEN m.district_code IS NOT NULL THEN COALESCE(zd.zoning_group, zd.category, 'mapped zoning district')
+        ELSE NULL
+    END AS highest_value_plausible_use,
+    CASE
+        WHEN m.district_code IS NULL THEN NULL
+        WHEN EXISTS (SELECT 1 FROM property.zoning_use_permissions up
+                     WHERE up.district_code = m.district_code
+                       AND up.permission_code = 'P') THEN 'by right'
+        WHEN EXISTS (SELECT 1 FROM property.zoning_use_permissions up
+                     WHERE up.district_code = m.district_code
+                       AND up.permission_code = 'L') THEN 'limited use standards'
+        WHEN EXISTS (SELECT 1 FROM property.zoning_use_permissions up
+                     WHERE up.district_code = m.district_code
+                       AND up.permission_code = 'C') THEN 'conditional use permit'
+        WHEN EXISTS (SELECT 1 FROM property.zoning_use_permissions up
+                     WHERE up.district_code = m.district_code
+                       AND up.permission_code = 'M') THEN 'minor conditional use permit'
+        ELSE 'entitlement review required'
+    END AS approval_required_for_target_use,
     -- C5 no parking
     (COALESCE(zd.district_code, '') = 'c5') AS c5_no_parking_flag,
     now() AS computed_at
@@ -253,6 +318,9 @@ ON CONFLICT (parcel_id) DO UPDATE SET
     industrial_allowed_flag = EXCLUDED.industrial_allowed_flag,
     warehouse_allowed_flag = EXCLUDED.warehouse_allowed_flag,
     mixed_use_possible_flag = EXCLUDED.mixed_use_possible_flag,
+    best_by_right_use = EXCLUDED.best_by_right_use,
+    highest_value_plausible_use = EXCLUDED.highest_value_plausible_use,
+    approval_required_for_target_use = EXCLUDED.approval_required_for_target_use,
     c5_no_parking_flag = EXCLUDED.c5_no_parking_flag,
     computed_at = EXCLUDED.computed_at;
 

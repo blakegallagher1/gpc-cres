@@ -109,7 +109,7 @@ VALUES
     (400, 'legal and assessment', 'legal description', 'property', 'parcel_assessor_enrichment', 'legal_description', 'Legal description from assessor/source.'),
     (410, 'legal and assessment', 'assessed value', 'property', 'parcel_assessor_enrichment', 'assessed_value', 'Assessed value from assessor enrichment used by opportunity scoring.'),
     (420, 'legal and assessment', 'land value', 'property', 'parcel_assessor_enrichment', 'land_value', 'Land-only assessed or market value when available.'),
-    (430, 'legal and assessment', 'improvement value', 'property', 'parcel_assessor_enrichment', 'improvement_value', 'Building/improvement value when available.'),
+    (430, 'legal and assessment', 'improvement value', 'property', 'parcel_assessor_enrichment', 'improvement_value', 'Building/improvement value when available or derived from market value less land value.'),
     (440, 'legal and assessment', 'market value', 'property', 'parcel_assessor_enrichment', 'market_value', 'Total market value when available.'),
     (450, 'legal and assessment', 'tax amount', 'property', 'parcel_assessor_enrichment', 'tax_amount', 'Current annual tax amount when available.'),
     (460, 'legal and assessment', 'last sale date', 'property', 'parcel_assessor_enrichment', 'sale_date', 'Last transfer date when available.'),
