@@ -29,6 +29,13 @@ const PROSPECT_RESPONSE = {
   total: 1,
 };
 const MAP_READY_TIMEOUT_MS = 20_000;
+const NL_QUERY_STREAM = [
+  'data: {"type":"tool_result","result":{"rowCount":1,"rows":[{"parcel_id":"739049","address":"2774 HIGHLAND RD","owner":"Test Owner","acres":12.5,"zoning_type":"M1"}]}}',
+  'data: {"type":"response_text_done","text":"I found 1 industrial-zoned parcel over 10 acres."}',
+  'data: {"type":"done","conversationId":"map-plot-test"}',
+  "data: [DONE]",
+  "",
+].join("\n");
 
 function geometryResponse() {
   return {
@@ -249,6 +256,38 @@ test.describe("Map route", () => {
       "Summarize flood exposure around the selected parcel",
     );
     await expect(geocoderInput).toHaveValue("2774 Highland Rd");
+  });
+
+  test("plots NL parcel query results onto the map", async ({ page }) => {
+    let resultGeometryRequests = 0;
+    await mockMapData(page);
+    await page.route("**/api/chat", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        body: NL_QUERY_STREAM,
+      });
+    });
+    page.on("request", (request) => {
+      if (request.url().includes(`/api/parcels/${SEARCH_PARCEL.id}/geometry`)) {
+        resultGeometryRequests += 1;
+      }
+    });
+
+    await page.goto("/map?lat=30.45&lng=-91.18&z=17", { waitUntil: "domcontentloaded" });
+    await ensureCopilotClosed(page);
+
+    const analysisInput = page.getByRole("textbox", { name: /Ask the map/i });
+    await expect(analysisInput).toBeVisible({ timeout: MAP_READY_TIMEOUT_MS });
+    await analysisInput.fill("Industrial parcels > 10ac");
+    await analysisInput.press("Enter");
+
+    await expect(page.getByText("I found 1 industrial-zoned parcel over 10 acres.").first()).toBeVisible({
+      timeout: MAP_READY_TIMEOUT_MS,
+    });
+    await page.getByRole("button", { name: "Plot on map" }).last().click();
+
+    await expect.poll(() => resultGeometryRequests).toBeGreaterThan(0);
   });
 
   test("promotes a Baton Rouge parcel lookup into the working set and allows clearing it", async ({ page }) => {

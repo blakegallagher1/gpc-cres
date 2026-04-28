@@ -30,7 +30,7 @@ import {
   useMapChatDispatch,
   useMapChatState,
 } from "@/lib/chat/MapChatContext";
-import type { MapFeature } from "@/lib/chat/mapActionTypes";
+import type { MapActionPayload, MapFeature } from "@/lib/chat/mapActionTypes";
 import { mapFeaturesFromGeoJson } from "@/lib/chat/mapFeatureUtils";
 import { normalizeParcelId } from "@/lib/maps/parcelIdentity";
 import { useUIStore } from "@/stores/uiStore";
@@ -126,6 +126,12 @@ interface ParcelSuggestApiResponse {
 
 const SURROUNDING_PARCELS_RADIUS_MILES = 1.25;
 const SEARCH_PARAMS_EVENT = "map:search-params-change";
+const MAP_PLOT_MAX_GEOMETRIES = 40;
+const MAP_PLOT_GEOMETRY_BATCH_SIZE = 8;
+const MAP_PLOT_BATCH_DELAY_MS = 75;
+const MAP_PLOT_LAYER_COLOR = "#f97316";
+const MAP_PLOT_SINGLE_PARCEL_ZOOM = 16;
+const MAP_PLOT_MULTI_PARCEL_ZOOM = 11;
 const AUTH_DISABLED_HINT =
   process.env.NODE_ENV !== "production"
     ? " Start the dev server with NEXT_PUBLIC_DISABLE_AUTH=true or sign in."
@@ -220,6 +226,177 @@ function toFiniteNumber(...values: Array<unknown>): number | null {
   return null;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getStringValue(value: unknown): string | null {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return null;
+}
+
+function uniqueParcelIds(parcelIds: string[]): string[] {
+  const ids = new Set<string>();
+  for (const id of parcelIds) {
+    const normalized = normalizeParcelId(id) ?? id.trim();
+    if (normalized.length > 0) ids.add(normalized);
+  }
+  return Array.from(ids);
+}
+
+function collectParcelIdsFromRows(rows: Array<Record<string, unknown>>): string[] {
+  const ids: string[] = [];
+  for (const row of rows) {
+    const id =
+      getStringValue(row.parcel_id) ??
+      getStringValue(row.parcelId) ??
+      getStringValue(row.p_parcel_id) ??
+      getStringValue(row.id);
+    if (id) ids.push(id);
+  }
+  return uniqueParcelIds(ids);
+}
+
+function collectParcelIdsFromMapActionPayload(payload: unknown): string[] {
+  if (!isRecord(payload) || payload.action !== "highlight" || !Array.isArray(payload.parcelIds)) {
+    return [];
+  }
+  return uniqueParcelIds(payload.parcelIds.map((id) => getStringValue(id)).filter((id): id is string => Boolean(id)));
+}
+
+type AddLayerPayload = Extract<MapActionPayload, { action: "addLayer" }>;
+type PlotFeature = AddLayerPayload["geojson"]["features"][number];
+type PlotGeometry = Extract<PlotFeature["geometry"], { type: "Polygon" | "MultiPolygon" }>;
+
+function parsePlotGeometry(value: unknown): PlotGeometry | null {
+  let candidate = value;
+  if (typeof candidate === "string") {
+    try {
+      candidate = JSON.parse(candidate) as unknown;
+    } catch {
+      return null;
+    }
+  }
+  if (!isRecord(candidate)) return null;
+  if (
+    (candidate.type === "Polygon" || candidate.type === "MultiPolygon") &&
+    Array.isArray(candidate.coordinates)
+  ) {
+    return candidate as PlotGeometry;
+  }
+  return null;
+}
+
+function parsePlotBbox(value: unknown): [number, number, number, number] | null {
+  if (!Array.isArray(value) || value.length !== 4) return null;
+  const west = toFiniteNumber(value[0]);
+  const south = toFiniteNumber(value[1]);
+  const east = toFiniteNumber(value[2]);
+  const north = toFiniteNumber(value[3]);
+  if (west == null || south == null || east == null || north == null) return null;
+  return [west, south, east, north];
+}
+
+function collectCoordinatePairs(value: unknown, pairs: Array<[number, number]>) {
+  if (!Array.isArray(value)) return;
+  const lng = toFiniteNumber(value[0]);
+  const lat = toFiniteNumber(value[1]);
+  if (lng != null && lat != null) {
+    pairs.push([lng, lat]);
+    return;
+  }
+  for (const item of value) collectCoordinatePairs(item, pairs);
+}
+
+function bboxFromPlotGeometry(geometry: PlotGeometry): [number, number, number, number] | null {
+  const pairs: Array<[number, number]> = [];
+  collectCoordinatePairs(geometry.coordinates, pairs);
+  if (pairs.length === 0) return null;
+  let west = Number.POSITIVE_INFINITY;
+  let south = Number.POSITIVE_INFINITY;
+  let east = Number.NEGATIVE_INFINITY;
+  let north = Number.NEGATIVE_INFINITY;
+  for (const [lng, lat] of pairs) {
+    west = Math.min(west, lng);
+    south = Math.min(south, lat);
+    east = Math.max(east, lng);
+    north = Math.max(north, lat);
+  }
+  return [west, south, east, north];
+}
+
+function mergeBbox(
+  current: [number, number, number, number] | null,
+  next: [number, number, number, number],
+): [number, number, number, number] {
+  if (!current) return next;
+  return [
+    Math.min(current[0], next[0]),
+    Math.min(current[1], next[1]),
+    Math.max(current[2], next[2]),
+    Math.max(current[3], next[3]),
+  ];
+}
+
+function centerFromBbox(bbox: [number, number, number, number]): [number, number] {
+  return [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2];
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function fetchPlotGeometry(parcelId: string): Promise<{ feature: PlotFeature; bbox: [number, number, number, number] } | null> {
+  const response = await fetch(`/api/parcels/${encodeURIComponent(parcelId)}/geometry?detail_level=low`);
+  const json: unknown = await response.json().catch(() => null);
+  if (!response.ok || !isRecord(json) || json.ok !== true || !isRecord(json.data)) return null;
+  const geometry = parsePlotGeometry(json.data.geom_simplified);
+  if (!geometry) return null;
+  const bbox = parsePlotBbox(json.data.bbox) ?? bboxFromPlotGeometry(geometry);
+  if (!bbox) return null;
+  return {
+    bbox,
+    feature: {
+      type: "Feature",
+      geometry,
+      properties: {
+        parcelId,
+        parcel_id: parcelId,
+      },
+    },
+  };
+}
+
+async function fetchPlotGeometries(parcelIds: string[]): Promise<{
+  bbox: [number, number, number, number] | null;
+  features: PlotFeature[];
+}> {
+  const features: PlotFeature[] = [];
+  let bbox: [number, number, number, number] | null = null;
+  const ids = parcelIds.slice(0, MAP_PLOT_MAX_GEOMETRIES);
+
+  for (let index = 0; index < ids.length; index += MAP_PLOT_GEOMETRY_BATCH_SIZE) {
+    const batch = ids.slice(index, index + MAP_PLOT_GEOMETRY_BATCH_SIZE);
+    const results = await Promise.all(batch.map((id) => fetchPlotGeometry(id)));
+    for (const result of results) {
+      if (!result) continue;
+      features.push(result.feature);
+      bbox = mergeBbox(bbox, result.bbox);
+    }
+    if (index + MAP_PLOT_GEOMETRY_BATCH_SIZE < ids.length) {
+      await delay(MAP_PLOT_BATCH_DELAY_MS);
+    }
+  }
+
+  return { bbox, features };
+}
+
 function trackedParcelToMapParcel(entry: MapTrackedParcel): MapParcel {
   return {
     id: entry.parcelId,
@@ -284,6 +461,7 @@ type FeedResult = {
   stats?: Array<{ k: string; v: string }>;
   rows?: Array<{ owner: string; parcels: number; acres: number }>;
   narrative?: string;
+  parcelIds?: string[];
 };
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -531,6 +709,7 @@ export function MapPageClient() {
         let fullText = "";
         let buffer = "";
         const toolRows: Array<Record<string, unknown>> = [];
+        const toolParcelIds: string[] = [];
         let rowCount: number | null = null;
 
         while (true) {
@@ -547,6 +726,7 @@ export function MapPageClient() {
             try {
               const event = JSON.parse(jsonStr);
               if (event.type === "map_action" && event.payload) {
+                toolParcelIds.push(...collectParcelIdsFromMapActionPayload(event.payload));
                 mapDispatch({ type: "MAP_ACTION_RECEIVED", payload: event.payload });
               }
               const textDelta = extractNlQueryTextDelta(event);
@@ -556,6 +736,7 @@ export function MapPageClient() {
               const parsedRows = extractNlQueryRows(event);
               if (parsedRows) {
                 toolRows.push(...parsedRows.rows);
+                toolParcelIds.push(...collectParcelIdsFromRows(parsedRows.rows));
                 if (typeof parsedRows.rowCount === "number")
                   rowCount = parsedRows.rowCount;
               }
@@ -584,7 +765,9 @@ export function MapPageClient() {
             "owner" in toolRows[0]
               ? toolRows.map((r) => ({
                   owner: String(r["owner"] ?? ""),
-                  parcels: Number(r["parcels"] ?? r["count"] ?? 0),
+                  parcels: Number(
+                    r["parcels"] ?? r["count"] ?? (getStringValue(r["parcel_id"]) ? 1 : 0),
+                  ),
                   acres: Number(r["acres"] ?? r["acreage"] ?? 0),
                 }))
               : undefined;
@@ -611,6 +794,7 @@ export function MapPageClient() {
             stats,
             rows: ownerRows,
             narrative: fullText.trim().slice(0, 1000) || undefined,
+            parcelIds: uniqueParcelIds(toolParcelIds),
           };
 
           setFeedResults((prev) => [...prev, result]);
@@ -1025,6 +1209,71 @@ export function MapPageClient() {
       focusCoordinates(entry.lat, entry.lng);
     },
     [activeParcelsByKey, focusCoordinates, focusParcel, mapDispatch],
+  );
+
+  const handlePlotFeedResult = useCallback(
+    async (resultId: string) => {
+      const result = feedResults.find((item) => item.id === resultId);
+      const parcelIds = uniqueParcelIds(result?.parcelIds ?? []);
+      if (parcelIds.length === 0) return;
+
+      mapDispatch({
+        type: "MAP_ACTION_RECEIVED",
+        payload: {
+          action: "highlight",
+          parcelIds,
+          style: "fill",
+          color: MAP_PLOT_LAYER_COLOR,
+          durationMs: 0,
+        },
+      });
+
+      const firstActiveParcel = parcelIds
+        .map((parcelId) => activeParcelsByKey.get(parcelId))
+        .find((parcel): parcel is MapParcel => Boolean(parcel));
+      if (firstActiveParcel) {
+        focusCoordinates(firstActiveParcel.lat, firstActiveParcel.lng);
+      }
+
+      const layerId = `nl-result-${resultId}`;
+      const { bbox, features } = await fetchPlotGeometries(parcelIds);
+      if (features.length > 0) {
+        mapDispatch({
+          type: "MAP_ACTION_RECEIVED",
+          payload: { action: "clearLayers", layerIds: [layerId] },
+        });
+        mapDispatch({
+          type: "MAP_ACTION_RECEIVED",
+          payload: {
+            action: "addLayer",
+            layerId,
+            geojson: { type: "FeatureCollection", features },
+            style: {
+              fillColor: MAP_PLOT_LAYER_COLOR,
+              fillOpacity: 0.28,
+              strokeColor: MAP_PLOT_LAYER_COLOR,
+              strokeWidth: 2,
+            },
+            label: `${result?.q ?? "Query"} (${features.length})`,
+          },
+        });
+      }
+      if (bbox) {
+        const center = centerFromBbox(bbox);
+        const zoom = parcelIds.length === 1 ? MAP_PLOT_SINGLE_PARCEL_ZOOM : MAP_PLOT_MULTI_PARCEL_ZOOM;
+        mapDispatch({ type: "SET_VIEWPORT", center, zoom });
+        mapRef.current?.flyTo({ center, zoom });
+      }
+      recordClientMetricEvent({
+        message: "map.nl_result.plot_requested",
+        metadata: {
+          resultId,
+          parcelCount: parcelIds.length,
+          geometryCount: features.length,
+        },
+      });
+    },
+    [activeParcelsByKey, feedResults, focusCoordinates, mapDispatch],
   );
 
   // ── Sync selected features to context ───────────────────────────────────
@@ -1608,6 +1857,7 @@ export function MapPageClient() {
                 setAnalysisText(prompt);
                 void handleNlQuery(prompt);
               }}
+              onPlotOnMap={handlePlotFeedResult}
               onDispatchScreening={() => setFeedTab("screening")}
             />
           </div>
