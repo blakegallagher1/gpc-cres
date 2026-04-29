@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildSmartCamaSearchBody,
   buildTargetQuery,
   buildUploadSql,
   csvCell,
@@ -71,7 +72,7 @@ describe("parseCli", () => {
   it("uses defaults when no args", () => {
     const opts = parseCli([]);
     expect(opts.batchSize).toBe(25);
-    expect(opts.concurrency).toBe(3);
+    expect(opts.concurrency).toBe(1);
     expect(opts.maxRows).toBeNull();
     expect(opts.apply).toBe(false);
     expect(opts.dryRun).toBe(false);
@@ -199,7 +200,18 @@ describe("buildTargetQuery", () => {
     expect(sql).toContain("East Baton Rouge");
     expect(sql).toContain("sale_price IS NULL OR tax_amount IS NULL");
     expect(sql).toContain("parcel_id ~ '^[0-9]+$'");
-    expect(sql).toContain("ORDER BY parcel_id::bigint");
+    expect(sql).toContain("ORDER BY md5(parcel_id)");
+  });
+});
+
+describe("buildSmartCamaSearchBody", () => {
+  it("matches SmartCAMA SearchAjax DataTable request shape", () => {
+    const body = buildSmartCamaSearchBody("1200445");
+    expect(body.get("AssessmentNumber")).toBe("1200445");
+    expect(body.get("ExactSearch")).toBe("True");
+    expect(body.get("DataTableRequest[draw]")).toBe("1");
+    expect(body.get("DataTableRequest[columns][3][name]")).toBe("Assessment.AssessmentNumber");
+    expect(body.has("DTableRequest[draw]")).toBe(false);
   });
 });
 

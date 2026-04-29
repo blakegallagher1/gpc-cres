@@ -11,7 +11,7 @@ Fetches sale price and tax amount from EBR SmartCAMA for parcels missing those f
 5. If verification expired, waits while you clear the challenge in the visible browser; no cookies are printed or stored outside the browser profile.
 6. Cookies and anti-forgery token are captured from the browser session.
 7. Browser remains open while the runner performs page-backed SmartCAMA lookups.
-8. Fetches assessments via SmartCAMA search/detail pages and its own request context.
+8. Fetches assessments through SmartCAMA's JSON endpoints using the verified browser request context.
 9. Upserts results into `property.parcel_assessor_enrichment` with COALESCE (preserves existing values).
 10. Writes checkpoint to `output/smartcama-checkpoint.json` after each batch.
 
@@ -26,8 +26,8 @@ Fetches sale price and tax amount from EBR SmartCAMA for parcels missing those f
 # Dry run — shows config, does nothing
 pnpm parcel:enrich:smartcama-pw:dry
 
-# Enrich up to 100 parcels, 5 concurrent, batches of 20
-pnpm parcel:enrich:smartcama-pw:apply -- --max-rows 100 --batch-size 20 --concurrency 5
+# Enrich up to 100 parcels, conservative rate, batches of 20
+pnpm parcel:enrich:smartcama-pw:apply -- --max-rows 100 --batch-size 20 --concurrency 1
 
 # Resume after a stopped run; reuses the same persistent browser profile
 pnpm parcel:enrich:smartcama-pw:apply -- --resume
@@ -50,7 +50,7 @@ pnpm parcel:enrich:smartcama-pw:apply -- --assessment-numbers "0123456,0234567,0
 | `--dry-run` | — | Print config and exit |
 | `--max-rows N` | 1000 | Max parcels to query from DB |
 | `--batch-size N` | 25 | Upsert batch size |
-| `--concurrency N` | 3 | Concurrent SmartCAMA requests |
+| `--concurrency N` | 1 | Concurrent SmartCAMA requests; keep low to avoid SmartCAMA 429s |
 | `--resume` | false | Resume from `output/smartcama-checkpoint.json` |
 | `--assessment-numbers` | — | Comma-separated list (bypasses DB query) |
 | `--profile-dir PATH` | `output/smartcama-browser-profile` | Persistent Playwright user profile that retains verified SmartCAMA state |
@@ -66,6 +66,12 @@ The runner does not bypass SmartCAMA verification. It converts verification into
 3. If SmartCAMA still trusts the profile, scraping starts automatically.
 4. If SmartCAMA expires the session, the runner waits for manual verification and then continues automatically.
 
+## Rate limits and target order
+
+The runner uses a stable hash order for DB-selected parcel IDs instead of starting at the smallest PRONO values. This avoids spending the first batches on a low-yield numeric range while still being repeatable with checkpoints.
+
+SmartCAMA can return `429 Too Many Requests` when detail requests are too aggressive. The runner retries 429 responses with backoff and then stops instead of marking those rows as `not_found`.
+
 ## Checkpoint
 
 Progress is saved to `output/smartcama-checkpoint.json` after each batch. Use `--resume` to skip already-processed IDs on the next run.
@@ -76,6 +82,6 @@ Progress is saved to `output/smartcama-checkpoint.json` after each batch. Use `-
 |---------|-----------|-------------|
 | Auth | `SMARTCAMA_COOKIE` env var | Playwright browser session |
 | Verification | Manual cookie copy each run | Persistent browser profile; manual only when SmartCAMA expires it |
-| Concurrency | Sequential | Configurable (default 3) |
+| Concurrency | Sequential | Configurable (default 1, rate-limit aware) |
 | Checkpoint | DB-only (NULL fields) | DB + file checkpoint |
 | CLI | `--apply`, `--batch-size`, `--max-rows` | + `--dry-run`, `--resume`, `--concurrency`, `--profile-dir`, `--force-verify` |

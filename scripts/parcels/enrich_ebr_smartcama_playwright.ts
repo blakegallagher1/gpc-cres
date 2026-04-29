@@ -69,6 +69,10 @@ type SmartCamaRequest = {
 type SmartCamaRequestHandler = (request: SmartCamaRequest) => Promise<Response>;
 type SmartCamaAssessmentHandler = (assessmentNumber: string) => Promise<SmartCamaAssessment | null>;
 
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -81,9 +85,11 @@ const SCHEMA_SQL_PATH = "infra/sql/zoning/007-assessor-enrichment-surface.sql";
 const CHECKPOINT_PATH = "output/smartcama-checkpoint.json";
 const DEFAULT_PROFILE_DIR = "output/smartcama-browser-profile";
 const DEFAULT_BATCH_SIZE = 25;
-const DEFAULT_CONCURRENCY = 3;
+const DEFAULT_CONCURRENCY = 1;
 const DEFAULT_VERIFICATION_TIMEOUT_SECONDS = 300;
 const SESSION_CHECK_ASSESSMENT = "1267000";
+const SMARTCAMA_RATE_LIMIT_RETRIES = 4;
+const SMARTCAMA_RATE_LIMIT_BASE_DELAY_MS = 5_000;
 
 // ---------------------------------------------------------------------------
 // CLI
@@ -241,7 +247,7 @@ FROM property.parcel_assessor_enrichment
 WHERE parish = '${PARISH.replace(/'/g, "''")}'
   AND (sale_price IS NULL OR tax_amount IS NULL)
   AND parcel_id ~ '^[0-9]+$'
-ORDER BY parcel_id::bigint
+ORDER BY md5(parcel_id)
 LIMIT ${limit};
 `;
 }
@@ -349,6 +355,52 @@ export async function mapConcurrent<T, R>(
 // SmartCAMA HTTP client
 // ---------------------------------------------------------------------------
 
+export function buildSmartCamaSearchBody(assessmentNumber: string): URLSearchParams {
+  const body = new URLSearchParams();
+  body.set("AssessmentNumber", assessmentNumber);
+  body.set("PhysicalStreetNumber", "");
+  body.set("PhysicalStreetName", "");
+  body.set("PhysicalStreetOther", "");
+  body.set("Subdivision", "");
+  body.set("LastName1OrBusiness", "");
+  body.set("Lot", "");
+  body.set("Block", "");
+  body.set("PrimaryOwnerId", "");
+  body.set("PerformSearch", "True");
+  body.set("ExactSearch", "True");
+  body.set("PriorYear", "");
+  body.set("DocumentType", "");
+  body.set("DocumentAssessment", "");
+  body.set("DocumentYear", "");
+  body.set("DocumentClient", "");
+  body.set("ShowFindAndFixMessage", "False");
+  body.set("DataTableRequest[draw]", "1");
+  body.set("DataTableRequest[start]", "0");
+  body.set("DataTableRequest[length]", "10");
+  body.set("DataTableRequest[search][value]", "");
+  body.set("DataTableRequest[search][regex]", "false");
+  const columns = [
+    ["Select", "0", "false", "false"],
+    ["Action", "1", "false", "false"],
+    ["MappingNumber", "MappingNumber", "true", "true"],
+    ["Assessment.AssessmentNumber", "AssessmentNumber", "true", "true"],
+    ["Owner.LastName1OrBusiness", "LastOrBusiness", "true", "true"],
+    ["Owner.FirstName1", "First", "true", "true"],
+    ["Assessment.FullPhysicalAddress", "PhysicalAddress", "true", "true"],
+  ];
+  columns.forEach(([name, data, searchable, orderable], index) => {
+    body.set(`DataTableRequest[columns][${index}][data]`, data);
+    body.set(`DataTableRequest[columns][${index}][name]`, name);
+    body.set(`DataTableRequest[columns][${index}][searchable]`, searchable);
+    body.set(`DataTableRequest[columns][${index}][orderable]`, orderable);
+    body.set(`DataTableRequest[columns][${index}][search][value]`, "");
+    body.set(`DataTableRequest[columns][${index}][search][regex]`, "false");
+  });
+  body.set("DataTableRequest[order][0][column]", "3");
+  body.set("DataTableRequest[order][0][dir]", "asc");
+  return body;
+}
+
 export class SmartCamaClient {
   private cookies = new Map<string, string>();
   private antiForgeryToken: string | null = null;
@@ -376,9 +428,10 @@ export class SmartCamaClient {
   async fetchAssessment(assessmentNumber: string): Promise<SmartCamaAssessment | null> {
     if (this.assessmentHandler) return this.assessmentHandler(assessmentNumber);
     const search = await this.searchAssessment(assessmentNumber);
-    const id = search.Data?.data?.[0]?.Id;
+    const rows = search.Data?.data ?? [];
+    const id = (rows.find((row) => row.AssessmentNumber === assessmentNumber) ?? rows[0])?.Id;
     if (!id) return null;
-    const params = new URLSearchParams({ Id: String(id) });
+    const params = new URLSearchParams({ Id: String(id), PriorYear: "" });
     const response = await this.request(`/Assessments/FetchAssessment?${params.toString()}`, {
       method: "POST",
       body: this.withToken(new URLSearchParams()),
@@ -393,35 +446,7 @@ export class SmartCamaClient {
   }
 
   private buildSearchBody(assessmentNumber: string): URLSearchParams {
-    const body = new URLSearchParams();
-    body.set("AssessmentNumber", assessmentNumber);
-    body.set("ExactSearch", "true");
-    body.set("PerformSearch", "true");
-    body.set("InitialSearch", "true");
-    body.set("DTableRequest[draw]", "1");
-    body.set("DTableRequest[start]", "0");
-    body.set("DTableRequest[length]", "10");
-    body.set("DTableRequest[search][value]", "");
-    body.set("DTableRequest[search][regex]", "false");
-    const columns = [
-      ["Select", "0", "false", "false"],
-      ["Action", "1", "false", "false"],
-      ["Assessment.AssessmentNumber", "AssessmentNumber", "true", "true"],
-      ["Owner.LastName1OrBusiness", "LastOrBusiness", "true", "true"],
-      ["Owner.FirstName1", "First", "true", "true"],
-      ["Assessment.FullPhysicalAddress", "PhysicalAddress", "true", "true"],
-    ];
-    columns.forEach(([name, data, searchable, orderable], index) => {
-      body.set(`DTableRequest[columns][${index}][data]`, data);
-      body.set(`DTableRequest[columns][${index}][name]`, name);
-      body.set(`DTableRequest[columns][${index}][searchable]`, searchable);
-      body.set(`DTableRequest[columns][${index}][orderable]`, orderable);
-      body.set(`DTableRequest[columns][${index}][search][value]`, "");
-      body.set(`DTableRequest[columns][${index}][search][regex]`, "false");
-    });
-    body.set("DTableRequest[order][0][column]", "2");
-    body.set("DTableRequest[order][0][dir]", "asc");
-    return body;
+    return buildSmartCamaSearchBody(assessmentNumber);
   }
 
   private withToken(body: URLSearchParams): URLSearchParams {
@@ -441,14 +466,28 @@ export class SmartCamaClient {
       "x-requested-with": "XMLHttpRequest",
     };
     const url = `${BASE_URL}${path}`;
-    const response = this.requestHandler
-      ? await this.requestHandler({ url, method: init.method, headers, body: init.body })
-      : await fetch(url, {
-          method: init.method,
-          redirect: "manual",
-          headers,
-          body: init.body,
-        });
+    let response: Response | null = null;
+    for (let attempt = 0; attempt <= SMARTCAMA_RATE_LIMIT_RETRIES; attempt += 1) {
+      response = this.requestHandler
+        ? await this.requestHandler({ url, method: init.method, headers, body: init.body })
+        : await fetch(url, {
+            method: init.method,
+            redirect: "manual",
+            headers,
+            body: init.body,
+          });
+      if (response.status !== 429) break;
+      if (attempt === SMARTCAMA_RATE_LIMIT_RETRIES) break;
+      const retryAfterSeconds = Number(response.headers.get("retry-after"));
+      const retryDelayMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+        ? retryAfterSeconds * 1000
+        : SMARTCAMA_RATE_LIMIT_BASE_DELAY_MS * (attempt + 1);
+      console.warn(`[smartcama-pw] SmartCAMA rate limited ${path}; retrying in ${retryDelayMs}ms.`);
+      await sleep(retryDelayMs);
+    }
+    if (!response) {
+      throw new Error(`SmartCAMA request was not attempted for ${path}`);
+    }
     this.storeCookies(response);
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get("location") ?? "";
@@ -543,24 +582,6 @@ async function bootstrapSession(
   const cookies = await context.cookies();
   client.setCookies(cookies.map((c) => ({ name: c.name, value: c.value })));
   client.setAntiForgeryToken(token);
-  let pageQueue = Promise.resolve();
-  client.setAssessmentHandler((assessmentNumber) => {
-    const scrape = pageQueue.then(async () => {
-      const url = `${BASE_URL}/Assessments/Search?AssessmentNumber=${encodeURIComponent(assessmentNumber)}&ExactSearch=True&PerformSearch=True`;
-      await page.goto(url, { waitUntil: "networkidle" });
-      await page.waitForTimeout(1500);
-      let body = await page.locator("body").innerText();
-      const transferMatch = body.match(/Transfers \((\d+|\*)\)/);
-      if (transferMatch) {
-        await page.getByText(transferMatch[0]).click().catch(() => undefined);
-        await page.waitForTimeout(500);
-        body = await page.locator("body").innerText();
-      }
-      return smartCamaPageToAssessment(assessmentNumber, body);
-    });
-    pageQueue = scrape.then(() => undefined, () => undefined);
-    return scrape;
-  });
   client.setRequestHandler(async (request) => {
     const pageResponse = await page.evaluate(
       async ({ url, method, headers, body }) => {
@@ -685,7 +706,7 @@ async function main(): Promise<void> {
           return { id, assessment };
         } catch (error) {
           const msg = error instanceof Error ? error.message : String(error);
-          if (msg.includes("redirected") || msg.includes("session")) {
+          if (msg.includes("429 Too Many Requests") || msg.includes("redirected") || msg.includes("session")) {
             throw error;
           }
           console.warn(`[smartcama-pw] Error fetching ${id}: ${msg}`);
