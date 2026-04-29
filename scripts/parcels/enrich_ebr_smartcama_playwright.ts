@@ -1,7 +1,8 @@
 import "dotenv/config";
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -15,6 +16,9 @@ type CliOptions = {
   maxRows: number | null;
   concurrency: number;
   assessmentNumbers: string[];
+  profileDir: string;
+  verificationTimeoutSeconds: number;
+  forceVerify: boolean;
 };
 
 type SmartCamaSearchRow = {
@@ -75,8 +79,11 @@ const SOURCE_NAME = "EBR Assessor SmartCAMA";
 const SOURCE_URI = `${BASE_URL}/Assessments/Search`;
 const SCHEMA_SQL_PATH = "infra/sql/zoning/007-assessor-enrichment-surface.sql";
 const CHECKPOINT_PATH = "output/smartcama-checkpoint.json";
+const DEFAULT_PROFILE_DIR = "output/smartcama-browser-profile";
 const DEFAULT_BATCH_SIZE = 25;
 const DEFAULT_CONCURRENCY = 3;
+const DEFAULT_VERIFICATION_TIMEOUT_SECONDS = 300;
+const SESSION_CHECK_ASSESSMENT = "1267000";
 
 // ---------------------------------------------------------------------------
 // CLI
@@ -89,6 +96,7 @@ export function parseCli(args: string[]): CliOptions {
   };
   const maxRowsValue = getValue("--max-rows");
   const assessmentNumbersValue = getValue("--assessment-numbers");
+  const verificationTimeoutValue = getValue("--verification-timeout-seconds");
   return {
     apply: args.includes("--apply"),
     dryRun: args.includes("--dry-run"),
@@ -99,6 +107,11 @@ export function parseCli(args: string[]): CliOptions {
     assessmentNumbers: assessmentNumbersValue
       ? assessmentNumbersValue.split(",").map((v) => v.trim()).filter(Boolean)
       : [],
+    profileDir: getValue("--profile-dir") ?? DEFAULT_PROFILE_DIR,
+    verificationTimeoutSeconds: verificationTimeoutValue
+      ? Math.max(30, Number(verificationTimeoutValue))
+      : DEFAULT_VERIFICATION_TIMEOUT_SECONDS,
+    forceVerify: args.includes("--force-verify"),
   };
 }
 
@@ -468,29 +481,54 @@ export class SmartCamaClient {
 // Playwright session bootstrap
 // ---------------------------------------------------------------------------
 
-async function bootstrapSession(client: SmartCamaClient): Promise<() => Promise<void>> {
+async function bodyText(page: import("playwright").Page): Promise<string> {
+  return page.locator("body").innerText().catch(() => "");
+}
+
+async function isVerifiedAssessmentPage(page: import("playwright").Page): Promise<boolean> {
+  const text = await bodyText(page);
+  return text.includes("Assessment 1 of") && !text.includes("Verification");
+}
+
+async function waitForVerifiedAssessmentPage(
+  page: import("playwright").Page,
+  sessionCheckUrl: string,
+  timeoutSeconds: number,
+): Promise<void> {
+  const expiresAt = Date.now() + timeoutSeconds * 1000;
+  while (Date.now() < expiresAt) {
+    if (await isVerifiedAssessmentPage(page)) return;
+    const text = await bodyText(page);
+    if (!text.includes("Verification")) {
+      await page.goto(sessionCheckUrl, { waitUntil: "networkidle", timeout: 30_000 }).catch(() => undefined);
+      if (await isVerifiedAssessmentPage(page)) return;
+    }
+    await page.waitForTimeout(1000);
+  }
+  throw new Error(`SmartCAMA verification was not cleared within ${timeoutSeconds} seconds.`);
+}
+
+async function bootstrapSession(
+  client: SmartCamaClient,
+  options: Pick<CliOptions, "forceVerify" | "profileDir" | "verificationTimeoutSeconds">,
+): Promise<() => Promise<void>> {
   const { chromium } = await import("playwright");
-  const browser = await chromium.launch({ headless: false });
-  const context = await browser.newContext();
-  const page = await context.newPage();
+  const profileDir = resolve(options.profileDir);
+  mkdirSync(profileDir, { recursive: true });
+  const context = await chromium.launchPersistentContext(profileDir, { headless: false });
+  const page = context.pages()[0] ?? await context.newPage();
+  const sessionCheckUrl = `${BASE_URL}/Assessments/Search?AssessmentNumber=${SESSION_CHECK_ASSESSMENT}&ExactSearch=True&PerformSearch=True`;
 
-  console.log("[smartcama-pw] Opening SmartCAMA in visible browser...");
-  await page.goto(`${BASE_URL}/Assessments/Search`, { waitUntil: "networkidle" });
+  console.log(`[smartcama-pw] Opening SmartCAMA with persistent profile: ${profileDir}`);
+  await page.goto(sessionCheckUrl, { waitUntil: "networkidle" });
 
-  console.log("[smartcama-pw] Please clear SmartCAMA verification in the browser window.");
-  console.log("[smartcama-pw] Once the search page is fully loaded, press Enter in this terminal.");
-
-  await new Promise<void>((resolve) => {
-    process.stdin.once("data", () => resolve());
-  });
-  await page.goto(`${BASE_URL}/Assessments/Search?AssessmentNumber=1267000&ExactSearch=True&PerformSearch=True`, {
-    waitUntil: "networkidle",
-  });
-  await page.waitForFunction(
-    () => document.body.innerText.includes("Assessment 1 of") && !document.body.innerText.includes("Verification"),
-    undefined,
-    { timeout: 300_000 },
-  );
+  if (options.forceVerify || !(await isVerifiedAssessmentPage(page))) {
+    console.log("[smartcama-pw] SmartCAMA verification is required or the saved profile expired.");
+    console.log("[smartcama-pw] Clear verification in the visible Chromium window; the runner will continue automatically.");
+    await waitForVerifiedAssessmentPage(page, sessionCheckUrl, options.verificationTimeoutSeconds);
+  } else {
+    console.log("[smartcama-pw] Reusing verified SmartCAMA browser profile.");
+  }
 
   const token = await page.evaluate(() => {
     const input = document.querySelector<HTMLInputElement>('input[name="__RequestVerificationToken"]');
@@ -498,7 +536,7 @@ async function bootstrapSession(client: SmartCamaClient): Promise<() => Promise<
   });
 
   if (!token) {
-    await browser.close();
+    await context.close();
     throw new Error("Anti-forgery token not found after verification. Is the search page loaded?");
   }
 
@@ -558,7 +596,7 @@ async function bootstrapSession(client: SmartCamaClient): Promise<() => Promise<
 
   console.log(`[smartcama-pw] Session captured (${cookies.length} cookies). Browser remains open for direct requests.`);
   return async () => {
-    await browser.close();
+    await context.close();
   };
 }
 
@@ -627,7 +665,7 @@ async function main(): Promise<void> {
   }
 
   const client = new SmartCamaClient();
-  const cleanupSession = await bootstrapSession(client);
+  const cleanupSession = await bootstrapSession(client, options);
 
   let enriched = 0;
   let missing = 0;

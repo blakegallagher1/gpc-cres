@@ -50,6 +50,24 @@ describe("parseCli", () => {
     expect(opts.assessmentNumbers).toEqual(["001", "002", "003"]);
   });
 
+  it("parses persistent profile session flags", () => {
+    const opts = parseCli([
+      "--profile-dir",
+      "output/custom-smartcama-profile",
+      "--verification-timeout-seconds",
+      "120",
+      "--force-verify",
+    ]);
+    expect(opts.profileDir).toBe("output/custom-smartcama-profile");
+    expect(opts.verificationTimeoutSeconds).toBe(120);
+    expect(opts.forceVerify).toBe(true);
+  });
+
+  it("floors verification timeout to 30 seconds", () => {
+    const opts = parseCli(["--verification-timeout-seconds", "5"]);
+    expect(opts.verificationTimeoutSeconds).toBe(30);
+  });
+
   it("uses defaults when no args", () => {
     const opts = parseCli([]);
     expect(opts.batchSize).toBe(25);
@@ -58,6 +76,9 @@ describe("parseCli", () => {
     expect(opts.apply).toBe(false);
     expect(opts.dryRun).toBe(false);
     expect(opts.resume).toBe(false);
+    expect(opts.profileDir).toBe("output/smartcama-browser-profile");
+    expect(opts.verificationTimeoutSeconds).toBe(300);
+    expect(opts.forceVerify).toBe(false);
   });
 });
 

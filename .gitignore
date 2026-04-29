@@ -119,6 +119,8 @@ output/playwright/
 output/playwright-*.png
 output/agent-evals*/
 output/observability/
+output/smartcama-checkpoint.json
+output/smartcama-browser-profile*/
 scripts/observability/.env.monitor-prod
 
 # Local parcel import drops
