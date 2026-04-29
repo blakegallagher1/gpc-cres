@@ -200,6 +200,7 @@ describe("buildUploadSql", () => {
     expect(sql).toContain("COALESCE(EXCLUDED.tax_amount");
     expect(sql).toContain("ON CONFLICT (parish, parcel_id) DO UPDATE");
     expect(sql).toContain("\\copy smartcama_money_upload FROM STDIN");
+    expect(sql.indexOf("SELECT COUNT(*) FROM smartcama_money_upload")).toBeLessThan(sql.indexOf("COMMIT;"));
     expect(sql).toContain('"P001"');
   });
 

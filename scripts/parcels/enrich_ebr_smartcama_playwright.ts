@@ -55,6 +55,16 @@ type Checkpoint = {
   updatedAt: string;
 };
 
+type SmartCamaRequest = {
+  url: string;
+  method: "GET" | "POST";
+  headers: Record<string, string>;
+  body?: URLSearchParams;
+};
+
+type SmartCamaRequestHandler = (request: SmartCamaRequest) => Promise<Response>;
+type SmartCamaAssessmentHandler = (assessmentNumber: string) => Promise<SmartCamaAssessment | null>;
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -165,6 +175,48 @@ export function toMoneyRow(parcelId: string, assessment: SmartCamaAssessment): S
   };
 }
 
+function parsePageMoney(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const cleaned = value.replace(/[$,]/g, "").trim();
+  if (!cleaned || cleaned === "-" || cleaned.toUpperCase() === "N/A") return null;
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function smartCamaPageToAssessment(assessmentNumber: string, bodyText: string): SmartCamaAssessment | null {
+  if (bodyText.includes("NO RESULTS FOUND")) return null;
+  if (bodyText.includes("Verification") && !bodyText.includes("Assessment 1 of")) {
+    throw new Error("SmartCAMA verification or session renewal is required.");
+  }
+  if (!bodyText.includes("Assessment 1 of") && !bodyText.includes("Total Tax:")) return null;
+
+  const taxMatch = bodyText.match(/Total Tax:\s*\n\s*(?:\$)?([0-9,]+(?:\.\d{2})?|N\/A)/i);
+  const taxAmount = taxMatch ? parsePageMoney(taxMatch[1]) : null;
+  const sales: SmartCamaSale[] = [];
+  const start = bodyText.indexOf("Register No.\tTransfer Date\tTransfer Type\tTransfer Amount\tVendor\tVendee");
+  if (start >= 0) {
+    const end = bodyText.indexOf("Notes", start);
+    const block = bodyText.slice(start, end > start ? end : start + 12000);
+    for (const line of block.split("\n").map((value) => value.trim()).filter(Boolean)) {
+      const parts = line.split("\t").map((value) => value.trim());
+      if (parts.length < 4) continue;
+      const date = parts[1];
+      const amount = parsePageMoney(parts[3]);
+      if (!/^\d{2}\/\d{2}\/\d{4}$/.test(date) || amount === null) continue;
+      sales.push({
+        SaleDate: `${date.slice(6, 10)}-${date.slice(0, 2)}-${date.slice(3, 5)}`,
+        SaleAmount: amount,
+      });
+    }
+  }
+
+  return {
+    AssessmentNumber: assessmentNumber,
+    TotalTax: taxAmount,
+    Sales: sales,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // SQL generation
 // ---------------------------------------------------------------------------
@@ -236,8 +288,8 @@ SET source_name = CASE
     tax_amount = COALESCE(EXCLUDED.tax_amount, property.parcel_assessor_enrichment.tax_amount),
     raw_payload = property.parcel_assessor_enrichment.raw_payload || EXCLUDED.raw_payload,
     imported_at = now();
-COMMIT;
 SELECT COUNT(*) FROM smartcama_money_upload;
+COMMIT;
 `;
 }
 
@@ -287,6 +339,8 @@ export async function mapConcurrent<T, R>(
 export class SmartCamaClient {
   private cookies = new Map<string, string>();
   private antiForgeryToken: string | null = null;
+  private requestHandler: SmartCamaRequestHandler | null = null;
+  private assessmentHandler: SmartCamaAssessmentHandler | null = null;
 
   setCookies(cookiePairs: Array<{ name: string; value: string }>): void {
     for (const { name, value } of cookiePairs) {
@@ -298,7 +352,16 @@ export class SmartCamaClient {
     this.antiForgeryToken = token;
   }
 
+  setRequestHandler(handler: SmartCamaRequestHandler): void {
+    this.requestHandler = handler;
+  }
+
+  setAssessmentHandler(handler: SmartCamaAssessmentHandler): void {
+    this.assessmentHandler = handler;
+  }
+
   async fetchAssessment(assessmentNumber: string): Promise<SmartCamaAssessment | null> {
+    if (this.assessmentHandler) return this.assessmentHandler(assessmentNumber);
     const search = await this.searchAssessment(assessmentNumber);
     const id = search.Data?.data?.[0]?.Id;
     if (!id) return null;
@@ -355,20 +418,24 @@ export class SmartCamaClient {
   }
 
   private async request(path: string, init: { method: "GET" | "POST"; body?: URLSearchParams }): Promise<Response> {
-    const response = await fetch(`${BASE_URL}${path}`, {
-      method: init.method,
-      redirect: "manual",
-      headers: {
-        "accept": "application/json, text/javascript, */*; q=0.01",
-        "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "cookie": this.cookieHeader(),
-        "referer": `${BASE_URL}/Assessments/Search`,
-        "user-agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "x-requested-with": "XMLHttpRequest",
-      },
-      body: init.body,
-    });
+    const headers = {
+      "accept": "application/json, text/javascript, */*; q=0.01",
+      "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+      "cookie": this.cookieHeader(),
+      "referer": `${BASE_URL}/Assessments/Search`,
+      "user-agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "x-requested-with": "XMLHttpRequest",
+    };
+    const url = `${BASE_URL}${path}`;
+    const response = this.requestHandler
+      ? await this.requestHandler({ url, method: init.method, headers, body: init.body })
+      : await fetch(url, {
+          method: init.method,
+          redirect: "manual",
+          headers,
+          body: init.body,
+        });
     this.storeCookies(response);
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get("location") ?? "";
@@ -401,7 +468,7 @@ export class SmartCamaClient {
 // Playwright session bootstrap
 // ---------------------------------------------------------------------------
 
-async function bootstrapSession(client: SmartCamaClient): Promise<void> {
+async function bootstrapSession(client: SmartCamaClient): Promise<() => Promise<void>> {
   const { chromium } = await import("playwright");
   const browser = await chromium.launch({ headless: false });
   const context = await browser.newContext();
@@ -416,6 +483,14 @@ async function bootstrapSession(client: SmartCamaClient): Promise<void> {
   await new Promise<void>((resolve) => {
     process.stdin.once("data", () => resolve());
   });
+  await page.goto(`${BASE_URL}/Assessments/Search?AssessmentNumber=1267000&ExactSearch=True&PerformSearch=True`, {
+    waitUntil: "networkidle",
+  });
+  await page.waitForFunction(
+    () => document.body.innerText.includes("Assessment 1 of") && !document.body.innerText.includes("Verification"),
+    undefined,
+    { timeout: 300_000 },
+  );
 
   const token = await page.evaluate(() => {
     const input = document.querySelector<HTMLInputElement>('input[name="__RequestVerificationToken"]');
@@ -430,9 +505,61 @@ async function bootstrapSession(client: SmartCamaClient): Promise<void> {
   const cookies = await context.cookies();
   client.setCookies(cookies.map((c) => ({ name: c.name, value: c.value })));
   client.setAntiForgeryToken(token);
+  let pageQueue = Promise.resolve();
+  client.setAssessmentHandler((assessmentNumber) => {
+    const scrape = pageQueue.then(async () => {
+      const url = `${BASE_URL}/Assessments/Search?AssessmentNumber=${encodeURIComponent(assessmentNumber)}&ExactSearch=True&PerformSearch=True`;
+      await page.goto(url, { waitUntil: "networkidle" });
+      await page.waitForTimeout(1500);
+      let body = await page.locator("body").innerText();
+      const transferMatch = body.match(/Transfers \((\d+|\*)\)/);
+      if (transferMatch) {
+        await page.getByText(transferMatch[0]).click().catch(() => undefined);
+        await page.waitForTimeout(500);
+        body = await page.locator("body").innerText();
+      }
+      return smartCamaPageToAssessment(assessmentNumber, body);
+    });
+    pageQueue = scrape.then(() => undefined, () => undefined);
+    return scrape;
+  });
+  client.setRequestHandler(async (request) => {
+    const pageResponse = await page.evaluate(
+      async ({ url, method, headers, body }) => {
+        const allowedHeaders = Object.fromEntries(
+          Object.entries(headers).filter(([name]) => !["cookie", "referer", "user-agent"].includes(name)),
+        );
+        const response = await fetch(url, {
+          method,
+          headers: allowedHeaders,
+          body,
+          redirect: "manual",
+        });
+        return {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+          body: await response.text(),
+        };
+      },
+      {
+        url: request.url,
+        method: request.method,
+        headers: request.headers,
+        body: request.body?.toString(),
+      },
+    );
+    return new Response(pageResponse.body, {
+      status: pageResponse.status,
+      statusText: pageResponse.statusText,
+      headers: pageResponse.headers,
+    });
+  });
 
-  await browser.close();
-  console.log(`[smartcama-pw] Session captured (${cookies.length} cookies). Browser closed.`);
+  console.log(`[smartcama-pw] Session captured (${cookies.length} cookies). Browser remains open for direct requests.`);
+  return async () => {
+    await browser.close();
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -500,7 +627,7 @@ async function main(): Promise<void> {
   }
 
   const client = new SmartCamaClient();
-  await bootstrapSession(client);
+  const cleanupSession = await bootstrapSession(client);
 
   let enriched = 0;
   let missing = 0;
@@ -511,43 +638,47 @@ async function main(): Promise<void> {
     batches.push(remaining.slice(i, i + options.batchSize));
   }
 
-  for (const batch of batches) {
-    type FetchResult = { id: string; assessment: SmartCamaAssessment | null };
-    const results = await mapConcurrent<string, FetchResult>(batch, options.concurrency, async (id) => {
-      try {
-        const assessment = await client.fetchAssessment(id);
-        return { id, assessment };
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        if (msg.includes("redirected") || msg.includes("session")) {
-          throw error;
+  try {
+    for (const batch of batches) {
+      type FetchResult = { id: string; assessment: SmartCamaAssessment | null };
+      const results = await mapConcurrent<string, FetchResult>(batch, options.concurrency, async (id) => {
+        try {
+          const assessment = await client.fetchAssessment(id);
+          return { id, assessment };
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          if (msg.includes("redirected") || msg.includes("session")) {
+            throw error;
+          }
+          console.warn(`[smartcama-pw] Error fetching ${id}: ${msg}`);
+          return { id, assessment: null };
         }
-        console.warn(`[smartcama-pw] Error fetching ${id}: ${msg}`);
-        return { id, assessment: null };
+      });
+
+      for (const { id, assessment } of results) {
+        if (!assessment) {
+          missing += 1;
+          checkpoint.notFoundIds.push(id);
+          console.log(`[smartcama-pw] not_found: ${id}`);
+        } else {
+          batchRows.push(toMoneyRow(id, assessment));
+          checkpoint.processedIds.push(id);
+        }
       }
-    });
 
-    for (const { id, assessment } of results) {
-      if (!assessment) {
-        missing += 1;
-        checkpoint.notFoundIds.push(id);
-        console.log(`[smartcama-pw] not_found: ${id}`);
-      } else {
-        batchRows.push(toMoneyRow(id, assessment));
-        checkpoint.processedIds.push(id);
+      if (batchRows.length > 0) {
+        runRemotePsql(buildUploadSql(batchRows));
+        enriched += batchRows.length;
+        batchRows = [];
       }
-    }
 
-    if (batchRows.length > 0) {
-      runRemotePsql(buildUploadSql(batchRows));
-      enriched += batchRows.length;
-      batchRows = [];
+      saveCheckpoint(checkpoint);
+      console.log(
+        `[smartcama-pw] Progress: ${enriched + missing}/${remaining.length} (enriched: ${enriched}, not_found: ${missing})`,
+      );
     }
-
-    saveCheckpoint(checkpoint);
-    console.log(
-      `[smartcama-pw] Progress: ${enriched + missing}/${remaining.length} (enriched: ${enriched}, not_found: ${missing})`,
-    );
+  } finally {
+    await cleanupSession();
   }
 
   console.log("[smartcama-pw] After:");
