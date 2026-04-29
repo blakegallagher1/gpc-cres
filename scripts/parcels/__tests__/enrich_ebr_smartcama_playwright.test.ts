@@ -177,6 +177,8 @@ describe("buildTargetQuery", () => {
     expect(sql).toContain("LIMIT 100");
     expect(sql).toContain("East Baton Rouge");
     expect(sql).toContain("sale_price IS NULL OR tax_amount IS NULL");
+    expect(sql).toContain("parcel_id ~ '^[0-9]+$'");
+    expect(sql).toContain("ORDER BY parcel_id::bigint");
   });
 });
 

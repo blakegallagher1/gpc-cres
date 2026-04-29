@@ -175,7 +175,8 @@ SELECT parcel_id
 FROM property.parcel_assessor_enrichment
 WHERE parish = '${PARISH.replace(/'/g, "''")}'
   AND (sale_price IS NULL OR tax_amount IS NULL)
-ORDER BY parcel_id
+  AND parcel_id ~ '^[0-9]+$'
+ORDER BY parcel_id::bigint
 LIMIT ${limit};
 `;
 }
